@@ -5,7 +5,12 @@ import { useAuth } from "../../context/AuthContext";
 
 export default function LoginPage() {
   const navigate  = useNavigate();
-  const { login } = useAuth();
+  const { login, isAuthenticated } = useAuth();
+
+  if (isAuthenticated) {
+    navigate("/", { replace: true });
+    return null;
+  }
 
   const [form, setForm]       = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
@@ -24,8 +29,8 @@ export default function LoginPage() {
     }
     setLoading(true);
     try {
-      await login(form.email, form.password);
-      navigate("/");
+      await login({ email: form.email, password: form.password });
+      navigate("/", { replace: true });
     } catch {
       setError("Email ou mot de passe incorrect.");
     } finally {
