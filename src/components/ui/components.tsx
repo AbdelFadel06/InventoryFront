@@ -14,7 +14,7 @@ const COLOR_MAP = {
   orange: { bg: "#FFF7ED", accent: "#F97316", text: "#C2410C" },
   red:    { bg: "#FEF2F2", accent: "#EF4444", text: "#DC2626" },
   purple: { bg: "#F5F3FF", accent: "#8B5CF6", text: "#6D28D9" },
-  gray:   { bg: "#F8FAFC", accent: "#94A3B8", text: "#64748B" },  
+  gray:   { bg: "#F8FAFC", accent: "#94A3B8", text: "#64748B" },
   yellow: { bg: "#FEFCE8", accent: "#EAB308", text: "#854D0E" },
 };
 
@@ -220,7 +220,7 @@ export function DataTable<T extends { id: number | string }>({
       borderRadius: 14,
       border: "1px solid #E2E8F0",
       boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
-      overflow: "hidden",
+      
     }}>
       {/* Table toolbar */}
       {(onSearch !== undefined || actions) && (

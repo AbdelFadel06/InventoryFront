@@ -1,149 +1,258 @@
-// src/pages/shared/StockListPage.tsx
-import { useEffect, useState } from "react";
+// src/pages/admin/ShopListPage.tsx
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { stockService } from "../../services/stockService";
-import { shopService }  from "../../services/shopService";
-import { useAuth }      from "../../context/AuthContext";
+import { shopService } from "../../services/shopService";
+import { userService } from "../../services/userService";
 import { PageHeader, Btn, Badge, DataTable, StatCard } from "../../components/ui";
-import type { Stock }   from "../../types/stock";
-import type { Shop }    from "../../types/shop";
+import type { Shop } from "../../types/shop";
+import type { User } from "../../types/user";
 
-type StockStatus = "ok" | "low" | "critical" | "out_of_stock";
+// ── Dropdown action menu ───────────────────────────────────────────
+interface ActionItem {
+  label:   string;
+  icon:    string;
+  onClick: () => void;
+  danger?: boolean;
+}
 
-const STATUS_CONFIG: Record<StockStatus, { label: string; color: "green" | "yellow" | "orange" | "red" }> = {
-  ok:           { label: "OK",        color: "green"  },
-  low:          { label: "Stock bas", color: "yellow" },
-  critical:     { label: "Critique",  color: "orange" },
-  out_of_stock: { label: "Rupture",   color: "red"    },
-};
-
-export default function StockListPage() {
-  const navigate  = useNavigate();
-  const { user }  = useAuth();
-  const isAdmin   = user?.role === "SUPER_ADMIN";
-  const basePath  = isAdmin ? "/admin" : "/manager";
-
-  const [stocks, setStocks]             = useState<Stock[]>([]);
-  const [shops, setShops]               = useState<Shop[]>([]);
-  const [loading, setLoading]           = useState(true);
-  const [search, setSearch]             = useState("");
-  const [filterStatus, setFilterStatus] = useState<StockStatus | "all">("all");
-  const [selectedShop, setSelectedShop] = useState<string>(
-    isAdmin ? "" : String(user?.shop ?? "")
-  );
+function ActionMenu({ items }: { items: ActionItem[] }) {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos]   = useState({ top: 0, right: 0 });
+  const btnRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    if (isAdmin) {
-      shopService.getAll().then(res => setShops(res.results ?? res));
+    const h = (e: MouseEvent) => {
+      if (btnRef.current && !btnRef.current.closest("[data-action-menu]")?.contains(e.target as Node))
+        setOpen(false);
+    };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
+
+  const handleOpen = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!open && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      setPos({ top: rect.bottom + 6, right: window.innerWidth - rect.right });
     }
-  }, [isAdmin]);
+    setOpen(o => !o);
+  };
 
-  useEffect(() => {
+  return (
+    <div data-action-menu="" style={{ display: "inline-block" }}>
+      <button ref={btnRef} onClick={handleOpen}
+        style={{
+          width: 32, height: 32, borderRadius: 8,
+          border: "1px solid #E2E8F0", background: open ? "#F1F5F9" : "#fff",
+          cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 16, color: "#64748B", fontFamily: "inherit", letterSpacing: 2,
+        }}
+        onMouseEnter={e => (e.currentTarget.style.background = "#F1F5F9")}
+        onMouseLeave={e => { if (!open) e.currentTarget.style.background = "#fff"; }}>
+        ···
+      </button>
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 998 }} />
+          <div style={{
+            position: "fixed", top: pos.top, right: pos.right,
+            background: "#fff", border: "1px solid #E2E8F0",
+            borderRadius: 12, boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+            minWidth: 190, zIndex: 999, overflow: "hidden",
+            animation: "fadeIn 0.1s ease",
+          }}>
+            {items.map((item, i) => (
+              <button key={i}
+                onClick={e => { e.stopPropagation(); item.onClick(); setOpen(false); }}
+                style={{
+                  width: "100%", padding: "10px 14px",
+                  display: "flex", alignItems: "center", gap: 10,
+                  background: "none", border: "none", cursor: "pointer",
+                  fontSize: 13.5, fontFamily: "inherit", textAlign: "left",
+                  color: item.danger ? "#DC2626" : "#374151",
+                  borderBottom: i < items.length - 1 ? "1px solid #F8FAFC" : "none",
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = item.danger ? "#FEF2F2" : "#F8FAFC")}
+                onMouseLeave={e => (e.currentTarget.style.background = "none")}>
+                <span style={{ fontSize: 15, width: 20, textAlign: "center" }}>{item.icon}</span>
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+      <style>{`@keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}`}</style>
+    </div>
+  );
+}
+
+export default function ShopListPage() {
+  const navigate = useNavigate();
+
+  const [shops, setShops]       = useState<Shop[]>([]);
+  const [managers, setManagers] = useState<User[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [search, setSearch]     = useState("");
+
+  // Modal assignation manager
+  const [assignModal, setAssignModal]         = useState<Shop | null>(null);
+  const [selectedManager, setSelectedManager] = useState("");
+  const [assigning, setAssigning]             = useState(false);
+  const [assignError, setAssignError]         = useState<string | null>(null);
+
+  const fetchData = async () => {
     setLoading(true);
-    const params = selectedShop ? { shop: selectedShop } : {};
-    stockService.getAll(params)
-      .then(res => setStocks(res.results ?? []))
-      .finally(() => setLoading(false));
-  }, [selectedShop]);
+    try {
+      const [shopsRes, managersRes] = await Promise.all([
+        shopService.getAll(),
+        userService.getManagers(),
+      ]);
+      setShops(shopsRes.results ?? shopsRes);
+      setManagers(managersRes.results ?? managersRes);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const outOfStock = stocks.filter(s => s.stock_status === "out_of_stock").length;
-  const critical   = stocks.filter(s => s.stock_status === "critical").length;
-  const low        = stocks.filter(s => s.stock_status === "low").length;
-  const ok         = stocks.filter(s => s.stock_status === "ok").length;
+  useEffect(() => { fetchData(); }, []);
 
-  const filtered = stocks.filter(s => {
+  const handleToggle = async (shop: Shop) => {
+    try {
+      await shopService.toggleActive(shop.id);
+      await fetchData();
+    } catch { console.error("Erreur toggle"); }
+  };
+
+  const openAssign = (shop: Shop) => {
+    setAssignModal(shop);
+    setSelectedManager(shop.manager ? String(shop.manager) : "");
+    setAssignError(null);
+  };
+
+  const handleAssignManager = async () => {
+    if (!assignModal || !selectedManager) return;
+    setAssigning(true);
+    setAssignError(null);
+    try {
+      await shopService.assignManager(assignModal.id, Number(selectedManager));
+      setAssignModal(null);
+      setSelectedManager("");
+      await fetchData();
+    } catch {
+      setAssignError("Erreur lors de l'assignation.");
+    } finally {
+      setAssigning(false);
+    }
+  };
+
+  const active   = shops.filter(s => s.is_active).length;
+  const inactive = shops.filter(s => !s.is_active).length;
+  const noMgr    = shops.filter(s => !s.manager).length;
+
+  const filtered = shops.filter(s => {
     const q = search.toLowerCase();
-    const matchSearch =
-      (s.product_name ?? "").toLowerCase().includes(q) ||
-      (s.product_sku  ?? "").toLowerCase().includes(q) ||
-      (s.shop_name    ?? "").toLowerCase().includes(q);
-    const matchStatus = filterStatus === "all" || s.stock_status === filterStatus;
-    return matchSearch && matchStatus;
+    return (
+      s.name.toLowerCase().includes(q) ||
+      (s.city ?? "").toLowerCase().includes(q) ||
+      (s.manager_name ?? "").toLowerCase().includes(q)
+    );
   });
-
-  const selectedShopName = shops.find(s => String(s.id) === selectedShop)?.name;
 
   const columns = [
     {
-      key: "product_name", label: "Produit",
-      render: (row: Stock) => (
+      key: "name", label: "Boutique",
+      render: (row: Shop) => (
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{
-            width: 34, height: 34, borderRadius: 8, flexShrink: 0,
-            background:
-              row.stock_status === "out_of_stock" ? "#FEF2F2" :
-              row.stock_status === "critical"     ? "#FFF7ED" :
-              row.stock_status === "low"          ? "#FEFCE8" : "#F0FDF4",
-            display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15,
+            width: 36, height: 36, borderRadius: 9, flexShrink: 0,
+            background: row.is_active ? "linear-gradient(135deg, #EFF6FF, #DBEAFE)" : "#F8FAFC",
+            display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16,
           }}>
-            📦
+            🏪
           </div>
           <div>
-            <div style={{ fontWeight: 600, color: "#0F172A", fontSize: 13.5 }}>{row.product_name}</div>
-            <div style={{ fontSize: 11.5, color: "#94A3B8", fontFamily: "monospace" }}>{row.product_sku}</div>
+            <div style={{ fontWeight: 600, color: "#0F172A", fontSize: 13.5 }}>{row.name}</div>
+            {row.city && <div style={{ fontSize: 11.5, color: "#94A3B8" }}>📍 {row.city}</div>}
           </div>
         </div>
       ),
     },
-    ...(isAdmin && !selectedShop ? [{
-      key: "shop_name", label: "Boutique",
-      render: (row: Stock) => (
-        <span style={{
-          background: "#F1F5F9", padding: "3px 10px",
-          borderRadius: 6, fontSize: 12.5, color: "#374151", fontWeight: 500,
-        }}>
-          {row.shop_name ?? "—"}
-        </span>
-      ),
-    }] : []),
     {
-      key: "quantity", label: "Quantité",
-      render: (row: Stock) => {
-        const color =
-          row.stock_status === "out_of_stock" ? "#DC2626" :
-          row.stock_status === "critical"     ? "#EA580C" :
-          row.stock_status === "low"          ? "#D97706" : "#16A34A";
-        return <span style={{ fontWeight: 700, fontSize: 16, color }}>{row.quantity}</span>;
-      },
-    },
-    {
-      key: "stock_value", label: "Valeur",
-      render: (row: Stock) => (
-        <span style={{ fontSize: 13, color: "#374151", fontWeight: 500 }}>
-          {row.stock_value != null ? `${Number(row.stock_value).toLocaleString("fr-FR")} F` : "—"}
+      key: "phone_number", label: "Téléphone",
+      render: (row: Shop) => (
+        <span style={{ fontSize: 13, color: "#64748B" }}>
+          {row.phone_number ? `📞 ${row.phone_number}` : "—"}
         </span>
       ),
     },
     {
-      key: "stock_status", label: "Statut",
-      render: (row: Stock) => {
-        const s = STATUS_CONFIG[row.stock_status as StockStatus] ?? { label: row.stock_status, color: "gray" as const };
-        return <Badge label={s.label} color={s.color} />;
-      },
-    },
-    {
-      key: "actions", label: "Actions",
-      render: (row: Stock) => (
-        <div style={{ display: "flex", gap: 6 }}>
-          <Btn size="sm" variant="primary"
-            onClick={() => navigate(`${basePath}/stocks/add`, {
-              state: { product: row.product, shop: row.shop }
-            })}>
-            + Ajouter
-          </Btn>
-          <Btn size="sm" variant="secondary"
-            onClick={() => navigate(`${basePath}/stocks/remove`, {
-              state: { product: row.product, shop: row.shop }
-            })}>
-            − Retirer
-          </Btn>
-          <Btn size="sm" variant="ghost"
-            onClick={() => navigate(`${basePath}/stocks/adjust`, {
-              state: { product: row.product, shop: row.shop }
-            })}>
-            ⚙
-          </Btn>
+      key: "manager_name", label: "Manager",
+      render: (row: Shop) => row.manager_name ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{
+            width: 28, height: 28, borderRadius: "50%",
+            background: "linear-gradient(135deg, #3B82F6, #1D4ED8)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            color: "#fff", fontSize: 11, fontWeight: 700, flexShrink: 0,
+          }}>
+            {(row.manager_name as string)[0]?.toUpperCase() ?? "?"}
+          </div>
+          <span style={{ fontSize: 13, color: "#374151", fontWeight: 500 }}>
+            {row.manager_name}
+          </span>
         </div>
+      ) : (
+        <span style={{
+          fontSize: 12, color: "#F97316", fontWeight: 600,
+          background: "#FFF7ED", border: "1px solid #FED7AA",
+          padding: "3px 10px", borderRadius: 6,
+        }}>
+          Non assigné
+        </span>
+      ),
+    },
+    {
+      key: "total_employees", label: "Employés",
+      render: (row: Shop) => (
+        <span style={{
+          fontWeight: 600, fontSize: 14, color: "#374151",
+          background: "#F8FAFC", border: "1px solid #E2E8F0",
+          padding: "3px 10px", borderRadius: 20,
+        }}>
+          {(row as any).total_employees ?? 0}
+        </span>
+      ),
+    },
+    {
+      key: "is_active", label: "Statut",
+      render: (row: Shop) => (
+        <Badge label={row.is_active ? "Active" : "Inactive"} color={row.is_active ? "green" : "gray"} />
+      ),
+    },
+    {
+      key: "actions", label: "",
+      render: (row: Shop) => (
+        <ActionMenu items={[
+          ...(row.manager_name ? [
+            {
+              icon: "👔",
+              label: "Changer de manager",
+              onClick: () => openAssign(row),
+            },
+          ] : [
+            {
+              icon: "➕",
+              label: "Assigner un manager",
+              onClick: () => openAssign(row),
+            },
+          ]),
+          {
+            icon: row.is_active ? "⏸️" : "▶️",
+            label: row.is_active ? "Désactiver" : "Activer",
+            onClick: () => handleToggle(row),
+            danger: row.is_active,
+          },
+        ]} />
       ),
     },
   ];
@@ -151,125 +260,117 @@ export default function StockListPage() {
   return (
     <div>
       <PageHeader
-        title="Stocks"
-        subtitle={selectedShopName ? `Boutique : ${selectedShopName}` : isAdmin ? "Tous les stocks" : "Stock de votre boutique"}
+        title="Boutiques"
+        subtitle={`${shops.length} boutiques au total`}
         action={
-          <div style={{ display: "flex", gap: 10 }}>
-            <Btn variant="secondary" size="sm"
-              disabled={isAdmin && !selectedShop}
-              onClick={() => navigate(`${basePath}/stocks/adjust`, {
-                state: { shop: selectedShop ? Number(selectedShop) : undefined }
-              })}>
-              ⚙ Ajuster
-            </Btn>
-            <Btn
-              disabled={isAdmin && !selectedShop}
-              onClick={() => navigate(`${basePath}/stocks/add`, {
-                state: { shop: selectedShop ? Number(selectedShop) : undefined }
-              })}>
-              + Ajouter stock
-            </Btn>
-          </div>
+          <Btn onClick={() => navigate("/admin/shops/create")}>
+            + Nouvelle boutique
+          </Btn>
         }
       />
 
-      {/* Sélecteur boutique — Admin seulement */}
-      {isAdmin && (
-        <div style={{
-          background: "#fff", border: "1px solid #E2E8F0",
-          borderRadius: 12, padding: "14px 18px", marginBottom: 20,
-          display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap",
-          boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
-        }}>
-          <span style={{ fontSize: 13, fontWeight: 600, color: "#374151", whiteSpace: "nowrap" }}>
-            🏪 Boutique :
-          </span>
-          <select
-            value={selectedShop}
-            onChange={e => { setSelectedShop(e.target.value); setSearch(""); setFilterStatus("all"); }}
-            style={{
-              flex: 1, maxWidth: 300, padding: "8px 12px",
-              border: "1px solid #E2E8F0", borderRadius: 8,
-              fontSize: 13.5, color: "#374151", outline: "none",
-              fontFamily: "inherit", background: "#fff", cursor: "pointer",
-            }}
-            onFocus={e => (e.target.style.borderColor = "#3B82F6")}
-            onBlur={e  => (e.target.style.borderColor = "#E2E8F0")}
-          >
-            <option value="">Toutes les boutiques (lecture seule)</option>
-            {shops.filter(s => s.is_active).map(s => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </select>
-
-          {!selectedShop ? (
-            <div style={{
-              background: "#FFFBEB", border: "1px solid #FDE68A",
-              borderRadius: 8, padding: "6px 12px",
-              fontSize: 12.5, color: "#92400E",
-            }}>
-              ⚠️ Sélectionnez une boutique pour modifier les stocks
-            </div>
-          ) : (
-            <div style={{
-              background: "#F0FDF4", border: "1px solid #BBF7D0",
-              borderRadius: 8, padding: "6px 12px",
-              fontSize: 12.5, color: "#15803D",
-            }}>
-              ✅ Actions actives — <strong>{selectedShopName}</strong>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Stats */}
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-        gap: 14, marginBottom: 24,
-      }}>
-        <StatCard label="OK"        value={ok}        icon="✅" color="green"  loading={loading} />
-        <StatCard label="Stock bas" value={low}        icon="📉" color="purple" loading={loading} />
-        <StatCard label="Critiques" value={critical}   icon="⚠️" color="orange" loading={loading} />
-        <StatCard label="Ruptures"  value={outOfStock} icon="🚫" color="red"    loading={loading} />
-      </div>
-
-      {/* Filtres statut */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-        {[
-          { key: "all",          label: "Tous"      },
-          { key: "ok",           label: "OK"        },
-          { key: "low",          label: "Stock bas" },
-          { key: "critical",     label: "Critiques" },
-          { key: "out_of_stock", label: "Ruptures"  },
-        ].map(f => (
-          <button key={f.key} onClick={() => setFilterStatus(f.key as any)}
-            style={{
-              padding: "6px 14px", borderRadius: 20, fontSize: 12.5,
-              fontWeight: filterStatus === f.key ? 600 : 400,
-              background: filterStatus === f.key ? "#0F172A" : "#fff",
-              color:      filterStatus === f.key ? "#fff"    : "#64748B",
-              border:     filterStatus === f.key ? "none"    : "1px solid #E2E8F0",
-              cursor: "pointer", transition: "all 0.15s", fontFamily: "inherit",
-            }}>
-            {f.label}
-          </button>
-        ))}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 14, marginBottom: 24 }}>
+        <StatCard label="Boutiques actives"   value={active}          icon="🏪" color="green"  loading={loading} />
+        <StatCard label="Boutiques inactives" value={inactive}        icon="⏸️" color="gray"   loading={loading} />
+        <StatCard label="Sans manager"        value={noMgr}           icon="⚠️" color="orange" loading={loading} sub={noMgr > 0 ? "À assigner" : undefined} />
+        <StatCard label="Total managers"      value={managers.length} icon="👔" color="blue"   loading={loading} />
       </div>
 
       <DataTable
         columns={columns as any}
         data={filtered}
         loading={loading}
-        emptyText={
-          isAdmin && !selectedShop
-            ? "Sélectionnez une boutique ou consultez en mode lecture"
-            : "Aucun stock trouvé"
-        }
+        emptyText="Aucune boutique trouvée"
         searchValue={search}
         onSearch={setSearch}
-        searchPlaceholder="Produit, SKU..."
+        searchPlaceholder="Nom, ville, manager..."
       />
+
+      {/* ── Modal assignation manager ─────────────────────── */}
+      {assignModal && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 300,
+          background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <div style={{
+            background: "#fff", borderRadius: 16, padding: 28,
+            width: 420, boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#0F172A" }}>
+                {assignModal.manager_name ? "Changer le manager" : "Assigner un manager"}
+              </h3>
+              <button onClick={() => setAssignModal(null)}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "#94A3B8", fontSize: 22 }}>×</button>
+            </div>
+
+            <p style={{ fontSize: 13, color: "#64748B", margin: "0 0 20px" }}>
+              Boutique : <strong>{assignModal.name}</strong>
+            </p>
+
+            {/* Manager actuel */}
+            {assignModal.manager_name && (
+              <div style={{
+                background: "#F0FDF4", border: "1px solid #BBF7D0",
+                borderRadius: 9, padding: "10px 14px", marginBottom: 16,
+                fontSize: 13, color: "#15803D",
+              }}>
+                Manager actuel : <strong>{assignModal.manager_name}</strong>
+              </div>
+            )}
+
+            {assignError && (
+              <div style={{
+                background: "#FEF2F2", border: "1px solid #FECACA",
+                color: "#DC2626", borderRadius: 9, padding: "10px 14px",
+                fontSize: 13, marginBottom: 16,
+              }}>
+                {assignError}
+              </div>
+            )}
+
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 6 }}>
+                {assignModal.manager_name ? "Nouveau manager" : "Manager"} *
+              </label>
+              <select
+                value={selectedManager}
+                onChange={e => setSelectedManager(e.target.value)}
+                style={{
+                  width: "100%", padding: "10px 12px",
+                  border: "1px solid #E2E8F0", borderRadius: 9,
+                  fontSize: 13.5, color: "#374151", outline: "none",
+                  fontFamily: "inherit", background: "#fff",
+                }}
+              >
+                <option value="">-- Sélectionner un manager --</option>
+                {managers.map(m => (
+                  <option key={m.id} value={m.id}>
+                    {(m as any).full_name || `${m.first_name ?? ""} ${m.last_name ?? ""}`.trim() || m.email}
+                    {m.shop && m.shop !== assignModal.id ? " (déjà assigné)" : ""}
+                  </option>
+                ))}
+              </select>
+              {managers.length === 0 && (
+                <p style={{ fontSize: 12, color: "#F97316", marginTop: 6 }}>
+                  Aucun manager disponible. Créez d'abord un utilisateur avec le rôle Manager.
+                </p>
+              )}
+            </div>
+
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <Btn variant="secondary" onClick={() => { setAssignModal(null); setSelectedManager(""); }}>
+                Annuler
+              </Btn>
+              <Btn onClick={handleAssignManager} disabled={assigning || !selectedManager}>
+                {assigning ? "Assignation..." : "Confirmer"}
+              </Btn>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -5,7 +5,7 @@ export interface Shop {
   slogan: string | null;
   logo: string | null;
   ifu: string | null;
-  phone_number: string | null;
+  phone_number?: string ;
   email: string | null;
   address: string | null;
   city: string | null;
