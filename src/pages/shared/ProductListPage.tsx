@@ -7,7 +7,8 @@ import { stockMovementService } from "../../services/stockService";
 import { shopService }          from "../../services/shopService";
 import { useAuth }              from "../../context/AuthContext";
 import { PageHeader, Btn, Badge, DataTable, StatCard, Icon } from "../../components/ui";
-import type { Product }  from "../../types/product";
+import { uploadToCloudinary } from "../../utils/cloudinary";
+import type { Product, ProductImage }  from "../../types/product";
 import type { Category } from "../../types/category";
 import type { Shop }     from "../../types/shop";
 
@@ -159,6 +160,13 @@ export default function ProductListPage() {
     category: "", unit: "piece", minimum_stock: "", reorder_level: "", barcode: "",
   });
 
+  // Edit modal image state
+  const [editImages, setEditImages]               = useState<ProductImage[]>([]);
+  const [editNewUrls, setEditNewUrls]             = useState<string[]>([]);
+  const [editRemovedIds, setEditRemovedIds]       = useState<number[]>([]);
+  const [editUploadingImg, setEditUploadingImg]   = useState(false);
+  const [editUploadError, setEditUploadError]     = useState<string | null>(null);
+
   const [stockForm, setStockForm] = useState({
     shop: isAdmin ? "" : String(user?.shop ?? ""),
     quantity: "", reason: "",
@@ -214,6 +222,10 @@ export default function ProductListPage() {
       reorder_level: String(p.reorder_level),
       barcode:       p.barcode ?? "",
     });
+    setEditImages(p.images ?? []);
+    setEditNewUrls([]);
+    setEditRemovedIds([]);
+    setEditUploadError(null);
     setModalError(null);
     setEditModal(p);
   };
@@ -234,6 +246,13 @@ export default function ProductListPage() {
         reorder_level: parseInt(editForm.reorder_level) || 10,
         barcode:       editForm.barcode || undefined,
       });
+      // Remove deleted images
+      await Promise.all(editRemovedIds.map(imgId => productService.removeImage(editModal.id, imgId)));
+      // Add new images
+      const hasPrimary = editImages.filter(i => !editRemovedIds.includes(i.id)).some(i => i.is_primary);
+      for (let i = 0; i < editNewUrls.length; i++) {
+        await productService.addImage(editModal.id, editNewUrls[i], !hasPrimary && i === 0);
+      }
       setEditModal(null);
       await fetchProducts();
     } catch (e: any) {
@@ -303,11 +322,18 @@ export default function ProductListPage() {
       key: "name", label: "Produit",
       render: (row: Product) => (
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{
-            width: 36, height: 36, borderRadius: 9, flexShrink: 0,
-            background: row.current_stock === 0 ? "#FEF2F2" : row.is_low_stock ? "#FFF7ED" : "#EFF6FF",
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}><Icon name="package" size={18} color={row.current_stock === 0 ? "#DC2626" : row.is_low_stock ? "#D97706" : "#1D4ED8"} /></div>
+          {row.primary_image ? (
+            <img src={row.primary_image} alt={row.name} style={{
+              width: 36, height: 36, borderRadius: 9, flexShrink: 0,
+              objectFit: "cover", border: "1px solid #E2E8F0",
+            }} />
+          ) : (
+            <div style={{
+              width: 36, height: 36, borderRadius: 9, flexShrink: 0,
+              background: row.current_stock === 0 ? "#FEF2F2" : row.is_low_stock ? "#FFF7ED" : "#EFF6FF",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}><Icon name="package" size={18} color={row.current_stock === 0 ? "#DC2626" : row.is_low_stock ? "#D97706" : "#1D4ED8"} /></div>
+          )}
           <div>
             <div style={{ fontWeight: 600, color: "#0F172A", fontSize: 13.5 }}>{row.name}</div>
             <div style={{ fontSize: 11.5, color: "#94A3B8", fontFamily: "monospace" }}>{row.sku}</div>
@@ -458,12 +484,81 @@ export default function ProductListPage() {
                 style={iStyle} onFocus={e => (e.target.style.borderColor = "#3B82F6")} onBlur={e => (e.target.style.borderColor = "#E2E8F0")} />
             </Field>
           </div>
+          <Field label="Code-barres">
+            <input value={editForm.barcode}
+              onChange={e => setEditForm(f => ({ ...f, barcode: e.target.value }))}
+              placeholder="Ex: 3700123456789"
+              style={iStyle} onFocus={e => (e.target.style.borderColor = "#3B82F6")} onBlur={e => (e.target.style.borderColor = "#E2E8F0")} />
+          </Field>
           <Field label="Description">
             <textarea value={editForm.description} rows={2}
               onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))}
               style={{ ...iStyle, resize: "vertical" }}
               onFocus={e => (e.target.style.borderColor = "#3B82F6")} onBlur={e => (e.target.style.borderColor = "#E2E8F0")} />
           </Field>
+
+          {/* ── Images ───────────────────────────────── */}
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 8 }}>
+              Photos du produit
+            </label>
+            {/* Existing images */}
+            {(editImages.length > 0 || editNewUrls.length > 0) && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+                {editImages.filter(img => !editRemovedIds.includes(img.id)).map(img => (
+                  <div key={img.id} style={{ position: "relative" }}>
+                    <img src={img.url} style={{ width: 64, height: 64, borderRadius: 8, objectFit: "cover",
+                      border: img.is_primary ? "2px solid #3B82F6" : "1px solid #E2E8F0" }} />
+                    {img.is_primary && (
+                      <span style={{ position: "absolute", bottom: 2, left: 2, background: "#1D4ED8", color: "#fff",
+                        fontSize: 8, fontWeight: 700, borderRadius: 3, padding: "1px 4px" }}>PRINC.</span>
+                    )}
+                    <button onClick={() => setEditRemovedIds(ids => [...ids, img.id])}
+                      style={{ position: "absolute", top: 2, right: 2, width: 18, height: 18, borderRadius: "50%",
+                        background: "rgba(220,38,38,0.85)", color: "#fff", border: "none", cursor: "pointer",
+                        fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+                  </div>
+                ))}
+                {editNewUrls.map((url, i) => (
+                  <div key={`new-${i}`} style={{ position: "relative" }}>
+                    <img src={url} style={{ width: 64, height: 64, borderRadius: 8, objectFit: "cover",
+                      border: "1px solid #BBF7D0" }} />
+                    <button onClick={() => setEditNewUrls(us => us.filter((_, j) => j !== i))}
+                      style={{ position: "absolute", top: 2, right: 2, width: 18, height: 18, borderRadius: "50%",
+                        background: "rgba(220,38,38,0.85)", color: "#fff", border: "none", cursor: "pointer",
+                        fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <label style={{
+              display: "flex", alignItems: "center", gap: 8,
+              padding: "10px 14px", border: "2px dashed #BFDBFE", borderRadius: 10,
+              cursor: editUploadingImg ? "wait" : "pointer",
+              background: "#F8FAFC", color: "#3B82F6", fontSize: 13, fontWeight: 500,
+            }}>
+              <input type="file" accept="image/*" multiple disabled={editUploadingImg} style={{ display: "none" }}
+                onChange={async e => {
+                  const files = Array.from(e.target.files ?? []);
+                  if (!files.length) return;
+                  setEditUploadError(null);
+                  setEditUploadingImg(true);
+                  try {
+                    const results = await Promise.all(files.map(f => uploadToCloudinary(f, "products")));
+                    setEditNewUrls(prev => [...prev, ...results.map(r => r.url)]);
+                  } catch (err: any) {
+                    setEditUploadError(err?.message ?? "Erreur upload.");
+                  } finally {
+                    setEditUploadingImg(false);
+                    e.target.value = "";
+                  }
+                }} />
+              <Icon name={editUploadingImg ? "refresh" : "plus"} size={14} color="#3B82F6" />
+              {editUploadingImg ? "Upload..." : "Ajouter des photos"}
+            </label>
+            {editUploadError && <p style={{ fontSize: 12, color: "#DC2626", marginTop: 4 }}>{editUploadError}</p>}
+          </div>
+
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 6 }}>
             <Btn variant="secondary" onClick={() => setEditModal(null)}>Annuler</Btn>
             <Btn onClick={handleEdit} disabled={modalLoading}>{modalLoading ? "Enregistrement..." : "Enregistrer"}</Btn>

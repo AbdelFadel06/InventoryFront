@@ -4,16 +4,24 @@ export type ProductUnit =
   | "l" | "ml" | "m"
   | "cm" | "box" | "pack" | "other";
 
+export interface ProductImage {
+  id: number;
+  url: string;
+  is_primary: boolean;
+  order: number;
+}
+
 export interface Product {
   id: number;
   name: string;
   description: string | null;
   sku: string;
   barcode: string | null;
-  category: number | null;            // FK id
-  category_name?: string;            // read_only
-  image: string | null;              // URL
-  cost_price: string;                // DecimalField → string en DRF
+  category: number | null;
+  category_name?: string;
+  images?: ProductImage[];
+  primary_image?: string | null;
+  cost_price: string;
   selling_price: string;
   unit: ProductUnit;
   minimum_stock: number;
@@ -21,6 +29,8 @@ export interface Product {
   shop: number | null;
   shop_name?: string;               // read_only
   is_active: boolean;
+  is_low_stock?: boolean;           // @property Django
+  current_stock?: number;           // annotated by list view
   profit_margin?: number;           // @property Django
   profit_amount?: string;           // @property Django
   created_at: string;

@@ -5,6 +5,7 @@ import { productService } from '../../services/productService'
 import { categoryService } from '../../services/categoryService'
 import { useAuth } from '../../context/AuthContext'
 import { PageHeader, Btn, Icon } from '../../components/ui'
+import { uploadToCloudinary } from '../../utils/cloudinary'
 import type { Category } from '../../types/category'
 
 // ── Composants locaux ────────────────────────────────────────────
@@ -148,6 +149,11 @@ export default function CreateProductPage() {
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
+    // Images Cloudinary
+    const [imageUrls, setImageUrls] = useState<string[]>([])
+    const [uploadingImages, setUploadingImages] = useState(false)
+    const [uploadError, setUploadError] = useState<string | null>(null)
+
     // Modale nouvelle catégorie
     const [showCatModal, setShowCatModal] = useState(false)
     const [newCatName, setNewCatName] = useState('')
@@ -195,6 +201,26 @@ export default function CreateProductPage() {
         }
     }
 
+    const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = Array.from(e.target.files ?? [])
+        if (!files.length) return
+        setUploadError(null)
+        setUploadingImages(true)
+        try {
+            const results = await Promise.all(files.map(f => uploadToCloudinary(f, 'products')))
+            setImageUrls(prev => [...prev, ...results.map(r => r.url)])
+        } catch (err: any) {
+            setUploadError(err?.message ?? "Erreur lors de l'upload des images.")
+        } finally {
+            setUploadingImages(false)
+            e.target.value = ''
+        }
+    }
+
+    const removeImage = (idx: number) => {
+        setImageUrls(prev => prev.filter((_, i) => i !== idx))
+    }
+
     const generateSku = (name: string): string => {
         const prefix = name
             .split(' ')
@@ -218,7 +244,7 @@ export default function CreateProductPage() {
 
             await productService.create({
                 name: form.name,
-                sku, // ← toujours envoyé
+                sku,
                 category: form.category ? Number(form.category) : undefined,
                 unit: form.unit as any,
                 cost_price: parseFloat(form.cost_price),
@@ -227,7 +253,8 @@ export default function CreateProductPage() {
                 reorder_level: parseInt(form.reorder_level) || 10,
                 description: form.description || undefined,
                 barcode: form.barcode || undefined,
-            })
+                image_urls: imageUrls,
+            } as any)
             navigate(`${basePath}/products`)
         } catch (e: any) {
             const data = e?.response?.data
@@ -391,6 +418,96 @@ export default function CreateProductPage() {
                             onBlur={e => (e.target.style.borderColor = '#E2E8F0')}
                         />
                     </Field>
+
+                    <SectionTitle>Photos du produit</SectionTitle>
+
+                    {/* Zone d'upload images */}
+                    <div style={{ marginBottom: 20 }}>
+                        {/* Grille des images uploadées */}
+                        {imageUrls.length > 0 && (
+                            <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))',
+                                gap: 10,
+                                marginBottom: 12,
+                            }}>
+                                {imageUrls.map((url, idx) => (
+                                    <div key={idx} style={{ position: 'relative' }}>
+                                        <img
+                                            src={url}
+                                            alt={`Photo ${idx + 1}`}
+                                            style={{
+                                                width: '100%',
+                                                aspectRatio: '1',
+                                                objectFit: 'cover',
+                                                borderRadius: 10,
+                                                border: idx === 0 ? '2px solid #3B82F6' : '1px solid #E2E8F0',
+                                            }}
+                                        />
+                                        {idx === 0 && (
+                                            <span style={{
+                                                position: 'absolute', bottom: 4, left: 4,
+                                                background: '#1D4ED8', color: '#fff',
+                                                fontSize: 9, fontWeight: 700, borderRadius: 4,
+                                                padding: '1px 5px',
+                                            }}>PRINCIPALE</span>
+                                        )}
+                                        <button
+                                            onClick={() => removeImage(idx)}
+                                            style={{
+                                                position: 'absolute', top: 4, right: 4,
+                                                width: 20, height: 20, borderRadius: '50%',
+                                                background: 'rgba(220,38,38,0.85)', color: '#fff',
+                                                border: 'none', cursor: 'pointer', fontSize: 11,
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            }}
+                                        >✕</button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Bouton d'ajout */}
+                        <label style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            gap: 10, padding: '14px 20px',
+                            border: '2px dashed #BFDBFE', borderRadius: 12,
+                            cursor: uploadingImages ? 'wait' : 'pointer',
+                            background: '#F8FAFC',
+                            color: '#3B82F6', fontSize: 13.5, fontWeight: 500,
+                            transition: 'all 0.15s',
+                        }}
+                            onMouseEnter={e => { if (!uploadingImages) { e.currentTarget.style.background = '#EFF6FF'; e.currentTarget.style.borderColor = '#93C5FD'; } }}
+                            onMouseLeave={e => { e.currentTarget.style.background = '#F8FAFC'; e.currentTarget.style.borderColor = '#BFDBFE'; }}
+                        >
+                            <input
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                disabled={uploadingImages}
+                                onChange={handleImageSelect}
+                                style={{ display: 'none' }}
+                            />
+                            {uploadingImages ? (
+                                <>
+                                    <Icon name="refresh" size={16} color="#3B82F6" />
+                                    Upload en cours...
+                                </>
+                            ) : (
+                                <>
+                                    <Icon name="plus" size={16} color="#3B82F6" />
+                                    {imageUrls.length === 0 ? 'Ajouter des photos' : 'Ajouter d\'autres photos'}
+                                </>
+                            )}
+                        </label>
+
+                        {uploadError && (
+                            <p style={{ fontSize: 12, color: '#DC2626', marginTop: 6 }}>{uploadError}</p>
+                        )}
+                        <p style={{ fontSize: 11.5, color: '#94A3B8', marginTop: 6 }}>
+                            La 1ère photo sera l'image principale. Formats acceptés : JPG, PNG, WebP.
+                        </p>
+                    </div>
 
                     <SectionTitle>Tarification</SectionTitle>
 

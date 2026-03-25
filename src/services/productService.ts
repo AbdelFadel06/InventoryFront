@@ -66,4 +66,16 @@ export const productService = {
   remove: async (id: number): Promise<void> => {
     await api.delete(ENDPOINTS.products.detail(id));
   },
+
+  delete: async (id: number): Promise<void> => {
+    await api.delete(ENDPOINTS.products.detail(id));
+  },
+
+  addImage: async (id: number, url: string, isPrimary = false): Promise<void> => {
+    await api.post(ENDPOINTS.products.addImage(id), { url, is_primary: isPrimary });
+  },
+
+  removeImage: async (productId: number, imageId: number): Promise<void> => {
+    await api.delete(ENDPOINTS.products.removeImage(productId, imageId));
+  },
 };

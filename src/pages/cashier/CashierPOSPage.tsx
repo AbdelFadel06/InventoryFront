@@ -73,6 +73,20 @@ function CartItemRow({
   onRemove: () => void;
   onDiscount: () => void;
 }) {
+  const [qtyStr, setQtyStr] = useState(String(item.quantity));
+
+  // Sync si la quantité change de l'extérieur (ex: bouton +/-)
+  useEffect(() => { setQtyStr(String(item.quantity)); }, [item.quantity]);
+
+  const commit = (raw: string) => {
+    const v = parseInt(raw, 10);
+    if (!isNaN(v) && v > 0) {
+      onQtyChange(v);
+    } else {
+      setQtyStr(String(item.quantity)); // reset si invalide
+    }
+  };
+
   return (
     <div style={{
       display: "flex", alignItems: "flex-start", gap: 10,
@@ -105,9 +119,21 @@ function CartItemRow({
             background: "#F8FAFC", cursor: "pointer", fontWeight: 700,
             fontSize: 14, color: "#374151", display: "flex", alignItems: "center", justifyContent: "center",
           }}>−</button>
-        <span style={{ minWidth: 24, textAlign: "center", fontWeight: 700, fontSize: 13.5, color: "#0F172A" }}>
-          {item.quantity}
-        </span>
+        <input
+          type="number"
+          className="qty-input"
+          min={1}
+          value={qtyStr}
+          onChange={e => setQtyStr(e.target.value)}
+          onBlur={e => commit(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter") { commit((e.target as HTMLInputElement).value); (e.target as HTMLInputElement).blur(); } }}
+          style={{
+            width: 56, textAlign: "center", fontWeight: 700, fontSize: 13.5, color: "#0F172A",
+            border: "1px solid #E2E8F0", borderRadius: 6, padding: "3px 6px",
+            background: "#F8FAFC", outline: "none", fontFamily: "inherit",
+          }}
+          onWheel={e => e.currentTarget.blur()}
+        />
         <button
           onClick={() => onQtyChange(item.quantity + 1)}
           style={{
@@ -627,6 +653,7 @@ export default function CashierPOSPage() {
   const searchRef = useRef<HTMLInputElement>(null);
   const barcodeBuffer = useRef("");
   const barcodeTimer = useRef<any>(null);
+  const barcodeJustFired = useRef(false);
 
   // Charger session active
   useEffect(() => {
@@ -689,7 +716,11 @@ export default function CashierPOSPage() {
         if (barcodeBuffer.current.length > 3) {
           const code = barcodeBuffer.current;
           const product = products.find(p => p.barcode === code || p.sku === code);
-          if (product) addToCart(product);
+          if (product) {
+            addToCart(product);
+            barcodeJustFired.current = true;
+            setTimeout(() => { barcodeJustFired.current = false; }, 50);
+          }
           barcodeBuffer.current = "";
         }
         return;
@@ -712,10 +743,8 @@ export default function CashierPOSPage() {
     setCart(prev => {
       const existing = prev.findIndex(i => i.product.id === product.id);
       if (existing >= 0) {
-        const updated = [...prev];
-        const item = updated[existing];
-        updated[existing] = calcItem({ ...item, quantity: item.quantity + 1 });
-        return updated;
+        // Produit déjà dans le panier — le caissier ajuste la quantité manuellement
+        return prev;
       }
       return [...prev, calcItem({
         product,
@@ -779,6 +808,7 @@ export default function CashierPOSPage() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 64px)", overflow: "hidden" }}>
+      <style>{`.qty-input::-webkit-inner-spin-button,.qty-input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}.qty-input{-moz-appearance:textfield}`}</style>
       {/* Header session */}
       <div style={{
         background: "linear-gradient(135deg, #0F172A, #1E293B)",
@@ -855,6 +885,7 @@ export default function CashierPOSPage() {
                 }}
                 onKeyDown={e => {
                   if (e.key === "Enter" && searchResults.length > 0) {
+                    if (barcodeJustFired.current) return;
                     addToCart(searchResults[0]);
                   }
                 }}

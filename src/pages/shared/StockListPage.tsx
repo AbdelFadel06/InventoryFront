@@ -52,16 +52,20 @@ export default function StockListPage() {
       key: "product_name", label: "Produit",
       render: (row: Stock) => (
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{
-            width: 34, height: 34, borderRadius: 8, flexShrink: 0,
-            background: row.stock_status === "out_of_stock" ? "#FEF2F2"
-              : row.stock_status === "critical" ? "#FFF7ED"
-              : row.stock_status === "low"      ? "#FEFCE8"
-              : "#F0FDF4",
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}>
-            <Icon name="package" size={15} />
-          </div>
+          {row.product_image ? (
+            <img src={row.product_image} style={{ width: 34, height: 34, borderRadius: 8, objectFit: "cover", flexShrink: 0 }} />
+          ) : (
+            <div style={{
+              width: 34, height: 34, borderRadius: 8, flexShrink: 0,
+              background: row.stock_status === "out_of_stock" ? "#FEF2F2"
+                : row.stock_status === "critical" ? "#FFF7ED"
+                : row.stock_status === "low"      ? "#FEFCE8"
+                : "#F0FDF4",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <Icon name="package" size={15} />
+            </div>
+          )}
           <div>
             <div style={{ fontWeight: 600, color: "#0F172A", fontSize: 13.5 }}>
               {row.product_name}

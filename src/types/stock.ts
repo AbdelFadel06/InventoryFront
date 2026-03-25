@@ -15,6 +15,7 @@ export interface Stock {
   product: number;
   product_name?: string;
   product_sku?: string;
+  product_image?: string | null;
   shop: number;
   shop_name?: string;
   quantity: number;

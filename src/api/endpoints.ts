@@ -42,6 +42,8 @@ export const ENDPOINTS = {
     detail:           (id: number) => `/products/${id}/`,
     stockByShop:      (id: number) => `/products/${id}/stock_by_shop/`,
     toggleActive:     (id: number) => `/products/${id}/toggle_active/`,
+    addImage:         (id: number) => `/products/${id}/add_image/`,
+    removeImage:      (id: number, imageId: number) => `/products/${id}/remove_image/${imageId}/`,
   },
 
   // ── Shops ────────────────────────────────────────────────────────
