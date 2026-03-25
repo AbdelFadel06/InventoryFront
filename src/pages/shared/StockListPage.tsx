@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { stockService } from "../../services/stockService";
 import { useAuth } from "../../context/AuthContext";
-import { PageHeader, Btn, Badge, DataTable, StatCard } from "../../components/ui";
+import { PageHeader, Btn, Badge, DataTable, StatCard, Icon } from "../../components/ui";
 import { formatPrice } from "../../utils/format";
 import type { Stock } from "../../types/stock";
 
@@ -58,9 +58,9 @@ export default function StockListPage() {
               : row.stock_status === "critical" ? "#FFF7ED"
               : row.stock_status === "low"      ? "#FEFCE8"
               : "#F0FDF4",
-            display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15,
+            display: "flex", alignItems: "center", justifyContent: "center",
           }}>
-            📦
+            <Icon name="package" size={15} />
           </div>
           <div>
             <div style={{ fontWeight: 600, color: "#0F172A", fontSize: 13.5 }}>
@@ -134,7 +134,7 @@ export default function StockListPage() {
             onClick={() => navigate(`${basePath}/stocks/adjust`, {
               state: { product: row.product, shop: row.shop }
             })}>
-            ⚙
+            Ajuster
           </Btn>
         </div>
       ),
@@ -150,7 +150,7 @@ export default function StockListPage() {
           <div style={{ display: "flex", gap: 10 }}>
             <Btn variant="secondary" size="sm"
               onClick={() => navigate(`${basePath}/stocks/adjust`)}>
-              ⚙ Ajuster
+              Ajuster
             </Btn>
             <Btn onClick={() => navigate(`${basePath}/stocks/add`)}>
               + Ajouter stock
@@ -165,10 +165,10 @@ export default function StockListPage() {
         gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
         gap: 14, marginBottom: 24,
       }}>
-        <StatCard label="OK"         value={ok}         icon="✅" color="green"  loading={loading} />
-        <StatCard label="Stock bas"  value={low}         icon="📉" color="purple" loading={loading} />
-        <StatCard label="Critiques"  value={critical}    icon="⚠️" color="orange" loading={loading} />
-        <StatCard label="Ruptures"   value={outOfStock}  icon="🚫" color="red"    loading={loading} />
+        <StatCard label="OK"         value={ok}         icon={<Icon name="checkCircle" size={22} />} color="green"  loading={loading} />
+        <StatCard label="Stock bas"  value={low}         icon={<Icon name="stocks" size={22} />}      color="purple" loading={loading} />
+        <StatCard label="Critiques"  value={critical}    icon={<Icon name="warning" size={22} />}     color="orange" loading={loading} />
+        <StatCard label="Ruptures"   value={outOfStock}  icon={<Icon name="xCircle" size={22} />}     color="red"    loading={loading} />
       </div>
 
       {/* Filtres */}

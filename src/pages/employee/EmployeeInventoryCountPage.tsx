@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { inventoryService }    from "../../services/inventoryService";
-import { Badge }               from "../../components/ui";
+import { Badge, Icon }         from "../../components/ui";
 import { formatDate }          from "../../utils/format";
 import type { Inventory, InventoryLine } from "../../types/inventory";
 
@@ -146,10 +146,10 @@ export default function EmployeeInventoryCountPage() {
           borderRadius: 10, padding: "12px 16px", marginBottom: 20,
           fontSize: 13.5, color: "#92400E",
         }}>
-          {inventory.status === "draft"     && "⏳ Cet inventaire n'a pas encore été démarré."}
-          {inventory.status === "completed" && "✅ Le comptage est terminé, en attente de validation."}
-          {inventory.status === "validated" && "🎯 Inventaire validé et stocks ajustés."}
-          {inventory.status === "cancelled" && "❌ Inventaire annulé."}
+          {inventory.status === "draft"     && <span style={{ display: "flex", alignItems: "center", gap: 6 }}><Icon name="clock"       size={14} color="#C2410C" /> Cet inventaire n'a pas encore été démarré.</span>}
+          {inventory.status === "completed" && <span style={{ display: "flex", alignItems: "center", gap: 6 }}><Icon name="checkCircle" size={14} color="#15803D" /> Le comptage est terminé, en attente de validation.</span>}
+          {inventory.status === "validated" && <span style={{ display: "flex", alignItems: "center", gap: 6 }}><Icon name="target"      size={14} color="#6D28D9" /> Inventaire validé et stocks ajustés.</span>}
+          {inventory.status === "cancelled" && <span style={{ display: "flex", alignItems: "center", gap: 6 }}><Icon name="xCircle"     size={14} color="#DC2626" /> Inventaire annulé.</span>}
         </div>
       )}
 
@@ -183,7 +183,7 @@ export default function EmployeeInventoryCountPage() {
           <div style={{ maxHeight: 460, overflowY: "auto" }}>
             {display.length === 0 ? (
               <div style={{ padding: 40, textAlign: "center", color: "#94A3B8", fontSize: 14 }}>
-                {activeTab === "pending" ? "✅ Tous les produits ont été comptés !" : "Aucun produit compté pour l'instant"}
+                {activeTab === "pending" ? <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}><Icon name="checkCircle" size={14} color="#15803D" /> Tous les produits ont été comptés !</span> : "Aucun produit compté pour l'instant"}
               </div>
             ) : display.map((line, idx) => (
               <div key={line.id} style={{

@@ -3,12 +3,12 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate }  from "react-router-dom";
 import { userService }  from "../../services/userService";
 import { useAuth }      from "../../context/AuthContext";
-import { PageHeader, Btn, Badge, DataTable, StatCard } from "../../components/ui";
+import { PageHeader, Btn, Badge, DataTable, StatCard, Icon } from "../../components/ui";
 import { formatDate }   from "../../utils/format";
 import type { User }    from "../../types/user";
 
 // ── ActionMenu position fixed ──────────────────────────────────────
-interface ActionItem { label: string; icon: string; onClick: () => void; danger?: boolean; }
+interface ActionItem { label: string; icon: React.ReactNode; onClick: () => void; danger?: boolean; }
 
 function ActionMenu({ items }: { items: ActionItem[] }) {
   const [open, setOpen] = useState(false);
@@ -50,7 +50,7 @@ function ActionMenu({ items }: { items: ActionItem[] }) {
                 style={{ width: "100%", padding: "10px 14px", display: "flex", alignItems: "center", gap: 10, background: "none", border: "none", cursor: "pointer", fontSize: 13.5, fontFamily: "inherit", textAlign: "left", color: item.danger ? "#DC2626" : "#374151", borderBottom: i < items.length - 1 ? "1px solid #F8FAFC" : "none" }}
                 onMouseEnter={e => (e.currentTarget.style.background = item.danger ? "#FEF2F2" : "#F8FAFC")}
                 onMouseLeave={e => (e.currentTarget.style.background = "none")}>
-                <span style={{ fontSize: 15, width: 20, textAlign: "center" }}>{item.icon}</span>
+                <span style={{ width: 20, display: "flex", alignItems: "center", justifyContent: "center" }}>{item.icon}</span>
                 {item.label}
               </button>
             ))}
@@ -225,8 +225,8 @@ export default function ManagerUserListPage() {
       key: "actions", label: "",
       render: (row: User) => (
         <ActionMenu items={[
-          { icon: "👁️", label: "Voir les infos",  onClick: () => setInfoModal(row)        },
-          { icon: row.is_active ? "⏸️" : "▶️",
+          { icon: <Icon name="eye" size={15} />, label: "Voir les infos",  onClick: () => setInfoModal(row) },
+          { icon: row.is_active ? <Icon name="xCircle" size={15} /> : <Icon name="checkCircle" size={15} />,
             label: row.is_active ? "Désactiver" : "Activer",
             onClick: () => handleToggle(row),
             danger: row.is_active },
@@ -244,9 +244,9 @@ export default function ManagerUserListPage() {
       />
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 14, marginBottom: 24 }}>
-        <StatCard label="Total employés" value={employees.length} icon="👥" color="purple" loading={loading} />
-        <StatCard label="Actifs"         value={active}           icon="✅" color="green"  loading={loading} />
-        <StatCard label="Inactifs"       value={inactive}         icon="⏸️" color="gray"   loading={loading} />
+        <StatCard label="Total employés" value={employees.length} icon={<Icon name="users"       size={18} color="#6D28D9" />} color="purple" loading={loading} />
+        <StatCard label="Actifs"         value={active}           icon={<Icon name="checkCircle" size={18} color="#15803D" />} color="green"  loading={loading} />
+        <StatCard label="Inactifs"       value={inactive}         icon={<Icon name="xCircle"     size={18} color="#C2410C" />} color="orange" loading={loading} />
       </div>
 
       <DataTable

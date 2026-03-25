@@ -4,7 +4,7 @@ import { useAuth }             from "../../context/AuthContext";
 import { useNavigate }         from "react-router-dom";
 import { stockService }        from "../../services/stockService";
 import { inventoryService }    from "../../services/inventoryService";
-import { StatCard, PageHeader } from "../../components/ui";
+import { StatCard, PageHeader, Icon } from "../../components/ui";
 import type { Inventory }      from "../../types/inventory";
 
 export default function EmployeeDashboard() {
@@ -44,8 +44,8 @@ export default function EmployeeDashboard() {
 
       {/* Stats */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 14, marginBottom: 28 }}>
-        <StatCard label="Ruptures de stock" value={alerts.out_of_stock} icon="🚫" color="red"    loading={loading} sub="produits à 0" />
-        <StatCard label="Stock critique"    value={alerts.critical}     icon="⚠️" color="orange" loading={loading} sub="en dessous du minimum" />
+        <StatCard label="Ruptures de stock" value={alerts.out_of_stock} icon={<Icon name="xCircle" size={22} />} color="red"    loading={loading} sub="produits à 0" />
+        <StatCard label="Stock critique"    value={alerts.critical}     icon={<Icon name="warning" size={22} />} color="orange" loading={loading} sub="en dessous du minimum" />
       </div>
 
       {/* Inventaire en cours */}
@@ -57,7 +57,7 @@ export default function EmployeeDashboard() {
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
             <div>
               <div style={{ fontSize: 13.5, fontWeight: 700, color: "#1D4ED8" }}>
-                📋 Inventaire en cours
+                <span style={{display:"flex",alignItems:"center",gap:6}}><Icon name="inventory" size={15} color="#1D4ED8" /> Inventaire en cours</span>
               </div>
               <div style={{ fontSize: 12, color: "#3B82F6", marginTop: 2 }}>
                 {activeInventory.reference} — {activeInventory.shop_name}

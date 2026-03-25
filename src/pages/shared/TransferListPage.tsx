@@ -148,13 +148,13 @@ export default function TransferListPage() {
             {row.status === "pending" && isFromShop && (
               <Btn size="sm" variant="primary" disabled={loading}
                 onClick={() => handleAction(row.id, "send")}>
-                {loading ? "..." : "📤 Envoyer"}
+                {loading ? "..." : "Envoyer"}
               </Btn>
             )}
             {row.status === "in_transit" && isToShop && (
               <Btn size="sm" variant="secondary" disabled={loading}
                 onClick={() => handleAction(row.id, "receive")}>
-                {loading ? "..." : "📥 Recevoir"}
+                {loading ? "..." : "Recevoir"}
               </Btn>
             )}
             {["pending", "in_transit"].includes(row.status) && isFromShop && (

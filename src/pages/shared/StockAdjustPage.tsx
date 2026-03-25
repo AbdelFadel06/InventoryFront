@@ -5,7 +5,7 @@ import { stockService }    from "../../services/stockService";
 import { productService }  from "../../services/productService";
 import { shopService }     from "../../services/shopService";
 import { useAuth }         from "../../context/AuthContext";
-import { PageHeader, Btn } from "../../components/ui";
+import { PageHeader, Btn, Icon } from "../../components/ui";
 import type { Product }    from "../../types/product";
 import type { Shop }       from "../../types/shop";
 
@@ -257,8 +257,8 @@ export default function StockAdjustPage() {
             background: "#FFFBEB", border: "1px solid #FDE68A",
             borderRadius: 14, padding: 18,
           }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#92400E", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-              ⚠️ Attention
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#92400E", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.04em", display: "flex", alignItems: "center", gap: 6 }}>
+              <Icon name="warning" size={14} color="#C2410C" /> Attention
             </div>
             <p style={{ fontSize: 12.5, color: "#92400E", margin: "0 0 6px" }}>
               • Un ajustement crée un mouvement de type "Ajustement manuel".

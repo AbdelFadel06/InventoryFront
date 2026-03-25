@@ -3,14 +3,14 @@ import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { shopService } from "../../services/shopService";
 import { userService } from "../../services/userService";
-import { PageHeader, Btn, Badge, DataTable, StatCard } from "../../components/ui";
+import { PageHeader, Btn, Badge, DataTable, StatCard, Icon } from "../../components/ui";
 import type { Shop } from "../../types/shop";
 import type { User } from "../../types/user";
 
 // ── Dropdown action menu ───────────────────────────────────────────
 interface ActionItem {
   label:   string;
-  icon:    string;
+  icon:    React.ReactNode;
   onClick: () => void;
   danger?: boolean;
 }
@@ -74,7 +74,7 @@ function ActionMenu({ items }: { items: ActionItem[] }) {
                 }}
                 onMouseEnter={e => (e.currentTarget.style.background = item.danger ? "#FEF2F2" : "#F8FAFC")}
                 onMouseLeave={e => (e.currentTarget.style.background = "none")}>
-                <span style={{ fontSize: 15, width: 20, textAlign: "center" }}>{item.icon}</span>
+                <span style={{ width: 20, display: "flex", alignItems: "center", justifyContent: "center" }}>{item.icon}</span>
                 {item.label}
               </button>
             ))}
@@ -166,13 +166,13 @@ export default function ShopListPage() {
           <div style={{
             width: 36, height: 36, borderRadius: 9, flexShrink: 0,
             background: row.is_active ? "linear-gradient(135deg, #EFF6FF, #DBEAFE)" : "#F8FAFC",
-            display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16,
+            display: "flex", alignItems: "center", justifyContent: "center",
           }}>
-            🏪
+            <Icon name="store" size={14} color="#1D4ED8" />
           </div>
           <div>
             <div style={{ fontWeight: 600, color: "#0F172A", fontSize: 13.5 }}>{row.name}</div>
-            {row.city && <div style={{ fontSize: 11.5, color: "#94A3B8" }}>📍 {row.city}</div>}
+            {row.city && <div style={{ fontSize: 11.5, color: "#94A3B8", display: "flex", alignItems: "center", gap: 4 }}><Icon name="target" size={11} color="#94A3B8" /> {row.city}</div>}
           </div>
         </div>
       ),
@@ -181,7 +181,7 @@ export default function ShopListPage() {
       key: "phone_number", label: "Téléphone",
       render: (row: Shop) => (
         <span style={{ fontSize: 13, color: "#64748B" }}>
-          {row.phone_number ? `📞 ${row.phone_number}` : "—"}
+          {row.phone_number ? <span style={{ display: "flex", alignItems: "center", gap: 4 }}><Icon name="phone" size={13} color="#64748B" /> {row.phone_number}</span> : "—"}
         </span>
       ),
     },
@@ -235,19 +235,21 @@ export default function ShopListPage() {
         <ActionMenu items={[
           ...(row.manager_name ? [
             {
-              icon: "👔",
+              icon: <Icon name="person" size={15} />,
               label: "Changer de manager",
               onClick: () => openAssign(row),
             },
           ] : [
             {
-              icon: "➕",
+              icon: <Icon name="plus" size={15} />,
               label: "Assigner un manager",
               onClick: () => openAssign(row),
             },
           ]),
           {
-            icon: row.is_active ? "⏸️" : "▶️",
+            icon: row.is_active
+              ? <Icon name="xCircle" size={15} />
+              : <Icon name="checkCircle" size={15} />,
             label: row.is_active ? "Désactiver" : "Activer",
             onClick: () => handleToggle(row),
             danger: row.is_active,
@@ -271,10 +273,10 @@ export default function ShopListPage() {
 
       {/* Stats */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 14, marginBottom: 24 }}>
-        <StatCard label="Boutiques actives"   value={active}          icon="🏪" color="green"  loading={loading} />
-        <StatCard label="Boutiques inactives" value={inactive}        icon="⏸️" color="gray"   loading={loading} />
-        <StatCard label="Sans manager"        value={noMgr}           icon="⚠️" color="orange" loading={loading} sub={noMgr > 0 ? "À assigner" : undefined} />
-        <StatCard label="Total managers"      value={managers.length} icon="👔" color="blue"   loading={loading} />
+        <StatCard label="Boutiques actives"   value={active}          icon={<Icon name="store"   size={18} color="#15803D" />} color="green"  loading={loading} />
+        <StatCard label="Boutiques inactives" value={inactive}        icon={<Icon name="store"   size={18} color="#64748B" />} color="orange" loading={loading} />
+        <StatCard label="Sans manager"        value={noMgr}           icon={<Icon name="warning" size={18} color="#C2410C" />} color="orange" loading={loading} sub={noMgr > 0 ? "À assigner" : undefined} />
+        <StatCard label="Total managers"      value={managers.length} icon={<Icon name="users"   size={18} color="#1D4ED8" />} color="blue"   loading={loading} />
       </div>
 
       <DataTable

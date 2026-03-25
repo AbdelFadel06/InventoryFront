@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { inventoryService } from "../../services/inventoryService";
 import { useAuth }          from "../../context/AuthContext";
-import { Btn, Badge }       from "../../components/ui";
+import { Btn, Badge, Icon } from "../../components/ui";
 
 interface Discrepancy {
   id:                  number;
@@ -93,19 +93,19 @@ export default function InventoryDiscrepancyPage() {
       {/* Stats résumé */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 14, marginBottom: 24 }}>
         {[
-          { label: "Total écarts",     value: data.total_discrepancies, icon: "⚠️", bg: "#F8FAFC", border: "#E2E8F0", color: "#374151"  },
-          { label: "Manquants",        value: shortages.length,         icon: "📉", bg: "#FEF2F2", border: "#FECACA", color: "#DC2626"  },
-          { label: "Surplus",          value: surpluses.length,         icon: "📈", bg: "#EFF6FF", border: "#BFDBFE", color: "#1D4ED8"  },
+          { label: "Total écarts",     value: data.total_discrepancies, icon: <Icon name="warning" size={22} />, bg: "#F8FAFC", border: "#E2E8F0", color: "#374151"  },
+          { label: "Manquants",        value: shortages.length,         icon: <Icon name="xCircle" size={22} />, bg: "#FEF2F2", border: "#FECACA", color: "#DC2626"  },
+          { label: "Surplus",          value: surpluses.length,         icon: <Icon name="chartUp" size={22} />, bg: "#EFF6FF", border: "#BFDBFE", color: "#1D4ED8"  },
           { label: "Valeur ajustement",
             value: `${Number(data.adjustment_value).toLocaleString("fr-FR")} F`,
-            icon: "💰", bg: "#F5F3FF", border: "#DDD6FE", color: "#6D28D9"
+            icon: <Icon name="money" size={22} />, bg: "#F5F3FF", border: "#DDD6FE", color: "#6D28D9"
           },
         ].map(s => (
           <div key={s.label} style={{
             background: s.bg, border: `1px solid ${s.border}`,
             borderRadius: 12, padding: "16px 18px",
           }}>
-            <div style={{ fontSize: 22, marginBottom: 4 }}>{s.icon}</div>
+            <div style={{ marginBottom: 4, color: s.color }}>{s.icon}</div>
             <div style={{ fontSize: 22, fontWeight: 800, color: s.color }}>{s.value}</div>
             <div style={{ fontSize: 12, color: s.color, opacity: 0.8, fontWeight: 500 }}>{s.label}</div>
           </div>
@@ -117,7 +117,7 @@ export default function InventoryDiscrepancyPage() {
           background: "#F0FDF4", border: "1px solid #BBF7D0",
           borderRadius: 14, padding: 48, textAlign: "center",
         }}>
-          <div style={{ fontSize: 48, marginBottom: 12 }}>🎯</div>
+          <div style={{ marginBottom: 12, display: "flex", justifyContent: "center" }}><Icon name="target" size={48} color="#15803D" /></div>
           <div style={{ fontSize: 18, fontWeight: 700, color: "#15803D", marginBottom: 8 }}>
             Inventaire parfait !
           </div>

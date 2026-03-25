@@ -1,7 +1,7 @@
 // src/pages/manager/CashierSessionPage.tsx
 import { useEffect, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
-import { PageHeader, Btn, Badge, DataTable, StatCard } from "../../components/ui";
+import { PageHeader, Btn, Badge, DataTable, StatCard, Icon } from "../../components/ui";
 import { formatDate, formatDateTime } from "../../utils/format";
 import { userService } from "../../services/userService";
 import axiosInstance from "../../api/axiosInstance";
@@ -519,8 +519,8 @@ export default function CashierSessionPage() {
             <div style={{
               width: 42, height: 42, borderRadius: "50%",
               background: "linear-gradient(135deg, #10B981, #059669)",
-              display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18,
-            }}>🟢</div>
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}><Icon name="checkCircle" size={22} color="#fff" /></div>
             <div>
               <div style={{ fontSize: 13.5, fontWeight: 700, color: "#065F46" }}>
                 Session active aujourd'hui
@@ -553,10 +553,10 @@ export default function CashierSessionPage() {
 
       {/* Stats */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 14, marginBottom: 24 }}>
-        <StatCard label="Sessions actives"    value={active}                                      icon="🟢" color="green"  loading={loading} />
-        <StatCard label="Sessions clôturées"  value={closed}                                      icon="⚫" color="gray"   loading={loading} />
-        <StatCard label="CA sessions actives" value={`${totalCA.toLocaleString("fr-FR")} F`}      icon="💰" color="blue"   loading={loading} />
-        <StatCard label="Employés disponibles" value={employees.length}                            icon="👥" color="purple" loading={loading} />
+        <StatCard label="Sessions actives"    value={active}                                      icon={<Icon name="checkCircle" size={22} />} color="green"  loading={loading} />
+        <StatCard label="Sessions clôturées"  value={closed}                                      icon={<Icon name="clock" size={22} />} color="gray"   loading={loading} />
+        <StatCard label="CA sessions actives" value={`${totalCA.toLocaleString("fr-FR")} F`}      icon={<Icon name="money" size={22} />} color="blue"   loading={loading} />
+        <StatCard label="Employés disponibles" value={employees.length}                            icon={<Icon name="users" size={22} />} color="purple" loading={loading} />
       </div>
 
       {/* Filtres */}

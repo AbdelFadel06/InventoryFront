@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { inventoryService } from "../../services/inventoryService";
 import { useAuth } from "../../context/AuthContext";
-import { PageHeader, Btn, Badge, DataTable, StatCard } from "../../components/ui";
+import { PageHeader, Btn, Badge, DataTable, StatCard, Icon } from "../../components/ui";
 import { formatDate } from "../../utils/format";
 import type { Inventory } from "../../types/inventory";
 
@@ -139,10 +139,10 @@ export default function InventoryListPage() {
         gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
         gap: 14, marginBottom: 24,
       }}>
-        <StatCard label="Brouillons"  value={draft}      icon="📝" color="purple" loading={loading} />
-        <StatCard label="En cours"    value={inProgress} icon="🔄" color="blue"   loading={loading} />
-        <StatCard label="Terminés"    value={completed}  icon="✅" color="orange" loading={loading} />
-        <StatCard label="Validés"     value={validated}  icon="🎯" color="green"  loading={loading} />
+        <StatCard label="Brouillons"  value={draft}      icon={<Icon name="edit" size={22} />}        color="purple" loading={loading} />
+        <StatCard label="En cours"    value={inProgress} icon={<Icon name="refresh" size={22} />}     color="blue"   loading={loading} />
+        <StatCard label="Terminés"    value={completed}  icon={<Icon name="checkCircle" size={22} />} color="orange" loading={loading} />
+        <StatCard label="Validés"     value={validated}  icon={<Icon name="target" size={22} />}      color="green"  loading={loading} />
       </div>
 
       {/* Filtres */}

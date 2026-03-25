@@ -5,7 +5,7 @@ import { stockMovementService } from "../../services/stockService";
 import { productService }       from "../../services/productService";
 import { shopService }          from "../../services/shopService";
 import { useAuth }              from "../../context/AuthContext";
-import { PageHeader, Btn }      from "../../components/ui";
+import { PageHeader, Btn, Icon } from "../../components/ui";
 import type { Product }         from "../../types/product";
 import type { Shop }            from "../../types/shop";
 
@@ -291,7 +291,12 @@ export default function StockMovementPage({ mode }: Props) {
             borderRadius: 14, padding: 18,
           }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: isAdd ? "#1D4ED8" : "#C2410C", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-              {isAdd ? "💡 Info" : "⚠️ Attention"}
+              <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              {isAdd
+                ? <><Icon name="info" size={14} color="#1D4ED8" /> Info</>
+                : <><Icon name="warning" size={14} color="#C2410C" /> Attention</>
+              }
+            </span>
             </div>
             {isAdd ? (
               <>

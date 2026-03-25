@@ -7,6 +7,7 @@ import { useAuth }             from "../../context/AuthContext";
 import { PageHeader, Btn }     from "../../components/ui";
 import type { Shop }           from "../../types/shop";
 import type { UserRole, Gender } from "../../types/user";
+import { normalizeBeninPhone } from "../../utils/format";
 
 const inputStyle = {
   width: "100%", padding: "10px 12px",
@@ -126,7 +127,7 @@ export default function CreateUserPage() {
         password_confirm: form.password_confirm,
         first_name:       form.first_name,
         last_name:        form.last_name,
-        phone_number:     form.phone_number || undefined,
+        phone_number:     form.phone_number ? normalizeBeninPhone(form.phone_number) : undefined,
         gender:           (form.gender as Gender) || undefined,
         date_of_birth:    form.date_of_birth || undefined,
         role:             form.role,
@@ -170,7 +171,7 @@ export default function CreateUserPage() {
               color: "#15803D", borderRadius: 9, padding: "10px 14px",
               fontSize: 13.5, marginBottom: 20,
             }}>
-              ✅ Utilisateur créé avec succès ! Redirection...
+              Utilisateur créé avec succès ! Redirection...
             </div>
           )}
 
@@ -253,7 +254,7 @@ export default function CreateUserPage() {
                 />
                 <button type="button" onClick={() => setShowPwd(!showPwd)}
                   style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#94A3B8", fontSize: 14 }}>
-                  {showPwd ? "🙈" : "👁"}
+                  {showPwd ? "●" : "○"}
                 </button>
               </div>
               {pwdStrength && (
@@ -291,7 +292,7 @@ export default function CreateUserPage() {
                 />
                 <button type="button" onClick={() => setShowConfirm(!showConfirm)}
                   style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#94A3B8", fontSize: 14 }}>
-                  {showConfirm ? "🙈" : "👁"}
+                  {showConfirm ? "●" : "○"}
                 </button>
               </div>
               {pwdMatch !== null && (

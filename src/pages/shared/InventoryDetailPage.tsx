@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { inventoryService } from "../../services/inventoryService";
 import { useAuth }          from "../../context/AuthContext";
-import { Btn, Badge }       from "../../components/ui";
+import { Btn, Badge, Icon } from "../../components/ui";
 import { formatDate }       from "../../utils/format";
 import type { Inventory, InventoryLine } from "../../types/inventory";
 
@@ -135,7 +135,7 @@ export default function InventoryDetailPage() {
             <>
               <Btn variant="secondary" disabled={actionLoading}
                 onClick={() => handleAction("add_products")}>
-                {actionLoading ? "..." : "📦 Ajouter produits"}
+                {actionLoading ? "..." : <><Icon name="package" size={14} color="#1D4ED8" /> Ajouter produits</>}
               </Btn>
               {lines.length > 0 && (
                 <Btn disabled={actionLoading} onClick={() => handleAction("start")}>
@@ -156,14 +156,14 @@ export default function InventoryDetailPage() {
                 Voir les écarts
               </Btn>
               <Btn disabled={actionLoading} onClick={() => handleAction("validate")}>
-                {actionLoading ? "..." : "🎯 Valider l'inventaire"}
+                {actionLoading ? "..." : <><Icon name="target" size={14} color="#6D28D9" /> Valider l'inventaire</>}
               </Btn>
             </>
           )}
           {inventory.status === "validated" && (
             <Btn variant="secondary"
               onClick={() => navigate(`${basePath}/inventories/${id}/discrepancies`)}>
-              📊 Rapport d'écarts
+              <><Icon name="chart" size={14} color="#1D4ED8" /> Rapport d'écarts</>
             </Btn>
           )}
           {["draft", "in_progress", "completed"].includes(inventory.status) && (
@@ -188,16 +188,16 @@ export default function InventoryDetailPage() {
       {/* Stats + progression */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 14, marginBottom: 24 }}>
         {[
-          { label: "Total produits",  value: inventory.total_products   ?? 0, icon: "📦", color: "#3B82F6", bg: "#EFF6FF", border: "#BFDBFE" },
-          { label: "Comptés",         value: inventory.products_counted  ?? 0, icon: "✅", color: "#15803D", bg: "#F0FDF4", border: "#BBF7D0" },
-          { label: "Restants",        value: (inventory.total_products ?? 0) - (inventory.products_counted ?? 0), icon: "⏳", color: "#D97706", bg: "#FFFBEB", border: "#FDE68A" },
-          { label: "Écarts détectés", value: inventory.total_discrepancies ?? 0, icon: "⚠️", color: "#DC2626", bg: "#FEF2F2", border: "#FECACA" },
+          { label: "Total produits",  value: inventory.total_products   ?? 0, icon: <Icon name="package"     size={22} color="#3B82F6" />, color: "#3B82F6", bg: "#EFF6FF", border: "#BFDBFE" },
+          { label: "Comptés",         value: inventory.products_counted  ?? 0, icon: <Icon name="checkCircle" size={22} color="#15803D" />, color: "#15803D", bg: "#F0FDF4", border: "#BBF7D0" },
+          { label: "Restants",        value: (inventory.total_products ?? 0) - (inventory.products_counted ?? 0), icon: <Icon name="clock" size={22} color="#D97706" />, color: "#D97706", bg: "#FFFBEB", border: "#FDE68A" },
+          { label: "Écarts détectés", value: inventory.total_discrepancies ?? 0, icon: <Icon name="warning"    size={22} color="#DC2626" />, color: "#DC2626", bg: "#FEF2F2", border: "#FECACA" },
         ].map(s => (
           <div key={s.label} style={{
             background: s.bg, border: `1px solid ${s.border}`,
             borderRadius: 12, padding: "16px 18px",
           }}>
-            <div style={{ fontSize: 22, marginBottom: 4 }}>{s.icon}</div>
+            <div style={{ marginBottom: 4, display: "flex", alignItems: "center" }}>{s.icon}</div>
             <div style={{ fontSize: 24, fontWeight: 800, color: s.color }}>{s.value}</div>
             <div style={{ fontSize: 12, color: s.color, opacity: 0.8, fontWeight: 500 }}>{s.label}</div>
           </div>
@@ -267,7 +267,7 @@ export default function InventoryDetailPage() {
           <div style={{ maxHeight: 480, overflowY: "auto" }}>
             {displayLines.length === 0 ? (
               <div style={{ padding: 40, textAlign: "center", color: "#94A3B8", fontSize: 14 }}>
-                {activeTab === "pending" ? "Tous les produits ont été comptés ✅" : "Aucun produit dans cet onglet"}
+                {activeTab === "pending" ? <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>Tous les produits ont été comptés <Icon name="checkCircle" size={14} color="#15803D" /></span> : "Aucun produit dans cet onglet"}
               </div>
             ) : (
               displayLines.map((line, idx) => (
@@ -371,7 +371,7 @@ export default function InventoryDetailPage() {
           background: "#fff", border: "2px dashed #E2E8F0",
           borderRadius: 14, padding: 48, textAlign: "center",
         }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>📦</div>
+          <div style={{ marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "center" }}><Icon name="package" size={40} color="#94A3B8" /></div>
           <div style={{ fontSize: 16, fontWeight: 600, color: "#374151", marginBottom: 8 }}>
             Aucun produit ajouté
           </div>
@@ -379,7 +379,7 @@ export default function InventoryDetailPage() {
             Ajoutez les produits à compter pour démarrer l'inventaire
           </div>
           <Btn onClick={() => handleAction("add_products")} disabled={actionLoading}>
-            {actionLoading ? "Ajout en cours..." : "📦 Ajouter tous les produits"}
+            {actionLoading ? "Ajout en cours..." : <><Icon name="package" size={14} color="#1D4ED8" /> Ajouter tous les produits</>}
           </Btn>
         </div>
       )}

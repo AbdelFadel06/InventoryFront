@@ -1,7 +1,8 @@
 // src/pages/shared/DailyReportPage.tsx
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { PageHeader, StatCard } from "../../components/ui";
+import { PageHeader, StatCard, Icon } from "../../components/ui";
 import { formatDate, formatDateTime } from "../../utils/format";
 import axiosInstance from "../../api/axiosInstance";
 
@@ -63,7 +64,7 @@ const UNIT_LABELS: Record<string, string> = {
 };
 
 // ── Section wrapper ───────────────────────────────────────────────
-const Section = ({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) => (
+const Section = ({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) => (
   <div style={{
     background: "#fff", border: "1px solid #E2E8F0",
     borderRadius: 12, overflow: "hidden", marginBottom: 16,
@@ -72,22 +73,35 @@ const Section = ({ title, icon, children }: { title: string; icon: string; child
       padding: "12px 18px", borderBottom: "1px solid #E2E8F0",
       display: "flex", alignItems: "center", gap: 8,
     }}>
-      <span style={{ fontSize: 16 }}>{icon}</span>
+      <span style={{ display: "flex", alignItems: "center" }}>{icon}</span>
       <span style={{ fontSize: 13.5, fontWeight: 700, color: "#0F172A" }}>{title}</span>
     </div>
     {children}
   </div>
 );
 
+// ── Print styles ─────────────────────────────────────────────────
+const PRINT_STYLE = `
+@media print {
+  body * { visibility: hidden; }
+  #print-report, #print-report * { visibility: visible; }
+  #print-report { position: absolute; inset: 0; padding: 24px; }
+  button, input[type="date"] { display: none !important; }
+  .no-print { display: none !important; }
+  @page { margin: 1.5cm; size: A4; }
+}
+`;
+
 // ── Page principale ───────────────────────────────────────────────
 export default function DailyReportPage() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const today = new Date().toISOString().split("T")[0];
 
   const [report, setReport]           = useState<DailyReport | null>(null);
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState(today);
+  const [selectedDate, setSelectedDate] = useState(searchParams.get("date") ?? today);
 
   const fetchReport = async () => {
     setLoading(true);
@@ -105,12 +119,13 @@ export default function DailyReportPage() {
   useEffect(() => { fetchReport(); }, [selectedDate]);
 
   return (
-    <div>
+    <div id="print-report">
+      <style dangerouslySetInnerHTML={{ __html: PRINT_STYLE }} />
       <PageHeader
         title="Rapport journalier"
         subtitle={`${user?.shop_name ?? "Toutes boutiques"} · ${formatDate(selectedDate)}`}
         action={
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <div className="no-print" style={{ display: "flex", gap: 10, alignItems: "center" }}>
             <input
               type="date"
               value={selectedDate}
@@ -145,9 +160,9 @@ export default function DailyReportPage() {
 
       {/* Stats principales — max 3 */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 20 }}>
-        <StatCard label="Ventes totales"   value={report?.summary.total_sales ?? 0}                   icon="🛒" color="blue"   loading={loading} />
-        <StatCard label="CA total"         value={fmtPrice(report?.summary.total_amount ?? 0)}         icon="💰" color="blue"   loading={loading} />
-        <StatCard label="Réductions"       value={fmtPrice(report?.summary.total_discount ?? 0)}       icon="🏷️" color="blue"   loading={loading} />
+        <StatCard label="Ventes totales"   value={report?.summary.total_sales ?? 0}                   icon={<Icon name="cart" size={22} />} color="blue"   loading={loading} />
+        <StatCard label="CA total"         value={fmtPrice(report?.summary.total_amount ?? 0)}         icon={<Icon name="money" size={22} />} color="blue"   loading={loading} />
+        <StatCard label="Réductions"       value={fmtPrice(report?.summary.total_discount ?? 0)}       icon={<Icon name="tag" size={22} />} color="blue"   loading={loading} />
       </div>
 
       {report && (
@@ -205,7 +220,7 @@ export default function DailyReportPage() {
           </div>
 
           {/* ── Articles vendus ──────────────────────────────── */}
-          <Section title="Articles vendus" icon="📦">
+          <Section title="Articles vendus" icon={<Icon name="package" size={16} color="#1D4ED8" />}>
             {report.products_recap.length === 0 ? (
               <div style={{ padding: 32, textAlign: "center", color: "#94A3B8", fontSize: 13.5 }}>
                 Aucune vente enregistrée pour cette date
@@ -294,7 +309,7 @@ export default function DailyReportPage() {
 
           {/* ── Point livreurs ───────────────────────────────── */}
           {report.by_livreur.length > 0 && (
-            <Section title="Point des livreurs" icon="🛵">
+            <Section title="Point des livreurs" icon={<Icon name="delivery" size={16} color="#1D4ED8" />}>
               <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
                 {report.by_livreur.map(l => (
                   <div key={l.livreur_id} style={{
@@ -338,7 +353,7 @@ export default function DailyReportPage() {
           )}
 
           {/* ── Dépenses ─────────────────────────────────────── */}
-          <Section title="Dépenses" icon="💸">
+          <Section title="Dépenses" icon={<Icon name="expense" size={16} color="#1D4ED8" />}>
             {report.expenses.length === 0 ? (
               <div style={{ padding: 32, textAlign: "center", color: "#94A3B8", fontSize: 13.5 }}>
                 Aucune dépense enregistrée

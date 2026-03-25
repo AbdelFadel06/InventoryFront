@@ -1,7 +1,7 @@
 // src/pages/cashier/CashierPOSPage.tsx
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useAuth } from "../../context/AuthContext";
-import { Badge } from "../../components/ui";
+import { Badge, Icon } from "../../components/ui";
 import axiosInstance from "../../api/axiosInstance";
 import { userService } from "../../services/userService";
 
@@ -338,8 +338,8 @@ function PaymentModal({
             </div>
             <div style={{ display: "flex", gap: 10 }}>
               {[
-                { key: "direct", label: "🏪 Vente directe", desc: "Client sur place" },
-                { key: "delivery", label: "🛵 Livraison", desc: "Envoi par livreur" },
+                { key: "direct", label: "Vente directe", desc: "Client sur place" },
+                { key: "delivery", label: "Livraison", desc: "Envoi par livreur" },
               ].map(opt => (
                 <button key={opt.key} onClick={() => setSaleType(opt.key as any)}
                   style={{
@@ -391,9 +391,9 @@ function PaymentModal({
             </div>
             <div style={{ display: "flex", gap: 8 }}>
               {[
-                { key: "cash", label: "💵 Espèces" },
-                { key: "mobile_money", label: "📱 MoMo" },
-                ...(saleType === "delivery" ? [{ key: "on_delivery", label: "🚚 À la livraison" }] : []),
+                { key: "cash", label: "Espèces" },
+                { key: "mobile_money", label: "MoMo" },
+                ...(saleType === "delivery" ? [{ key: "on_delivery", label: "À la livraison" }] : []),
               ].map(opt => (
                 <button key={opt.key} onClick={() => setPaymentMethod(opt.key as any)}
                   style={{
@@ -521,8 +521,8 @@ function ExpenseModal({ session, onSuccess, onClose }: {
         background: "#fff", borderRadius: 14, padding: 24, width: 380,
         boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
       }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: "#0F172A", marginBottom: 16 }}>
-          💸 Enregistrer une dépense
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#0F172A", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
+          <Icon name="expense" size={18} color="#F97316" /> Enregistrer une dépense
         </div>
         {error && (
           <div style={{
@@ -593,7 +593,7 @@ function SaleSuccessOverlay({ onClose }: { onClose: () => void }) {
       alignItems: "center", justifyContent: "center",
       animation: "fadeIn 0.2s ease",
     }}>
-      <div style={{ fontSize: 64, marginBottom: 16 }}>✅</div>
+      <div style={{ fontSize: 64, marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "center" }}><Icon name="checkCircle" size={64} color="#fff" /></div>
       <div style={{ fontSize: 28, fontWeight: 800, color: "#fff" }}>Vente enregistrée !</div>
       <div style={{ fontSize: 14, color: "rgba(255,255,255,0.8)", marginTop: 8 }}>
         Fermeture automatique...
@@ -768,7 +768,7 @@ export default function CashierPOSPage() {
         display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
         height: "60vh", gap: 16,
       }}>
-        <div style={{ fontSize: 48 }}>🔒</div>
+        <div style={{ fontSize: 48, display: "flex", alignItems: "center", justifyContent: "center" }}><Icon name="lock" size={48} color="#94A3B8" /></div>
         <div style={{ fontSize: 18, fontWeight: 700, color: "#0F172A" }}>Aucune session active</div>
         <div style={{ fontSize: 14, color: "#94A3B8", textAlign: "center", maxWidth: 320 }}>
           Le manager doit ouvrir une session de caisse avant que vous puissiez enregistrer des ventes.
@@ -835,8 +835,8 @@ export default function CashierPOSPage() {
             <div style={{ position: "relative" }}>
               <span style={{
                 position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)",
-                fontSize: 16, color: "#94A3B8",
-              }}>🔍</span>
+                fontSize: 16, color: "#94A3B8", display: "flex", alignItems: "center",
+              }}><Icon name="search" size={16} color="#94A3B8" /></span>
               <input
                 id="barcode-search"
                 ref={searchRef}
@@ -970,7 +970,7 @@ export default function CashierPOSPage() {
                 display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
                 height: "100%", color: "#94A3B8", gap: 8,
               }}>
-                <div style={{ fontSize: 36 }}>🛒</div>
+                <div style={{ fontSize: 36, display: "flex", alignItems: "center", justifyContent: "center" }}><Icon name="cart" size={36} color="#CBD5E1" /></div>
                 <div style={{ fontSize: 13.5 }}>Panier vide</div>
                 <div style={{ fontSize: 12, color: "#CBD5E1", textAlign: "center", maxWidth: 200 }}>
                   Recherchez ou scannez un produit pour l'ajouter
@@ -1023,7 +1023,7 @@ export default function CashierPOSPage() {
                   fontFamily: "inherit",
                   boxShadow: "0 4px 14px rgba(16,185,129,0.4)",
                 }}>
-                💳 Encaisser
+                <Icon name="money" size={15} color="#fff" /> Encaisser
               </button>
             </div>
           )}

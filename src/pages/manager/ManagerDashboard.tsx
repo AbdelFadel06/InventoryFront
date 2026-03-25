@@ -4,7 +4,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { stockService } from "../../services/stockService";
 import { userService }  from "../../services/userService";
-import { StatCard, PageHeader, Btn } from "../../components/ui";
+import { StatCard, PageHeader, Btn, Icon } from "../../components/ui";
 import type { User } from "../../types/user";
 
 export default function ManagerDashboard() {
@@ -39,12 +39,12 @@ export default function ManagerDashboard() {
   }, []);
 
   const actions = [
-    { label: "📦 Mes produits",      path: "/manager/products"        },
-    { label: "📊 Stocks & alertes",  path: "/manager/stocks"          },
-    { label: "➕ Ajouter stock",      path: "/manager/stocks/add"      },
-    { label: "🔄 Transferts",         path: "/manager/transfers"       },
-    { label: "📋 Inventaires",        path: "/manager/inventories"     },
-    { label: "👥 Mon équipe",         path: "/manager/users"           },
+    { label: "Mes produits",      path: "/manager/products"        },
+    { label: "Stocks & alertes",  path: "/manager/stocks"          },
+    { label: "Ajouter stock",     path: "/manager/stocks/add"      },
+    { label: "Transferts",        path: "/manager/transfers"       },
+    { label: "Inventaires",       path: "/manager/inventories"     },
+    { label: "Mon équipe",        path: "/manager/users"           },
   ];
 
   return (
@@ -61,10 +61,10 @@ export default function ManagerDashboard() {
 
       {/* Stats */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 14, marginBottom: 28 }}>
-        <StatCard label="Employés"     value={employees.length}   icon="👥" color="blue"   loading={loading} sub="dans votre boutique" />
-        <StatCard label="Ruptures"     value={alerts.out_of_stock} icon="🚫" color="red"    loading={loading} sub="produits à 0" />
-        <StatCard label="Critiques"    value={alerts.critical}     icon="⚠️" color="orange" loading={loading} sub="en dessous du minimum" />
-        <StatCard label="Stock bas"    value={alerts.low}          icon="📉" color="purple" loading={loading} sub="à réapprovisionner" />
+        <StatCard label="Employés"     value={employees.length}   icon={<Icon name="users" size={22} />} color="blue"   loading={loading} sub="dans votre boutique" />
+        <StatCard label="Ruptures"     value={alerts.out_of_stock} icon={<Icon name="xCircle" size={22} />} color="red"    loading={loading} sub="produits à 0" />
+        <StatCard label="Critiques"    value={alerts.critical}     icon={<Icon name="warning" size={22} />} color="orange" loading={loading} sub="en dessous du minimum" />
+        <StatCard label="Stock bas"    value={alerts.low}          icon={<Icon name="chartUp" size={22} />} color="purple" loading={loading} sub="à réapprovisionner" />
       </div>
 
       {/* Alerte rouge si urgence */}
@@ -76,7 +76,7 @@ export default function ManagerDashboard() {
         }}>
           <div>
             <div style={{ fontSize: 13.5, fontWeight: 600, color: "#DC2626", marginBottom: 4 }}>
-              ⚠️ Attention requise
+              <span style={{display:"flex",alignItems:"center",gap:6}}><Icon name="warning" size={15} color="#DC2626" /> Attention requise</span>
             </div>
             <div style={{ fontSize: 13, color: "#EF4444" }}>
               {alerts.out_of_stock > 0 && <span>{alerts.out_of_stock} produit(s) en rupture. </span>}

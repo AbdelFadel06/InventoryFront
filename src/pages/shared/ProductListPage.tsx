@@ -6,7 +6,7 @@ import { categoryService }      from "../../services/categoryService";
 import { stockMovementService } from "../../services/stockService";
 import { shopService }          from "../../services/shopService";
 import { useAuth }              from "../../context/AuthContext";
-import { PageHeader, Btn, Badge, DataTable, StatCard } from "../../components/ui";
+import { PageHeader, Btn, Badge, DataTable, StatCard, Icon } from "../../components/ui";
 import type { Product }  from "../../types/product";
 import type { Category } from "../../types/category";
 import type { Shop }     from "../../types/shop";
@@ -19,7 +19,7 @@ const UNIT_LABELS: Record<string, string> = {
 // ── Dropdown action menu ───────────────────────────────────────────
 interface ActionItem {
   label:    string;
-  icon:     string;
+  icon:     React.ReactNode;
   onClick:  () => void;
   danger?:  boolean;
 }
@@ -306,8 +306,8 @@ export default function ProductListPage() {
           <div style={{
             width: 36, height: 36, borderRadius: 9, flexShrink: 0,
             background: row.current_stock === 0 ? "#FEF2F2" : row.is_low_stock ? "#FFF7ED" : "#EFF6FF",
-            display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16,
-          }}>📦</div>
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}><Icon name="package" size={18} color={row.current_stock === 0 ? "#DC2626" : row.is_low_stock ? "#D97706" : "#1D4ED8"} /></div>
           <div>
             <div style={{ fontWeight: 600, color: "#0F172A", fontSize: 13.5 }}>{row.name}</div>
             <div style={{ fontSize: 11.5, color: "#94A3B8", fontFamily: "monospace" }}>{row.sku}</div>
@@ -347,12 +347,12 @@ export default function ProductListPage() {
       key: "actions", label: "",
       render: (row: Product) => (
         <ActionMenu items={[
-          { icon: "✏️", label: "Modifier",                onClick: () => openEdit(row)                                           },
-          { icon: "📦", label: "Ajouter du stock",        onClick: () => openStock(row)                                          },
-          { icon: row.is_active ? "⏸️" : "▶️",
+          { icon: <Icon name="edit"    size={15} color="#374151" />, label: "Modifier",           onClick: () => openEdit(row)                                        },
+          { icon: <Icon name="package" size={15} color="#374151" />, label: "Ajouter du stock",   onClick: () => openStock(row)                                       },
+          { icon: <Icon name={row.is_active ? "xCircle" : "checkCircle"} size={15} color="#374151" />,
             label: row.is_active ? "Désactiver" : "Activer",
-            onClick: () => handleToggle(row)                                                                                      },
-          { icon: "🗑️", label: "Supprimer", danger: true, onClick: () => { setModalError(null); setDeleteModal(row); }           },
+            onClick: () => handleToggle(row)                                                                                     },
+          { icon: <Icon name="trash"   size={15} color="#DC2626" />, label: "Supprimer", danger: true, onClick: () => { setModalError(null); setDeleteModal(row); }  },
         ]} />
       ),
     },
@@ -367,10 +367,10 @@ export default function ProductListPage() {
       />
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 14, marginBottom: 24 }}>
-        <StatCard label="Produits actifs"   value={active}   icon="✅" color="green"  loading={loading} />
-        <StatCard label="Produits inactifs" value={inactive} icon="⏸️" color="purple" loading={loading} />
-        <StatCard label="Stock bas"         value={lowStock} icon="⚠️" color="orange" loading={loading} />
-        <StatCard label="Ruptures"          value={outStock} icon="🚫" color="red"    loading={loading} />
+        <StatCard label="Produits actifs"   value={active}   icon={<Icon name="checkCircle" size={22} />} color="green"  loading={loading} />
+        <StatCard label="Produits inactifs" value={inactive} icon={<Icon name="xCircle"     size={22} />} color="purple" loading={loading} />
+        <StatCard label="Stock bas"         value={lowStock} icon={<Icon name="warning"      size={22} />} color="orange" loading={loading} />
+        <StatCard label="Ruptures"          value={outStock} icon={<Icon name="package"      size={22} />} color="red"    loading={loading} />
       </div>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
@@ -488,8 +488,8 @@ export default function ProductListPage() {
               </select>
             </Field>
           ) : (
-            <div style={{ background: "#F0FDF4", border: "1px solid #BBF7D0", borderRadius: 9, padding: "10px 14px", marginBottom: 14, fontSize: 13, color: "#15803D", fontWeight: 500 }}>
-              🏪 {user?.shop_name}
+            <div style={{ background: "#F0FDF4", border: "1px solid #BBF7D0", borderRadius: 9, padding: "10px 14px", marginBottom: 14, fontSize: 13, color: "#15803D", fontWeight: 500, display: "flex", alignItems: "center", gap: 6 }}>
+              <Icon name="store" size={14} color="#15803D" /> {user?.shop_name}
             </div>
           )}
           <Field label="Quantité à ajouter" required>
@@ -520,7 +520,7 @@ export default function ProductListPage() {
             </div>
           )}
           <div style={{ background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 10, padding: "14px 16px", marginBottom: 20 }}>
-            <div style={{ fontWeight: 600, color: "#DC2626", marginBottom: 6 }}>⚠️ Action irréversible</div>
+            <div style={{ fontWeight: 600, color: "#DC2626", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}><Icon name="warning" size={14} color="#DC2626" /> Action irréversible</div>
             <div style={{ fontSize: 13.5, color: "#374151" }}>
               Vous allez supprimer <strong>{deleteModal.name}</strong> ({deleteModal.sku}).
               Cette action échouera si le produit a des stocks ou mouvements associés.

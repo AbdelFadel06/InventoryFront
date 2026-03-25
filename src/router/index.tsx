@@ -31,9 +31,11 @@ import EmployeeInventoryCountPage from "../pages/employee/EmployeeInventoryCount
 import EmployeeMovementsPage      from "../pages/employee/EmployeeMovementsPage";
 
 import CashierSessionPage   from "../pages/manager/CashierSessionPage";
+import SalesHistoryPage     from "../pages/manager/SalesHistoryPage";
 import CashierPOSPage       from "../pages/cashier/CashierPOSPage";
 import DeliveryDriverPage   from "../pages/delivery/DeliveryDriverPage";
 import DailyReportPage      from "../pages/shared/DailyReportPage";
+import SalesListPage        from "../pages/shared/SalesListPage";
 
 
 const A = (roles: string[], Page: React.ComponentType<any>, props?: any) => (
@@ -92,6 +94,8 @@ export const router = createBrowserRouter([
   { path: "/manager/sessions",   element: A(MANAGER, CashierSessionPage)  },
   { path: "/manager/caisse",     element: A(MANAGER, CashierPOSPage)       },
   { path: "/manager/rapport",    element: A(MANAGER, DailyReportPage)      },
+  { path: "/manager/ventes",     element: A(MANAGER, SalesListPage)        },
+  { path: "/manager/historique", element: A(MANAGER, SalesHistoryPage)     },
 
 
 
@@ -102,8 +106,9 @@ export const router = createBrowserRouter([
   { path: "/employee/inventories",                 element: A(EMPLOYEE, EmployeeInventoryListPage)  },
   { path: "/employee/inventories/:id",             element: A(EMPLOYEE, EmployeeInventoryCountPage) },
   { path: "/employee/movements",                   element: A(EMPLOYEE, EmployeeMovementsPage)      },
-  { path: "/employee/caisse",    element: A(EMPLOYEE, CashierPOSPage)      },
+  { path: "/employee/caisse",     element: A(EMPLOYEE, CashierPOSPage)      },
   { path: "/employee/rapport",   element: A(EMPLOYEE, DailyReportPage)     },
+  { path: "/employee/ventes",    element: A(EMPLOYEE, SalesListPage)       },
 
 
 

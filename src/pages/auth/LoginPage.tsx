@@ -370,7 +370,7 @@ export default function LoginPage() {
 
           {/* Formulaire centré */}
           <div className="login-form-area">
-            <h1 className="login-heading">Bon retour 👋</h1>
+            <h1 className="login-heading">Bon retour</h1>
             <p className="login-sub">
               Connectez-vous pour accéder à votre tableau de bord et gérer vos stocks.
             </p>
@@ -402,7 +402,7 @@ export default function LoginPage() {
                     autoComplete="current-password"
                   />
                   <button type="button" className="login-eye" onClick={() => setShowPwd(!showPwd)}>
-                    {showPwd ? "🙈" : "👁"}
+                    {showPwd ? "●" : "○"}
                   </button>
                 </div>
               </div>

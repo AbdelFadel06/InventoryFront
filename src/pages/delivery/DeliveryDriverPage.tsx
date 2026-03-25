@@ -1,7 +1,7 @@
 // src/pages/delivery/DeliveryDriverPage.tsx
 import { useEffect, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
-import { Badge, PageHeader, StatCard } from "../../components/ui";
+import { Badge, PageHeader, StatCard, Icon } from "../../components/ui";
 import { formatDateTime } from "../../utils/format";
 
 // ── Types ────────────────────────────────────────────────────────
@@ -88,7 +88,7 @@ function DeliveryCard({ sale, onConfirm, confirming }: {
               {sale.reference}
             </span>
             <Badge
-              label={isPaid ? "✅ Payé" : "⏳ Non payé"}
+              label={isPaid ? "Payé" : "Non payé"}
               color={isPaid ? "green" : "yellow"}
             />
           </div>
@@ -96,7 +96,7 @@ function DeliveryCard({ sale, onConfirm, confirming }: {
           {/* Adresse */}
           {sale.delivery_address && (
             <div style={{ display: "flex", alignItems: "flex-start", gap: 6, marginBottom: 6 }}>
-              <span style={{ fontSize: 14, flexShrink: 0 }}>📍</span>
+              <span style={{ flexShrink: 0 }}><Icon name="delivery" size={14} color="#374151" /></span>
               <span style={{ fontSize: 13, color: "#374151", fontWeight: 500 }}>
                 {sale.delivery_address}
               </span>
@@ -127,12 +127,12 @@ function DeliveryCard({ sale, onConfirm, confirming }: {
                 boxShadow: confirming === sale.id ? "none" : "0 2px 8px rgba(16,185,129,0.3)",
                 whiteSpace: "nowrap",
               }}>
-              {confirming === sale.id ? "..." : "✓ Confirmer paiement"}
+              {confirming === sale.id ? "..." : "Confirmer paiement"}
             </button>
           )}
           {isPaid && (
-            <div style={{ fontSize: 12, color: "#059669", fontWeight: 600 }}>
-              Livré ✓
+            <div style={{ fontSize: 12, color: "#059669", fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
+              Livré <Icon name="check" size={12} color="#059669" />
             </div>
           )}
           <button
@@ -172,8 +172,10 @@ function DeliveryCard({ sale, onConfirm, confirming }: {
             <div style={{
               marginTop: 10, padding: "8px 12px", background: "#F8FAFC",
               borderRadius: 8, fontSize: 13, color: "#64748B",
+              display: "flex", alignItems: "flex-start", gap: 6,
             }}>
-              📝 {sale.notes}
+              <Icon name="info" size={14} color="#64748B" />
+              {sale.notes}
             </div>
           )}
         </div>
@@ -266,14 +268,14 @@ export default function DeliveryDriverPage() {
         <StatCard
           label="Total livraisons"
           value={summary?.total_count ?? 0}
-          icon="📦"
+          icon={<Icon name="package" size={22} />}
           color="blue"
           loading={loading}
         />
         <StatCard
           label="Payées"
           value={summary?.paid_count ?? 0}
-          icon="✅"
+          icon={<Icon name="checkCircle" size={22} />}
           color="green"
           loading={loading}
           sub={summary?.total_paid ? fmtPrice(summary.total_paid) : undefined}
@@ -281,7 +283,7 @@ export default function DeliveryDriverPage() {
         <StatCard
           label="Non payées"
           value={summary?.pending_count ?? 0}
-          icon="⏳"
+          icon={<Icon name="clock" size={22} />}
           color="orange"
           loading={loading}
           sub={summary?.total_pending ? fmtPrice(summary.total_pending) : undefined}
@@ -295,7 +297,7 @@ export default function DeliveryDriverPage() {
           borderRadius: 12, padding: "14px 18px", marginBottom: 20,
           display: "flex", alignItems: "center", gap: 12,
         }}>
-          <span style={{ fontSize: 20 }}>⚠️</span>
+          <Icon name="warning" size={20} color="#92400E" />
           <div>
             <div style={{ fontSize: 13.5, fontWeight: 600, color: "#92400E" }}>
               {pending.length} livraison(s) non confirmée(s)
@@ -343,7 +345,7 @@ export default function DeliveryDriverPage() {
           background: "#fff", border: "2px dashed #E2E8F0",
           borderRadius: 14, padding: 48, textAlign: "center",
         }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>📦</div>
+          <div style={{ marginBottom: 12 }}><Icon name="package" size={40} color="#94A3B8" /></div>
           <div style={{ fontSize: 16, fontWeight: 600, color: "#374151", marginBottom: 6 }}>
             Aucune livraison {filterStatus !== "all" ? `(${filterStatus === "pending" ? "non payée" : "payée"})` : ""} pour cette date
           </div>

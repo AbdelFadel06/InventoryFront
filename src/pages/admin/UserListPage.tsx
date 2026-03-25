@@ -3,13 +3,13 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate }   from "react-router-dom";
 import { userService }   from "../../services/userService";
 import { shopService }   from "../../services/shopService";
-import { PageHeader, Btn, Badge, DataTable, StatCard } from "../../components/ui";
+import { PageHeader, Btn, Badge, DataTable, StatCard, Icon } from "../../components/ui";
 import { formatDate }    from "../../utils/format";
 import type { User, UserRole } from "../../types/user";
 import type { Shop } from "../../types/shop";
 
 // ── ActionMenu position fixed ──────────────────────────────────────
-interface ActionItem { label: string; icon: string; onClick: () => void; danger?: boolean; }
+interface ActionItem { label: string; icon: React.ReactNode; onClick: () => void; danger?: boolean; }
 function ActionMenu({ items }: { items: ActionItem[] }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos]   = useState({ top: 0, right: 0 });
@@ -48,7 +48,7 @@ function ActionMenu({ items }: { items: ActionItem[] }) {
                 style={{ width: "100%", padding: "10px 14px", display: "flex", alignItems: "center", gap: 10, background: "none", border: "none", cursor: "pointer", fontSize: 13.5, fontFamily: "inherit", textAlign: "left", color: item.danger ? "#DC2626" : "#374151", borderBottom: i < items.length - 1 ? "1px solid #F8FAFC" : "none" }}
                 onMouseEnter={e => (e.currentTarget.style.background = item.danger ? "#FEF2F2" : "#F8FAFC")}
                 onMouseLeave={e => (e.currentTarget.style.background = "none")}>
-                <span style={{ fontSize: 15, width: 20, textAlign: "center" }}>{item.icon}</span>{item.label}
+                <span style={{ width: 20, display: "flex", alignItems: "center", justifyContent: "center" }}>{item.icon}</span>{item.label}
               </button>
             ))}
           </div>
@@ -153,7 +153,7 @@ function UserInfoModal({ userId, baseUser, onClose, onRefresh, onEdit }: {
           <Btn variant="secondary" onClick={onClose}>Fermer</Btn>
           {fullUser && (
             <Btn variant="secondary" onClick={() => { onClose(); onEdit(fullUser); }}>
-              ✏️ Modifier
+              Modifier
             </Btn>
           )}
           <Btn variant={user.is_active ? "danger" : "secondary"} onClick={handleToggle}>
@@ -356,9 +356,9 @@ export default function UserListPage() {
       key: "actions", label: "",
       render: (row: User) => (
         <ActionMenu items={[
-          { icon: "👁️", label: "Voir les infos",    onClick: () => setInfoModal(row)    },
-          { icon: "✏️", label: "Modifier le profil", onClick: () => setEditModal(row)    },
-          { icon: row.is_active ? "⏸️" : "▶️",
+          { icon: <Icon name="eye" size={15} />,  label: "Voir les infos",    onClick: () => setInfoModal(row) },
+          { icon: <Icon name="edit" size={15} />, label: "Modifier le profil", onClick: () => setEditModal(row) },
+          { icon: row.is_active ? <Icon name="xCircle" size={15} /> : <Icon name="checkCircle" size={15} />,
             label: row.is_active ? "Désactiver" : "Activer",
             onClick: () => handleToggle(row),
             danger: row.is_active },
@@ -373,10 +373,10 @@ export default function UserListPage() {
         action={<Btn onClick={() => navigate("/admin/users/create")}>+ Nouvel utilisateur</Btn>} />
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 14, marginBottom: 24 }}>
-        <StatCard label="Super Admins" value={admins}    icon="👑" color="blue"   loading={loading} />
-        <StatCard label="Managers"     value={managers}  icon="👔" color="green"  loading={loading} />
-        <StatCard label="Employés"     value={employees} icon="👥" color="purple" loading={loading} />
-        <StatCard label="Inactifs"     value={inactive}  icon="⏸️" color="red"    loading={loading} />
+        <StatCard label="Super Admins" value={admins}    icon={<Icon name="lock"       size={22} />} color="blue"   loading={loading} />
+        <StatCard label="Managers"     value={managers}  icon={<Icon name="person"     size={22} />} color="green"  loading={loading} />
+        <StatCard label="Employés"     value={employees} icon={<Icon name="users"      size={22} />} color="purple" loading={loading} />
+        <StatCard label="Inactifs"     value={inactive}  icon={<Icon name="xCircle"   size={22} />} color="red"    loading={loading} />
       </div>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>

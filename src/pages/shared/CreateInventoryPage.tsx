@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { inventoryService } from "../../services/inventoryService";
 import { shopService }      from "../../services/shopService";
 import { useAuth }          from "../../context/AuthContext";
-import { PageHeader, Btn }  from "../../components/ui";
+import { PageHeader, Btn, Icon } from "../../components/ui";
 import type { Shop }        from "../../types/shop";
 
 const inputStyle = {
@@ -169,7 +169,7 @@ export default function CreateInventoryPage() {
           borderRadius: 14, padding: 22,
         }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: "#1D4ED8", marginBottom: 16, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-            📋 Workflow inventaire
+            <span style={{ display: "flex", alignItems: "center", gap: 6 }}><Icon name="inventory" size={14} color="#1D4ED8" /> Workflow inventaire</span>
           </div>
           {[
             { step: "1", label: "Créer",           desc: "Définir boutique + date",         active: true  },

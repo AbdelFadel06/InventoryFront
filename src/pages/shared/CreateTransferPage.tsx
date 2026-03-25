@@ -6,7 +6,7 @@ import { shopService }     from "../../services/shopService";
 import { productService }  from "../../services/productService";
 import { stockService }    from "../../services/stockService";
 import { useAuth }         from "../../context/AuthContext";
-import { PageHeader, Btn } from "../../components/ui";
+import { PageHeader, Btn, Icon } from "../../components/ui";
 import type { Shop }    from "../../types/shop";
 import type { Product } from "../../types/product";
 
@@ -209,7 +209,10 @@ export default function CreateTransferPage() {
               marginBottom: 20, fontSize: 13,
               display: "flex", alignItems: "center", gap: 8,
             }}>
-              <span style={{ fontSize: 16 }}>{currentStock === 0 ? "⚠️" : "📦"}</span>
+              {currentStock === 0
+                ? <Icon name="warning" size={16} color="#DC2626" />
+                : <Icon name="package" size={16} color="#15803D" />
+              }
               <span style={{ color: currentStock === 0 ? "#DC2626" : "#15803D", fontWeight: 500 }}>
                 Stock disponible : <strong>{currentStock}</strong> {selectedProduct?.unit ?? ""}
               </span>
@@ -268,8 +271,8 @@ export default function CreateTransferPage() {
                 Résumé du transfert
               </div>
               <div style={{ fontSize: 13.5, color: "#1E40AF", display: "flex", flexDirection: "column", gap: 4 }}>
-                <span>📦 <strong>{form.quantity}</strong> × {selectedProduct?.name}</span>
-                <span>🏪 {shops.find(s => String(s.id) === form.from_shop)?.name} → {shops.find(s => String(s.id) === form.to_shop)?.name}</span>
+                <span style={{ display: "flex", alignItems: "center", gap: 6 }}><Icon name="package" size={14} color="#1D4ED8" /> <strong>{form.quantity}</strong> × {selectedProduct?.name}</span>
+                <span style={{ display: "flex", alignItems: "center", gap: 6 }}><Icon name="store" size={14} color="#1D4ED8" /> {shops.find(s => String(s.id) === form.from_shop)?.name} → {shops.find(s => String(s.id) === form.to_shop)?.name}</span>
               </div>
             </div>
           )}

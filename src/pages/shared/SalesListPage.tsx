@@ -1,8 +1,10 @@
 // src/pages/shared/SalesListPage.tsx
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { PageHeader, Badge, DataTable, StatCard } from "../../components/ui";
+import { PageHeader, Badge, DataTable, StatCard, Icon } from "../../components/ui";
 import { formatDateTime } from "../../utils/format";
+import axiosInstance from "../../api/axiosInstance";
 
 // ── Types ────────────────────────────────────────────────────────
 interface SaleItem {
@@ -35,19 +37,6 @@ interface Sale {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────
-const apiFetch = async (url: string, options?: RequestInit) => {
-  const token = localStorage.getItem("access_token");
-  const res = await fetch(`/api${url}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      ...(options?.headers ?? {}),
-    },
-  });
-  if (!res.ok) throw await res.json().catch(() => ({}));
-  return res.json();
-};
 
 const fmtPrice = (n: number | string) => Number(n).toLocaleString("fr-FR") + " F";
 
@@ -63,8 +52,8 @@ function SaleDetailModal({ saleId, onClose, onRefresh }: {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    apiFetch(`/sales/${saleId}/`)
-      .then(data => setSale(data))
+    axiosInstance.get(`/sales/${saleId}/`)
+      .then(res => setSale(res.data))
       .catch(() => setError("Erreur chargement"))
       .finally(() => setLoading(false));
   }, [saleId]);
@@ -73,11 +62,11 @@ function SaleDetailModal({ saleId, onClose, onRefresh }: {
     if (!confirm("Annuler cette vente ? Le stock sera remis en place.")) return;
     setCancelling(true);
     try {
-      await apiFetch(`/sales/${saleId}/cancel/`, { method: "POST" });
+      await axiosInstance.post(`/sales/${saleId}/cancel/`);
       onRefresh();
       onClose();
     } catch (e: any) {
-      setError(e?.error ?? "Erreur lors de l'annulation.");
+      setError(e?.response?.data?.error ?? "Erreur lors de l'annulation.");
     } finally {
       setCancelling(false);
     }
@@ -149,7 +138,7 @@ function SaleDetailModal({ saleId, onClose, onRefresh }: {
                   { label: "Caissier", value: sale.cashier_name ?? "—" },
                   { label: "Date", value: formatDateTime(sale.created_at) },
                   { label: "Paiement", value: sale.payment_label },
-                  { label: "Statut paiement", value: sale.payment_status === "paid" ? "✅ Payé" : "⏳ En attente" },
+                  { label: "Statut paiement", value: sale.payment_status === "paid" ? <span style={{display:"flex",alignItems:"center",gap:4}}><Icon name="checkCircle" size={13} color="#15803D" /> Payé</span> : <span style={{display:"flex",alignItems:"center",gap:4}}><Icon name="clock" size={13} color="#C2410C" /> En attente</span> },
                   ...(sale.livreur_name ? [{ label: "Livreur", value: sale.livreur_name }] : []),
                   ...(sale.delivery_address ? [{ label: "Adresse", value: sale.delivery_address }] : []),
                 ].map(row => (
@@ -212,7 +201,7 @@ function SaleDetailModal({ saleId, onClose, onRefresh }: {
                   marginTop: 12, padding: "10px 14px",
                   background: "#F8FAFC", borderRadius: 9, fontSize: 13, color: "#64748B",
                 }}>
-                  📝 {sale.notes}
+                  <Icon name="info" size={13} color="#94A3B8" style={{ marginRight: 5 }} />{sale.notes}
                 </div>
               )}
             </>
@@ -235,7 +224,7 @@ function SaleDetailModal({ saleId, onClose, onRefresh }: {
                 fontSize: 13.5, fontWeight: 600, fontFamily: "inherit",
                 border: "1px solid #FECACA",
               }}>
-              {cancelling ? "Annulation..." : "❌ Annuler la vente"}
+              {cancelling ? "Annulation..." : "Annuler la vente"}
             </button>
           )}
         </div>
@@ -247,6 +236,7 @@ function SaleDetailModal({ saleId, onClose, onRefresh }: {
 // ── Page liste des ventes ─────────────────────────────────────────
 export default function SalesListPage() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const today = new Date().toISOString().split("T")[0];
 
   const [sales, setSales] = useState<Sale[]>([]);
@@ -254,14 +244,14 @@ export default function SalesListPage() {
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | "completed" | "cancelled">("all");
   const [filterType, setFilterType] = useState<"all" | "direct" | "delivery">("all");
-  const [selectedDate, setSelectedDate] = useState(today);
+  const [selectedDate, setSelectedDate] = useState(searchParams.get("date") ?? today);
   const [detailSale, setDetailSale] = useState<number | null>(null);
 
   const fetchSales = async () => {
     setLoading(true);
     try {
-      const res = await apiFetch(`/sales/?date=${selectedDate}`);
-      setSales(res.results ?? []);
+      const res = await axiosInstance.get(`/sales/?date=${selectedDate}`);
+      setSales(res.data.results ?? res.data);
     } catch (e) {
       console.error(e);
     } finally {
@@ -303,7 +293,7 @@ export default function SalesListPage() {
       key: "type", label: "Type",
       render: (row: Sale) => (
         <Badge
-          label={row.sale_type === "delivery" ? "🛵 Livraison" : "🏪 Direct"}
+          label={row.sale_type === "delivery" ? "Livraison" : "Direct"}
           color={row.sale_type === "delivery" ? "blue" : "green"}
         />
       ),
@@ -384,10 +374,10 @@ export default function SalesListPage() {
 
       {/* Stats */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 14, marginBottom: 24 }}>
-        <StatCard label="Ventes" value={completed.length} icon="✅" color="green" loading={loading} />
-        <StatCard label="CA du jour" value={fmtPrice(totalCA)} icon="💰" color="blue" loading={loading} />
-        <StatCard label="Non payées" value={pending} icon="⏳" color="orange" loading={loading} />
-        <StatCard label="Annulées" value={cancelled.length} icon="❌" color="red" loading={loading} />
+        <StatCard label="Ventes" value={completed.length} icon={<Icon name="checkCircle" size={22} />} color="green" loading={loading} />
+        <StatCard label="CA du jour" value={fmtPrice(totalCA)} icon={<Icon name="money" size={22} />} color="blue" loading={loading} />
+        <StatCard label="Non payées" value={pending} icon={<Icon name="clock" size={22} />} color="orange" loading={loading} />
+        <StatCard label="Annulées" value={cancelled.length} icon={<Icon name="xCircle" size={22} />} color="red" loading={loading} />
       </div>
 
       {/* Filtres */}
@@ -412,8 +402,8 @@ export default function SalesListPage() {
         <div style={{ width: 1, background: "#E2E8F0", margin: "0 4px" }} />
         {[
           { key: "all", label: "Tous types" },
-          { key: "direct", label: "🏪 Direct" },
-          { key: "delivery", label: "🛵 Livraison" },
+          { key: "direct", label: "Direct" },
+          { key: "delivery", label: "Livraison" },
         ].map(f => (
           <button key={f.key} onClick={() => setFilterType(f.key as any)}
             style={{

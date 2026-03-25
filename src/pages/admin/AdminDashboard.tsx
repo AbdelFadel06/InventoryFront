@@ -5,7 +5,7 @@ import { shopService }    from "../../services/shopService";
 import { userService }    from "../../services/userService";
 import { stockService }   from "../../services/stockService";
 import { inventoryService } from "../../services/inventoryService";
-import { StatCard, PageHeader, Btn, Badge, DataTable } from "../../components/ui";
+import { StatCard, PageHeader, Btn, Badge, DataTable, Icon } from "../../components/ui";
 import type { Inventory } from "../../types/inventory";
 import { formatDate } from "../../utils/format";
 
@@ -151,11 +151,11 @@ export default function AdminDashboard() {
         gap: 16,
         marginBottom: 28,
       }}>
-        <StatCard label="Boutiques actives"    value={stats.shops}     icon="🏪" color="blue"   loading={loading} sub={stats.shopsWithoutManager > 0 ? `${stats.shopsWithoutManager} sans manager` : undefined} />
-        <StatCard label="Managers"             value={stats.managers}  icon="👔" color="purple" loading={loading} />
-        <StatCard label="Employés"             value={stats.employees} icon="👥" color="green"  loading={loading} />
-        <StatCard label="Ruptures de stock"    value={stats.outOfStock} icon="📦" color="red"   loading={loading} sub={stats.outOfStock > 0 ? "À traiter" : "Aucune rupture"} />
-        <StatCard label="Stocks critiques"     value={stats.critical}  icon="⚠️" color="orange" loading={loading} />
+        <StatCard label="Boutiques actives"    value={stats.shops}     icon={<Icon name="store" size={22} />} color="blue"   loading={loading} sub={stats.shopsWithoutManager > 0 ? `${stats.shopsWithoutManager} sans manager` : undefined} />
+        <StatCard label="Managers"             value={stats.managers}  icon={<Icon name="person" size={22} />} color="purple" loading={loading} />
+        <StatCard label="Employés"             value={stats.employees} icon={<Icon name="users" size={22} />} color="green"  loading={loading} />
+        <StatCard label="Ruptures de stock"    value={stats.outOfStock} icon={<Icon name="package" size={22} />} color="red"   loading={loading} sub={stats.outOfStock > 0 ? "À traiter" : "Aucune rupture"} />
+        <StatCard label="Stocks critiques"     value={stats.critical}  icon={<Icon name="warning" size={22} />} color="orange" loading={loading} />
       </div>
 
       {/* Quick actions */}
@@ -165,11 +165,11 @@ export default function AdminDashboard() {
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
           {[
-            { label: "➕ Nouveau produit",    path: "/admin/products/create"   },
-            { label: "📦 Ajouter du stock",   path: "/admin/stocks/add"        },
-            { label: "🏪 Créer une boutique", path: "/admin/shops/create"      },
-            { label: "👤 Créer un employé",   path: "/admin/users/create"      },
-            { label: "📋 Nouvel inventaire",  path: "/admin/inventories/create"},
+            { label: "Nouveau produit",    path: "/admin/products/create"   },
+            { label: "Ajouter du stock",   path: "/admin/stocks/add"        },
+            { label: "Créer une boutique", path: "/admin/shops/create"      },
+            { label: "Créer un employé",   path: "/admin/users/create"      },
+            { label: "Nouvel inventaire",  path: "/admin/inventories/create"},
           ].map(a => (
             <button
               key={a.path}

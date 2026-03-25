@@ -1,10 +1,11 @@
-// src/components/ui/StatCard.tsx
+// src/components/ui/components.tsx
+import { Icon } from "./Icon";
 interface StatCardProps {
   label:    string;
   value:    string | number;
-  icon:     string;        // emoji ou caractère
+  icon:     React.ReactNode;
   color?:   "blue" | "green" | "orange" | "red" | "purple";
-  sub?:     string;        // texte secondaire
+  sub?:     string;
   loading?: boolean;
 }
 
@@ -39,7 +40,7 @@ export function StatCard({ label, value, icon, color = "blue", sub, loading }: S
         width: 44, height: 44, borderRadius: 12,
         background: c.bg, display: "flex",
         alignItems: "center", justifyContent: "center",
-        fontSize: 20, flexShrink: 0,
+        flexShrink: 0, color: c.accent,
       }}>
         {icon}
       </div>
@@ -235,8 +236,9 @@ export function DataTable<T extends { id: number | string }>({
             <div style={{ position: "relative", flex: 1, maxWidth: 280 }}>
               <span style={{
                 position: "absolute", left: 11, top: "50%",
-                transform: "translateY(-50%)", color: "#94A3B8", fontSize: 14,
-              }}>🔍</span>
+                transform: "translateY(-50%)", color: "#94A3B8",
+                display: "flex", alignItems: "center",
+              }}><Icon size={14} name="search" /></span>
               <input
                 value={searchValue ?? ""}
                 onChange={e => onSearch(e.target.value)}

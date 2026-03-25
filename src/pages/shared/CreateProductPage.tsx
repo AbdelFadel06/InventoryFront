@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { productService } from '../../services/productService'
 import { categoryService } from '../../services/categoryService'
 import { useAuth } from '../../context/AuthContext'
-import { PageHeader, Btn } from '../../components/ui'
+import { PageHeader, Btn, Icon } from '../../components/ui'
 import type { Category } from '../../types/category'
 
 // ── Composants locaux ────────────────────────────────────────────
@@ -546,9 +546,17 @@ export default function CreateProductPage() {
                                         color: profit >= 0 ? '#15803D' : '#DC2626',
                                     }}
                                 >
-                                    {profit >= 0
-                                        ? `✅ Marge positive de ${margin}%`
-                                        : `⚠️ Marge négative — prix de vente trop bas`}
+                                    {profit >= 0 ? (
+                                        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                            <Icon name="checkCircle" size={14} color="#15803D" />
+                                            {`Marge positive de ${margin}%`}
+                                        </span>
+                                    ) : (
+                                        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                            <Icon name="warning" size={14} color="#C2410C" />
+                                            Marge négative — prix de vente trop bas
+                                        </span>
+                                    )}
                                 </span>
                             </div>
                         )}
@@ -573,7 +581,9 @@ export default function CreateProductPage() {
                                 letterSpacing: '0.04em',
                             }}
                         >
-                            💡 Conseils
+                            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                <Icon name="info" size={14} color="#3B82F6" /> Conseils
+                            </span>
                         </div>
                         {[
                             'Le SKU sera généré automatiquement si vous le laissez vide.',
