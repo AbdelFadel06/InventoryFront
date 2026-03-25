@@ -34,6 +34,11 @@ const ICONS: Record<string, string> = {
   menu:       "M4 6h16M4 12h16M4 18h16",
   close:      "M18 6L6 18M6 6l12 12",
   bell:       "M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9 M13.73 21a2 2 0 01-3.46 0",
+
+  pos:      "M3 6h18M3 12h18M3 18h18",
+  sessions: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z",
+  report:   "M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
+
 };
 
 type NavItem = { label: string; path: string; icon: string };
@@ -57,6 +62,10 @@ const NAV_ITEMS: Record<UserRole, NavItem[]> = {
     { label: "Mouvements",  path: "/manager/movements",   icon: "movements"  },
     { label: "Inventaires", path: "/manager/inventories", icon: "inventory"  },
     { label: "Équipe",      path: "/manager/users",       icon: "employees"  },
+
+    { label: "Caisse",      path: "/manager/caisse",    icon: "pos"      },
+    { label: "Sessions",    path: "/manager/sessions",  icon: "sessions" },
+    { label: "Rapport",     path: "/manager/rapport",   icon: "report"   },
   ],
   EMPLOYEE: [
     { label: "Dashboard",   path: "/employee",             icon: "dashboard"  },
@@ -64,13 +73,24 @@ const NAV_ITEMS: Record<UserRole, NavItem[]> = {
     { label: "Stocks",      path: "/employee/stocks",      icon: "stocks"     },
     { label: "Inventaires", path: "/employee/inventories", icon: "inventory"  },
     { label: "Mouvements",  path: "/employee/movements",   icon: "movements"  },
+
+    { label: "Caisse",      path: "/employee/caisse",   icon: "pos"      },
+    { label: "Rapport",     path: "/employee/rapport",  icon: "report"   },
   ],
+  LIVREUR: [
+   { label: "Mes livraisons", path: "/livreur", icon: "transfers" },
+ ]
 };
+
+
+
+
 
 const ROLE_LABELS: Record<UserRole, string> = {
   SUPER_ADMIN:  "Super Admin",
   SHOP_MANAGER: "Manager",
   EMPLOYEE:     "Employé",
+  LIVREUR : "Livreur",
 };
 
 function SidebarContent({ collapsed, onNavClick, onLogout }: {

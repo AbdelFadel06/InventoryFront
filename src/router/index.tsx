@@ -30,6 +30,12 @@ import EmployeeInventoryListPage  from "../pages/employee/EmployeeInventoryListP
 import EmployeeInventoryCountPage from "../pages/employee/EmployeeInventoryCountPage";
 import EmployeeMovementsPage      from "../pages/employee/EmployeeMovementsPage";
 
+import CashierSessionPage   from "../pages/manager/CashierSessionPage";
+import CashierPOSPage       from "../pages/cashier/CashierPOSPage";
+import DeliveryDriverPage   from "../pages/delivery/DeliveryDriverPage";
+import DailyReportPage      from "../pages/shared/DailyReportPage";
+
+
 const A = (roles: string[], Page: React.ComponentType<any>, props?: any) => (
   <ProtectedRoute allowedRoles={roles as any}>
     <MainLayout><Page {...props} /></MainLayout>
@@ -64,6 +70,7 @@ export const router = createBrowserRouter([
   { path: "/admin/inventories/create",             element: A(ADMIN, CreateInventoryPage)                   },
   { path: "/admin/inventories/:id",                element: A(ADMIN, InventoryDetailPage)                   },
   { path: "/admin/inventories/:id/discrepancies",  element: A(ADMIN, InventoryDiscrepancyPage)               },
+  { path: "/admin/rapport",      element: A(ADMIN, DailyReportPage)        },
 
   // ── Manager ───────────────────────────────────────────────────────
   { path: "/manager",                              element: A(MANAGER, ManagerDashboard)                        },
@@ -82,6 +89,11 @@ export const router = createBrowserRouter([
   { path: "/manager/inventories/create",           element: A(MANAGER, CreateInventoryPage)                     },
   { path: "/manager/inventories/:id",              element: A(MANAGER, InventoryDetailPage)                     },
   { path: "/manager/inventories/:id/discrepancies",element: A(MANAGER, InventoryDiscrepancyPage)                },
+  { path: "/manager/sessions",   element: A(MANAGER, CashierSessionPage)  },
+  { path: "/manager/caisse",     element: A(MANAGER, CashierPOSPage)       },
+  { path: "/manager/rapport",    element: A(MANAGER, DailyReportPage)      },
+
+
 
   // ── Employee ──────────────────────────────────────────────────────
   { path: "/employee",                             element: A(EMPLOYEE, EmployeeDashboard)          },
@@ -90,4 +102,11 @@ export const router = createBrowserRouter([
   { path: "/employee/inventories",                 element: A(EMPLOYEE, EmployeeInventoryListPage)  },
   { path: "/employee/inventories/:id",             element: A(EMPLOYEE, EmployeeInventoryCountPage) },
   { path: "/employee/movements",                   element: A(EMPLOYEE, EmployeeMovementsPage)      },
+  { path: "/employee/caisse",    element: A(EMPLOYEE, CashierPOSPage)      },
+  { path: "/employee/rapport",   element: A(EMPLOYEE, DailyReportPage)     },
+
+
+
+  { path: "/livreur",            element: A(["LIVREUR"], DeliveryDriverPage) },
 ]);
+

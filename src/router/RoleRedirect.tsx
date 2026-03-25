@@ -11,6 +11,7 @@ export default function RoleRedirect() {
     SUPER_ADMIN:  "/admin",
     SHOP_MANAGER: "/manager",
     EMPLOYEE:     "/employee",
+    LIVREUR:      "/livreur", 
   };
 
   return <Navigate to={redirectMap[user.role]} replace />;

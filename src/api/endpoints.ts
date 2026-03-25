@@ -14,6 +14,7 @@ export const ENDPOINTS = {
     create:        "/users/",
     me:            "/users/me/",
     employees:     "/users/employees/",
+    livreurs:      "/users/livreurs/",
     managers:      "/users/managers/",
     changePassword:"/users/change_password/",
     updateProfile: "/users/update_profile/",

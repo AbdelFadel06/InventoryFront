@@ -36,6 +36,11 @@ export const userService = {
     return data;
   },
 
+  getLivreurs: async (): Promise<User[]> => {
+    const { data } = await api.get(ENDPOINTS.users.livreurs);
+    return data;
+  },
+
   create: async (payload: UserCreate): Promise<User> => {
     const { data } = await api.post(ENDPOINTS.users.create, payload);
     return data;
