@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { Badge, PageHeader, StatCard, Icon } from "../../components/ui";
 import { formatDateTime } from "../../utils/format";
+import api from "../../api/axiosInstance";
 
 // ── Types ────────────────────────────────────────────────────────
 interface SaleItem {
@@ -34,23 +35,6 @@ interface Sale {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────
-const apiFetch = async (url: string, options?: RequestInit) => {
-  const token = localStorage.getItem("access_token");
-  const res = await fetch(`/api${url}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      ...(options?.headers ?? {}),
-    },
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw err;
-  }
-  return res.status === 204 ? null : res.json();
-};
-
 const fmtPrice = (n: number | string) => Number(n).toLocaleString("fr-FR") + " F";
 
 // ── Carte livraison ───────────────────────────────────────────────
@@ -201,9 +185,9 @@ export default function DeliveryDriverPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await apiFetch(`/sales/livreur_point/?date=${selectedDate}`);
-      setDeliveries(res.deliveries ?? []);
-      setSummary(res);
+      const res = await api.get(`/sales/livreur_point/?date=${selectedDate}`);
+      setDeliveries(res.data.deliveries ?? []);
+      setSummary(res.data);
     } catch (e) {
       setError("Erreur lors du chargement des livraisons.");
     } finally {
@@ -216,7 +200,7 @@ export default function DeliveryDriverPage() {
   const handleConfirm = async (id: number) => {
     setConfirming(id);
     try {
-      await apiFetch(`/sales/${id}/mark_delivered/`, { method: "POST" });
+      await api.post(`/sales/${id}/mark_delivered/`);
       await fetchDeliveries();
     } catch {
       setError("Erreur lors de la confirmation.");
