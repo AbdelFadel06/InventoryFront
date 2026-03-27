@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate }         from "react-router-dom";
 import { productService }      from "../../services/productService";
-import { PageHeader, DataTable, Badge } from "../../components/ui";
+import { PageHeader, DataTable, Badge, Icon } from "../../components/ui";
 import type { Product }        from "../../types/product";
 
 const UNIT_LABELS: Record<string, string> = {
@@ -30,9 +30,22 @@ export default function EmployeeProductListPage() {
     {
       key: "name", label: "Produit",
       render: (row: Product) => (
-        <div>
-          <div style={{ fontWeight: 600, color: "#0F172A", fontSize: 13.5 }}>{row.name}</div>
-          <div style={{ fontSize: 11.5, color: "#94A3B8", fontFamily: "monospace" }}>{row.sku}</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {row.primary_image ? (
+            <img src={row.primary_image} style={{ width: 36, height: 36, borderRadius: 9, objectFit: "cover", flexShrink: 0, border: "1px solid #E2E8F0" }} />
+          ) : (
+            <div style={{
+              width: 36, height: 36, borderRadius: 9, flexShrink: 0,
+              background: (row.current_stock ?? 0) === 0 ? "#FEF2F2" : row.is_low_stock ? "#FFF7ED" : "#EFF6FF",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <Icon name="package" size={18} color={(row.current_stock ?? 0) === 0 ? "#DC2626" : row.is_low_stock ? "#D97706" : "#1D4ED8"} />
+            </div>
+          )}
+          <div>
+            <div style={{ fontWeight: 600, color: "#0F172A", fontSize: 13.5 }}>{row.name}</div>
+            <div style={{ fontSize: 11.5, color: "#94A3B8", fontFamily: "monospace" }}>{row.sku}</div>
+          </div>
         </div>
       ),
     },
@@ -109,9 +122,22 @@ export function EmployeeStockListPageContent() {
     {
       key: "product_name", label: "Produit",
       render: (row: any) => (
-        <div>
-          <div style={{ fontWeight: 600, color: "#0F172A", fontSize: 13.5 }}>{row.product_name}</div>
-          <div style={{ fontSize: 11.5, color: "#94A3B8", fontFamily: "monospace" }}>{row.product_sku}</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {row.product_image ? (
+            <img src={row.product_image} style={{ width: 36, height: 36, borderRadius: 9, objectFit: "cover", flexShrink: 0, border: "1px solid #E2E8F0" }} />
+          ) : (
+            <div style={{
+              width: 36, height: 36, borderRadius: 9, flexShrink: 0,
+              background: row.stock_status === "out_of_stock" ? "#FEF2F2" : row.stock_status === "critical" ? "#FFF7ED" : row.stock_status === "low" ? "#FEFCE8" : "#F0FDF4",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <Icon name="package" size={18} />
+            </div>
+          )}
+          <div>
+            <div style={{ fontWeight: 600, color: "#0F172A", fontSize: 13.5 }}>{row.product_name}</div>
+            <div style={{ fontSize: 11.5, color: "#94A3B8", fontFamily: "monospace" }}>{row.product_sku}</div>
+          </div>
         </div>
       ),
     },

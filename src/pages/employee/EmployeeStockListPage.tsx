@@ -1,7 +1,7 @@
 // src/pages/employee/EmployeeStockListPage.tsx
 import { useEffect, useState } from "react";
 import { stockService }        from "../../services/stockService";
-import { PageHeader, Badge, DataTable } from "../../components/ui";
+import { PageHeader, Badge, DataTable, Icon } from "../../components/ui";
 import type { Stock }          from "../../types/stock";
 
 export default function EmployeeStockListPage() {
@@ -28,9 +28,22 @@ export default function EmployeeStockListPage() {
     {
       key: "product_name", label: "Produit",
       render: (row: Stock) => (
-        <div>
-          <div style={{ fontWeight: 600, color: "#0F172A", fontSize: 13.5 }}>{row.product_name}</div>
-          <div style={{ fontSize: 11.5, color: "#94A3B8", fontFamily: "monospace" }}>{row.product_sku}</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {row.product_image ? (
+            <img src={row.product_image} style={{ width: 36, height: 36, borderRadius: 9, objectFit: "cover", flexShrink: 0, border: "1px solid #E2E8F0" }} />
+          ) : (
+            <div style={{
+              width: 36, height: 36, borderRadius: 9, flexShrink: 0,
+              background: row.stock_status === "out_of_stock" ? "#FEF2F2" : row.stock_status === "critical" ? "#FFF7ED" : row.stock_status === "low" ? "#FEFCE8" : "#F0FDF4",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <Icon name="package" size={18} />
+            </div>
+          )}
+          <div>
+            <div style={{ fontWeight: 600, color: "#0F172A", fontSize: 13.5 }}>{row.product_name}</div>
+            <div style={{ fontSize: 11.5, color: "#94A3B8", fontFamily: "monospace" }}>{row.product_sku}</div>
+          </div>
         </div>
       ),
     },
