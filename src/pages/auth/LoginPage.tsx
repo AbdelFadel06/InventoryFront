@@ -415,7 +415,7 @@ export default function LoginPage() {
 
           {/* Footer */}
           <div className="login-footer">
-            © 2026 ShopM — Système de gestion d'inventaire
+            © 2026 ShopM — Gestion commerciale
           </div>
         </div>
 

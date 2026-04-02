@@ -133,7 +133,7 @@ function SidebarContent({ collapsed, onNavClick, onLogout }: {
         {!collapsed && (
           <div>
             <div style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>ShopM</div>
-            <div style={{ color: "#64748B", fontSize: 11 }}>Gestion d'inventaire</div>
+            <div style={{ color: "#64748B", fontSize: 11 }}>Gestion commerciale</div>
           </div>
         )}
       </div>
