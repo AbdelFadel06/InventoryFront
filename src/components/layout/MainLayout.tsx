@@ -23,6 +23,8 @@ const Icon = ({ d, size = 18 }: { d: string; size?: number }) => (
 
 const ICONS: Record<string, string> = {
   dashboard:  "M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z M9 22V12h6v10",
+  warehouse:  "M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z M9 22V12h6v10 M21 15v-3a2 2 0 00-2-2H5a2 2 0 00-2 2v3",
+  arrivage:   "M12 5v14M5 12l7 7 7-7",
   products:   "M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4",
   stocks:     "M3 3h18v18H3zM3 9h18M9 21V9",
   inventory:  "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4",
@@ -80,19 +82,26 @@ const NAV_ITEMS: Record<UserRole, NavItem[]> = {
     { label: "Rapport",     path: "/employee/rapport",  icon: "report"   },
   ],
   LIVREUR: [
-   { label: "Mes livraisons", path: "/livreur", icon: "transfers" },
- ]
+    { label: "Mes livraisons", path: "/livreur", icon: "transfers" },
+  ],
+  MAGASINIER: [
+    { label: "Dashboard",   path: "/magasinier",            icon: "dashboard"  },
+    { label: "Stock magasin", path: "/magasinier/stock",    icon: "stocks"     },
+    { label: "Arrivages",   path: "/magasinier/arrivage",   icon: "arrivage"   },
+    { label: "Transferts",  path: "/magasinier/transferts", icon: "transfers"  },
+  ],
 };
 
 
 
 
 
-const ROLE_LABELS: Record<UserRole, string> = {
+const ROLE_LABELS: Record<string, string> = {
   SUPER_ADMIN:  "Super Admin",
   SHOP_MANAGER: "Manager",
   EMPLOYEE:     "Employé",
-  LIVREUR : "Livreur",
+  LIVREUR:      "Livreur",
+  MAGASINIER:   "Magasinier",
 };
 
 function SidebarContent({ collapsed, onNavClick, onLogout }: {

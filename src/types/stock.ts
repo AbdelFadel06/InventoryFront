@@ -1,5 +1,7 @@
 // src/types/stock.ts
-export type StockStatus = "ok" | "low" | "critical" | "out_of_stock";
+export type StockStatus   = "ok" | "low" | "critical" | "out_of_stock";
+export type StockLocation = "BOUTIQUE" | "MAGASIN";
+export type TransferType  = "inter_shop" | "warehouse";
 
 export type MovementType =
   | "entry" | "exit"
@@ -18,17 +20,20 @@ export interface Stock {
   product_image?: string | null;
   shop: number;
   shop_name?: string;
+  location: StockLocation;
+  location_display?: string;
   quantity: number;
-  stock_status: StockStatus;        // @property Django
+  stock_status: StockStatus;
   is_low_stock: boolean;
   needs_reorder: boolean;
-  stock_value?: string;             // @property Django
+  stock_value?: string;
   last_updated: string;
 }
 
 export interface StockAdjust {
   product: number;
   shop: number;
+  location?: StockLocation;
   new_quantity: number;
   reason: string;
 }
@@ -40,6 +45,8 @@ export interface StockMovement {
   product_name?: string;
   shop: number;
   shop_name?: string;
+  location: StockLocation;
+  location_display?: string;
   movement_type: MovementType;
   quantity: number;
   quantity_before: number;
@@ -56,6 +63,7 @@ export interface StockMovement {
 export interface StockMovementCreate {
   product: number;
   shop: number;
+  location?: StockLocation;
   quantity: number;
   movement_type?: MovementType;
   reference?: string;
@@ -68,6 +76,8 @@ export interface StockMovementCreate {
 export interface StockTransfer {
   id: number;
   reference: string;
+  transfer_type: TransferType;
+  transfer_type_display?: string;
   from_shop: number;
   from_shop_name?: string;
   to_shop: number;
@@ -85,6 +95,7 @@ export interface StockTransfer {
 }
 
 export interface StockTransferCreate {
+  transfer_type?: TransferType;
   from_shop: number;
   to_shop: number;
   product: number;

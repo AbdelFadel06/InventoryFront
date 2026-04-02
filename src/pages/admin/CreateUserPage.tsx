@@ -310,6 +310,7 @@ export default function CreateUserPage() {
                   style={{ ...inputStyle, cursor: "pointer" }} required>
                   <option value="EMPLOYEE">Employé</option>
                   <option value="LIVREUR">Livreur</option>
+                  <option value="MAGASINIER">Magasinier</option>
                   <option value="SHOP_MANAGER">Manager de boutique</option>
                   <option value="SUPER_ADMIN">Super Admin</option>
                 </select>
@@ -318,6 +319,7 @@ export default function CreateUserPage() {
                   style={{ ...inputStyle, cursor: "pointer" }}>
                   <option value="EMPLOYEE">Employé</option>
                   <option value="LIVREUR">Livreur</option>
+                  <option value="MAGASINIER">Magasinier</option>
                 </select>
               )}
             </Field>

@@ -1,6 +1,6 @@
 // src/types/user.ts
 export type Gender = "M" | "F" | "O";
-export type UserRole = "SUPER_ADMIN" | "SHOP_MANAGER" | "EMPLOYEE" | "LIVREUR";
+export type UserRole = "SUPER_ADMIN" | "SHOP_MANAGER" | "EMPLOYEE" | "LIVREUR" | "MAGASINIER";
 
 export interface User {
   id: number;

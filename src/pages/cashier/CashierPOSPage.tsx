@@ -397,7 +397,7 @@ function PaymentModal({
                 }}>
                 <option value="">-- Sélectionner un livreur --</option>
                 {livreurs.map(l => (
-                  <option key={l.id} value={l.id}>{l.first_name} {l.last_name}</option>
+                  <option key={l.id} value={l.id}>{l.full_name || l.first_name + " " + l.last_name}</option>
                 ))}
               </select>
               <input type="text" value={address} onChange={e => setAddress(e.target.value)}

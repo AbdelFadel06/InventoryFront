@@ -10,8 +10,8 @@ import type { PaginatedResponse } from "../types/common";
 
 // ── Stocks ───────────────────────────────────────────────────────
 export const stockService = {
-  getAll: async (): Promise<PaginatedResponse<Stock>> => {
-    const { data } = await api.get(ENDPOINTS.stocks.list);
+  getAll: async (params?: Record<string, any>): Promise<PaginatedResponse<Stock>> => {
+    const { data } = await api.get(ENDPOINTS.stocks.list, { params });
     return data;
   },
 
@@ -33,8 +33,8 @@ export const stockService = {
 
 // ── Stock Movements ──────────────────────────────────────────────
 export const stockMovementService = {
-  getAll: async (): Promise<PaginatedResponse<StockMovement>> => {
-    const { data } = await api.get(ENDPOINTS.stockMovements.list);
+  getAll: async (params?: Record<string, any>): Promise<PaginatedResponse<StockMovement>> => {
+    const { data } = await api.get(ENDPOINTS.stockMovements.list, { params });
     return data;
   },
 
@@ -56,8 +56,8 @@ export const stockMovementService = {
 
 // ── Stock Transfers ──────────────────────────────────────────────
 export const stockTransferService = {
-  getAll: async (): Promise<PaginatedResponse<StockTransfer>> => {
-    const { data } = await api.get(ENDPOINTS.stockTransfers.list);
+  getAll: async (params?: Record<string, any>): Promise<PaginatedResponse<StockTransfer>> => {
+    const { data } = await api.get(ENDPOINTS.stockTransfers.list, { params });
     return data;
   },
 

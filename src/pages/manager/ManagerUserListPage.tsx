@@ -115,7 +115,10 @@ function UserInfoModal({ userId, baseUser, onClose, onToggle }: {
               </div>
               <div style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", marginTop: 2 }}>@{user.username}</div>
               <div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap" }}>
-                <Badge label="Employé" color="purple" />
+                <Badge
+                  label={user.role === "LIVREUR" ? "Livreur" : user.role === "MAGASINIER" ? "Magasinier" : "Employé"}
+                  color={user.role === "LIVREUR" ? "blue" : user.role === "MAGASINIER" ? "orange" : "purple"}
+                />
                 <Badge label={user.is_active ? "Actif" : "Inactif"} color={user.is_active ? "green" : "gray"} />
               </div>
             </div>
@@ -207,6 +210,15 @@ export default function ManagerUserListPage() {
             <div style={{ fontSize: 11.5, color: "#94A3B8" }}>{row.email}</div>
           </div>
         </div>
+      ),
+    },
+    {
+      key: "role", label: "Rôle",
+      render: (row: User) => (
+        <Badge
+          label={row.role === "LIVREUR" ? "Livreur" : row.role === "MAGASINIER" ? "Magasinier" : "Employé"}
+          color={row.role === "LIVREUR" ? "blue" : row.role === "MAGASINIER" ? "orange" : "purple"}
+        />
       ),
     },
     {

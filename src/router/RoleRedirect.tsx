@@ -7,11 +7,12 @@ export default function RoleRedirect() {
 
   if (!user) return null;
 
-  const redirectMap = {
+  const redirectMap: Record<string, string> = {
     SUPER_ADMIN:  "/admin",
     SHOP_MANAGER: "/manager",
     EMPLOYEE:     "/employee",
-    LIVREUR:      "/livreur", 
+    LIVREUR:      "/livreur",
+    MAGASINIER:   "/magasinier",
   };
 
   return <Navigate to={redirectMap[user.role]} replace />;

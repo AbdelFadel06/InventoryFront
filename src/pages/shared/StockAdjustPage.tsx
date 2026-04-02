@@ -41,12 +41,13 @@ export default function StockAdjustPage() {
   const [error, setError]         = useState<string | null>(null);
   const [currentStock, setCurrentStock] = useState<number | null>(null);
 
-  const state = location.state as { product?: number; shop?: number } | null;
+  const state = location.state as { product?: number; shop?: number; location?: string } | null;
 
   const [form, setForm] = useState({
     product:      state?.product ? String(state.product) : "",
     shop:         state?.shop    ? String(state.shop)    :
-                  user?.role === "SHOP_MANAGER" ? String(user?.shop ?? "") : "",
+                  (user?.role === "SHOP_MANAGER" || user?.role === "MAGASINIER") ? String(user?.shop ?? "") : "",
+    loc:          state?.location ?? (user?.role === "MAGASINIER" ? "MAGASIN" : "BOUTIQUE"),
     new_quantity: "",
     reason:       "",
   });
@@ -63,15 +64,15 @@ export default function StockAdjustPage() {
 
   useEffect(() => {
     if (!form.product || !form.shop) { setCurrentStock(null); return; }
-    stockService.getAll({ product: form.product, shop: form.shop })
+    stockService.getAll({ product: form.product, shop: form.shop, location: form.loc })
       .then(res => {
         const stock = (res.results ?? []).find(
-          (s: any) => String(s.product) === form.product && String(s.shop) === form.shop
+          (s: any) => String(s.product) === form.product && String(s.shop) === form.shop && s.location === form.loc
         );
         setCurrentStock(stock ? stock.quantity : 0);
       })
       .catch(() => setCurrentStock(null));
-  }, [form.product, form.shop]);
+  }, [form.product, form.shop, form.loc]);
 
   const newQty      = Number(form.new_quantity);
   const difference  = currentStock !== null && form.new_quantity !== ""
@@ -91,6 +92,7 @@ export default function StockAdjustPage() {
       await stockService.adjust({
         product:      Number(form.product),
         shop:         Number(form.shop),
+        location:     form.loc as any,
         new_quantity: newQty,
         reason:       form.reason,
       });
@@ -148,10 +150,21 @@ export default function StockAdjustPage() {
             </select>
           </Field>
 
+          <Field label="Emplacement" required>
+            <select value={form.loc} onChange={e => setForm(f => ({ ...f, loc: e.target.value }))}
+              disabled={user?.role === "MAGASINIER"}
+              style={{ ...inputStyle, opacity: user?.role === "MAGASINIER" ? 0.7 : 1 }}
+              onFocus={e => (e.target.style.borderColor = "#3B82F6")}
+              onBlur={e  => (e.target.style.borderColor = "#E2E8F0")}>
+              <option value="BOUTIQUE">Boutique</option>
+              <option value="MAGASIN">Magasin</option>
+            </select>
+          </Field>
+
           <Field label="Boutique" required>
             <select value={form.shop} onChange={e => set("shop")(e.target.value)}
-              disabled={user?.role === "SHOP_MANAGER"}
-              style={{ ...inputStyle, opacity: user?.role === "SHOP_MANAGER" ? 0.7 : 1 }}
+              disabled={user?.role === "SHOP_MANAGER" || user?.role === "MAGASINIER"}
+              style={{ ...inputStyle, opacity: (user?.role === "SHOP_MANAGER" || user?.role === "MAGASINIER") ? 0.7 : 1 }}
               onFocus={e => (e.target.style.borderColor = "#3B82F6")}
               onBlur={e  => (e.target.style.borderColor = "#E2E8F0")}>
               <option value="">Sélectionner une boutique</option>

@@ -24,7 +24,8 @@ export default function StockListPage() {
   const [stocks, setStocks]     = useState<Stock[]>([]);
   const [loading, setLoading]   = useState(true);
   const [search, setSearch]     = useState("");
-  const [filterStatus, setFilterStatus] = useState<StockStatus | "all">("all");
+  const [filterStatus,   setFilterStatus]   = useState<StockStatus | "all">("all");
+  const [filterLocation, setFilterLocation] = useState<"BOUTIQUE" | "MAGASIN" | "all">("all");
 
   useEffect(() => {
     stockService.getAll()
@@ -43,8 +44,9 @@ export default function StockListPage() {
       (s.product_name ?? "").toLowerCase().includes(q) ||
       (s.product_sku  ?? "").toLowerCase().includes(q) ||
       (s.shop_name    ?? "").toLowerCase().includes(q);
-    const matchStatus = filterStatus === "all" || s.stock_status === filterStatus;
-    return matchSearch && matchStatus;
+    const matchStatus   = filterStatus   === "all" || s.stock_status === filterStatus;
+    const matchLocation = filterLocation === "all" || s.location === filterLocation;
+    return matchSearch && matchStatus && matchLocation;
   });
 
   const columns = [
@@ -86,6 +88,15 @@ export default function StockListPage() {
         }}>
           {row.shop_name ?? "—"}
         </span>
+      ),
+    },
+    {
+      key: "location", label: "Emplacement",
+      render: (row: Stock) => (
+        <Badge
+          label={row.location === "MAGASIN" ? "Magasin" : "Boutique"}
+          color={row.location === "MAGASIN" ? "blue" : "green"}
+        />
       ),
     },
     {
@@ -175,14 +186,35 @@ export default function StockListPage() {
         <StatCard label="Ruptures"   value={outOfStock}  icon={<Icon name="xCircle" size={22} />}     color="red"    loading={loading} />
       </div>
 
-      {/* Filtres */}
+      {/* Filtres emplacement */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+        {([
+          { key: "all",      label: "Tous emplacements" },
+          { key: "BOUTIQUE", label: "Boutique"          },
+          { key: "MAGASIN",  label: "Magasin"           },
+        ] as const).map(f => (
+          <button key={f.key} onClick={() => setFilterLocation(f.key)}
+            style={{
+              padding: "6px 14px", borderRadius: 20, fontSize: 12.5,
+              fontWeight: filterLocation === f.key ? 600 : 400,
+              background: filterLocation === f.key ? "#1D4ED8" : "#fff",
+              color:      filterLocation === f.key ? "#fff"    : "#64748B",
+              border:     filterLocation === f.key ? "none"    : "1px solid #E2E8F0",
+              cursor: "pointer", transition: "all 0.15s", fontFamily: "inherit",
+            }}>
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Filtres statut */}
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
         {[
-          { key: "all",          label: "Tous"       },
-          { key: "ok",           label: "OK"         },
-          { key: "low",          label: "Stock bas"  },
-          { key: "critical",     label: "Critiques"  },
-          { key: "out_of_stock", label: "Ruptures"   },
+          { key: "all",          label: "Tous statuts" },
+          { key: "ok",           label: "OK"           },
+          { key: "low",          label: "Stock bas"    },
+          { key: "critical",     label: "Critiques"    },
+          { key: "out_of_stock", label: "Ruptures"     },
         ].map(f => (
           <button key={f.key} onClick={() => setFilterStatus(f.key as any)}
             style={{

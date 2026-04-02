@@ -37,6 +37,11 @@ import DeliveryDriverPage   from "../pages/delivery/DeliveryDriverPage";
 import DailyReportPage      from "../pages/shared/DailyReportPage";
 import SalesListPage        from "../pages/shared/SalesListPage";
 
+import WarehouseDashboard    from "../pages/warehouse/WarehouseDashboard";
+import WarehouseStockPage    from "../pages/warehouse/WarehouseStockPage";
+import WarehouseArrivagePage from "../pages/warehouse/WarehouseArrivagePage";
+import WarehouseTransferPage from "../pages/warehouse/WarehouseTransferPage";
+
 
 const A = (roles: string[], Page: React.ComponentType<any>, props?: any) => (
   <ProtectedRoute allowedRoles={roles as any}>
@@ -44,9 +49,10 @@ const A = (roles: string[], Page: React.ComponentType<any>, props?: any) => (
   </ProtectedRoute>
 );
 
-const ADMIN    = ["SUPER_ADMIN"];
-const MANAGER  = ["SHOP_MANAGER"];
-const EMPLOYEE = ["EMPLOYEE"];
+const ADMIN       = ["SUPER_ADMIN"];
+const MANAGER     = ["SHOP_MANAGER"];
+const EMPLOYEE    = ["EMPLOYEE"];
+const MAGASINIER  = ["MAGASINIER"];
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
@@ -113,5 +119,12 @@ export const router = createBrowserRouter([
 
 
   { path: "/livreur",            element: A(["LIVREUR"], DeliveryDriverPage) },
+
+  // ── Magasinier ────────────────────────────────────────────────────
+  { path: "/magasinier",                  element: A(MAGASINIER, WarehouseDashboard)    },
+  { path: "/magasinier/stock",            element: A(MAGASINIER, WarehouseStockPage)    },
+  { path: "/magasinier/arrivage",         element: A(MAGASINIER, WarehouseArrivagePage) },
+  { path: "/magasinier/transferts",       element: A(MAGASINIER, WarehouseTransferPage) },
+  { path: "/magasinier/transferts/new",   element: A(MAGASINIER, WarehouseTransferPage) },
 ]);
 

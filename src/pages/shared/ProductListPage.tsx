@@ -27,7 +27,7 @@ interface ActionItem {
 
 function ActionMenu({ items }: { items: ActionItem[] }) {
   const [open, setOpen] = useState(false);
-  const [pos, setPos]   = useState({ top: 0, right: 0 });
+  const [pos, setPos]   = useState<{ top?: number; bottom?: number; right: number }>({ right: 0 });
   const btnRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -43,7 +43,15 @@ function ActionMenu({ items }: { items: ActionItem[] }) {
     e.stopPropagation();
     if (!open && btnRef.current) {
       const rect = btnRef.current.getBoundingClientRect();
-      setPos({ top: rect.bottom + 6, right: window.innerWidth - rect.right });
+      const dropdownHeight = items.length * 41 + 8; // ~41px par item
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const right = window.innerWidth - rect.right;
+      if (spaceBelow < dropdownHeight + 12) {
+        // Pas assez de place en bas → ouvrir vers le haut
+        setPos({ bottom: window.innerHeight - rect.top + 6, right });
+      } else {
+        setPos({ top: rect.bottom + 6, right });
+      }
     }
     setOpen(o => !o);
   };
@@ -66,7 +74,7 @@ function ActionMenu({ items }: { items: ActionItem[] }) {
           <div onClick={() => setOpen(false)}
             style={{ position: "fixed", inset: 0, zIndex: 998 }} />
           <div style={{
-            position: "fixed", top: pos.top, right: pos.right,
+            position: "fixed", top: pos.top, bottom: pos.bottom, right: pos.right,
             background: "#fff", border: "1px solid #E2E8F0",
             borderRadius: 12, boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
             minWidth: 180, zIndex: 999, overflow: "hidden",
