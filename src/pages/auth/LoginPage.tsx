@@ -365,7 +365,7 @@ export default function LoginPage() {
                 <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
               </svg>
             </div>
-            <span className="login-logo-text">StockFlow</span>
+            <span className="login-logo-text">ShopM</span>
           </div>
 
           {/* Formulaire centré */}
@@ -415,7 +415,7 @@ export default function LoginPage() {
 
           {/* Footer */}
           <div className="login-footer">
-            © 2026 StockFlow — Système de gestion d'inventaire
+            © 2026 ShopM — Système de gestion d'inventaire
           </div>
         </div>
 

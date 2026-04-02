@@ -132,7 +132,7 @@ function SidebarContent({ collapsed, onNavClick, onLogout }: {
         </div>
         {!collapsed && (
           <div>
-            <div style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>StockFlow</div>
+            <div style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>ShopM</div>
             <div style={{ color: "#64748B", fontSize: 11 }}>Gestion d'inventaire</div>
           </div>
         )}
@@ -272,7 +272,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                 <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
               </svg>
             </div>
-            <span style={{ fontWeight: 700, fontSize: 15, color: "#0F172A" }}>StockFlow</span>
+            <span style={{ fontWeight: 700, fontSize: 15, color: "#0F172A" }}>ShopM</span>
           </div>
           <div style={{
             width: 32, height: 32, borderRadius: "50%",
