@@ -164,7 +164,6 @@ export default function CreateProductPage() {
         sku: '',
         category: '',
         unit: 'piece',
-        cost_price: '',
         selling_price: '',
         minimum_stock: '5',
         reorder_level: '10',
@@ -179,13 +178,6 @@ export default function CreateProductPage() {
             setCategories(res.results ?? res)
         })
     }, [])
-
-    // Calculs marge
-    const cost = parseFloat(form.cost_price) || 0
-    const selling = parseFloat(form.selling_price) || 0
-    const margin = cost > 0 ? (((selling - cost) / cost) * 100).toFixed(1) : '—'
-    const profit = selling - cost
-    const marginColor = profit >= 0 ? '#15803D' : '#DC2626'
 
     const handleCreateCategory = async () => {
         if (!newCatName.trim()) return
@@ -233,8 +225,8 @@ export default function CreateProductPage() {
 
     const handleSubmit = async () => {
         setError(null)
-        if (!form.name || !form.cost_price || !form.selling_price) {
-            setError("Nom, prix d'achat et prix de vente sont obligatoires.")
+        if (!form.name || !form.selling_price) {
+            setError("Le nom et le prix de vente sont obligatoires.")
             return
         }
         setLoading(true)
@@ -247,7 +239,6 @@ export default function CreateProductPage() {
                 sku,
                 category: form.category ? Number(form.category) : undefined,
                 unit: form.unit as any,
-                cost_price: parseFloat(form.cost_price),
                 selling_price: parseFloat(form.selling_price),
                 minimum_stock: parseInt(form.minimum_stock) || 5,
                 reorder_level: parseInt(form.reorder_level) || 10,
@@ -511,28 +502,16 @@ export default function CreateProductPage() {
 
                     <SectionTitle>Tarification</SectionTitle>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                        <Field label="Prix d'achat (F CFA)" required>
-                            <Input
-                                type="number"
-                                min="0"
-                                step="1"
-                                value={form.cost_price}
-                                onChange={set('cost_price')}
-                                placeholder="0"
-                            />
-                        </Field>
-                        <Field label="Prix de vente (F CFA)" required>
-                            <Input
-                                type="number"
-                                min="0"
-                                step="1"
-                                value={form.selling_price}
-                                onChange={set('selling_price')}
-                                placeholder="0"
-                            />
-                        </Field>
-                    </div>
+                    <Field label="Prix de vente (F CFA)" required>
+                        <Input
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={form.selling_price}
+                            onChange={set('selling_price')}
+                            placeholder="0"
+                        />
+                    </Field>
 
                     <SectionTitle>Seuils de stock</SectionTitle>
 
@@ -580,105 +559,6 @@ export default function CreateProductPage() {
 
                 {/* ── Panneau latéral ──────────────────────────────── */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                    {/* Aperçu marge */}
-                    <div
-                        style={{
-                            background: '#fff',
-                            border: '1px solid #E2E8F0',
-                            borderRadius: 14,
-                            padding: 22,
-                            boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
-                        }}
-                    >
-                        <div
-                            style={{
-                                fontSize: 12,
-                                fontWeight: 700,
-                                color: '#94A3B8',
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.06em',
-                                marginBottom: 16,
-                            }}
-                        >
-                            Aperçu marges
-                        </div>
-
-                        {[
-                            {
-                                label: "Prix d'achat",
-                                value: cost > 0 ? `${cost.toLocaleString('fr-FR')} F` : '—',
-                                color: '#64748B',
-                            },
-                            {
-                                label: 'Prix de vente',
-                                value: selling > 0 ? `${selling.toLocaleString('fr-FR')} F` : '—',
-                                color: '#0F172A',
-                            },
-                            {
-                                label: 'Bénéfice',
-                                value:
-                                    cost > 0 && selling > 0
-                                        ? `${profit.toLocaleString('fr-FR')} F`
-                                        : '—',
-                                color: marginColor,
-                            },
-                            {
-                                label: 'Marge',
-                                value: cost > 0 && selling > 0 ? `${margin}%` : '—',
-                                color: marginColor,
-                            },
-                        ].map(r => (
-                            <div
-                                key={r.label}
-                                style={{
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                    padding: '8px 0',
-                                    borderBottom: '1px solid #F1F5F9',
-                                }}
-                            >
-                                <span style={{ fontSize: 13, color: '#64748B' }}>{r.label}</span>
-                                <span style={{ fontSize: 14, fontWeight: 600, color: r.color }}>
-                                    {r.value}
-                                </span>
-                            </div>
-                        ))}
-
-                        {cost > 0 && selling > 0 && (
-                            <div
-                                style={{
-                                    marginTop: 14,
-                                    padding: '10px 14px',
-                                    borderRadius: 9,
-                                    background: profit >= 0 ? '#F0FDF4' : '#FEF2F2',
-                                    border: `1px solid ${profit >= 0 ? '#BBF7D0' : '#FECACA'}`,
-                                    textAlign: 'center',
-                                }}
-                            >
-                                <span
-                                    style={{
-                                        fontSize: 13,
-                                        fontWeight: 600,
-                                        color: profit >= 0 ? '#15803D' : '#DC2626',
-                                    }}
-                                >
-                                    {profit >= 0 ? (
-                                        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                            <Icon name="checkCircle" size={14} color="#15803D" />
-                                            {`Marge positive de ${margin}%`}
-                                        </span>
-                                    ) : (
-                                        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                            <Icon name="warning" size={14} color="#C2410C" />
-                                            Marge négative — prix de vente trop bas
-                                        </span>
-                                    )}
-                                </span>
-                            </div>
-                        )}
-                    </div>
-
                     {/* Conseils */}
                     <div
                         style={{

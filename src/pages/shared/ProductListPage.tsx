@@ -164,7 +164,7 @@ export default function ProductListPage() {
   const [modalError, setModalError]   = useState<string | null>(null);
 
   const [editForm, setEditForm] = useState({
-    name: "", description: "", cost_price: "", selling_price: "",
+    name: "", description: "", selling_price: "",
     category: "", unit: "piece", minimum_stock: "", reorder_level: "", barcode: "",
   });
 
@@ -222,7 +222,6 @@ export default function ProductListPage() {
     setEditForm({
       name:          p.name,
       description:   p.description ?? "",
-      cost_price:    String(p.cost_price),
       selling_price: String(p.selling_price),
       category:      p.category ? String(p.category) : "",
       unit:          p.unit,
@@ -246,7 +245,6 @@ export default function ProductListPage() {
       await productService.update(editModal.id, {
         name:          editForm.name,
         description:   editForm.description || undefined,
-        cost_price:    parseFloat(editForm.cost_price),
         selling_price: parseFloat(editForm.selling_price),
         category:      editForm.category ? Number(editForm.category) : undefined,
         unit:          editForm.unit as any,
@@ -451,18 +449,11 @@ export default function ProductListPage() {
             <input value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
               style={iStyle} onFocus={e => (e.target.style.borderColor = "#3B82F6")} onBlur={e => (e.target.style.borderColor = "#E2E8F0")} />
           </Field>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <Field label="Prix d'achat (F)" required>
-              <input type="number" min="0" value={editForm.cost_price}
-                onChange={e => setEditForm(f => ({ ...f, cost_price: e.target.value }))}
-                style={iStyle} onFocus={e => (e.target.style.borderColor = "#3B82F6")} onBlur={e => (e.target.style.borderColor = "#E2E8F0")} />
-            </Field>
-            <Field label="Prix de vente (F)" required>
-              <input type="number" min="0" value={editForm.selling_price}
-                onChange={e => setEditForm(f => ({ ...f, selling_price: e.target.value }))}
-                style={iStyle} onFocus={e => (e.target.style.borderColor = "#3B82F6")} onBlur={e => (e.target.style.borderColor = "#E2E8F0")} />
-            </Field>
-          </div>
+          <Field label="Prix de vente (F)" required>
+            <input type="number" min="0" value={editForm.selling_price}
+              onChange={e => setEditForm(f => ({ ...f, selling_price: e.target.value }))}
+              style={iStyle} onFocus={e => (e.target.style.borderColor = "#3B82F6")} onBlur={e => (e.target.style.borderColor = "#E2E8F0")} />
+          </Field>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <Field label="Catégorie">
               <select value={editForm.category} onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))}

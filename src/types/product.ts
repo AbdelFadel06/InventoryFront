@@ -21,7 +21,6 @@ export interface Product {
   category_name?: string;
   images?: ProductImage[];
   primary_image?: string | null;
-  cost_price: string;
   selling_price: string;
   unit: ProductUnit;
   minimum_stock: number;
@@ -31,8 +30,6 @@ export interface Product {
   is_active: boolean;
   is_low_stock?: boolean;           // @property Django
   current_stock?: number;           // annotated by list view
-  profit_margin?: number;           // @property Django
-  profit_amount?: string;           // @property Django
   created_at: string;
   updated_at: string;
 }
@@ -40,7 +37,6 @@ export interface Product {
 export interface ProductCreate {
   name: string;
   sku: string;
-  cost_price: number;
   selling_price: number;
   unit?: ProductUnit;
   category?: number;

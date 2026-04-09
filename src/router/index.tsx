@@ -1,5 +1,6 @@
 // src/router/index.tsx
-import { createBrowserRouter, Navigate } from "react-router-dom";
+import { createBrowserRouter } from "react-router-dom";
+import NotFoundPage from "../pages/NotFoundPage";
 import { ProtectedRoute } from "./ProtectedRoute";
 import MainLayout from "../components/layout/MainLayout";
 import LoginPage from "../pages/auth/LoginPage";
@@ -57,7 +58,7 @@ const MAGASINIER  = ["MAGASINIER"];
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
   { path: "/",      element: <ProtectedRoute><RoleRedirect /></ProtectedRoute> },
-  { path: "*",      element: <Navigate to="/" replace /> },
+  { path: "*",      element: <NotFoundPage /> },
 
   // ── Admin ─────────────────────────────────────────────────────────
   { path: "/admin",                                element: A(ADMIN, AdminDashboard)                        },

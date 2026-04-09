@@ -28,6 +28,7 @@ interface Product {
   unit: string;
   current_stock: number;
   category_name: string | null;
+  primary_image: string | null;
 }
 
 interface CartItem {
@@ -904,8 +905,8 @@ export default function CashierPOSPage() {
                   <button key={p.id}
                     onMouseDown={() => addToCart(p)}
                     style={{
-                      width: "100%", padding: "11px 14px",
-                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      width: "100%", padding: "8px 12px",
+                      display: "flex", alignItems: "center", gap: 10,
                       background: "none", border: "none", cursor: "pointer",
                       borderBottom: i < searchResults.length - 1 ? "1px solid #F8FAFC" : "none",
                       textAlign: "left",
@@ -913,17 +914,29 @@ export default function CashierPOSPage() {
                     onMouseEnter={e => (e.currentTarget.style.background = "#F8FAFC")}
                     onMouseLeave={e => (e.currentTarget.style.background = "none")}
                   >
-                    <div>
-                      <div style={{ fontSize: 13.5, fontWeight: 600, color: "#0F172A" }}>{p.name}</div>
+                    {/* Miniature */}
+                    <div style={{
+                      width: 40, height: 40, borderRadius: 8, flexShrink: 0, overflow: "hidden",
+                      background: p.primary_image ? "#F8FAFC" : "linear-gradient(135deg, #EFF6FF, #DBEAFE)",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                    }}>
+                      {p.primary_image ? (
+                        <img src={p.primary_image} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      ) : (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#93C5FD" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/>
+                        </svg>
+                      )}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13.5, fontWeight: 600, color: "#0F172A", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
                       <div style={{ fontSize: 11.5, color: "#94A3B8", fontFamily: "monospace" }}>{p.sku}</div>
                     </div>
-                    <div style={{ textAlign: "right" }}>
+                    <div style={{ textAlign: "right", flexShrink: 0 }}>
                       <div style={{ fontSize: 13.5, fontWeight: 700, color: "#1D4ED8" }}>
                         {fmtPrice(parseFloat(p.selling_price))}
                       </div>
-                      <div style={{
-                        fontSize: 11, color: p.current_stock === 0 ? "#DC2626" : "#64748B",
-                      }}>
+                      <div style={{ fontSize: 11, color: p.current_stock === 0 ? "#DC2626" : "#64748B" }}>
                         Stock: {p.current_stock}
                       </div>
                     </div>
@@ -938,15 +951,15 @@ export default function CashierPOSPage() {
             <div style={{ fontSize: 11, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>
               Produits disponibles
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 8 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 8 }}>
               {products.filter(p => p.current_stock > 0).slice(0, 24).map(p => (
                 <button key={p.id}
                   onClick={() => addToCart(p)}
                   style={{
-                    padding: "10px", borderRadius: 10,
+                    padding: 0, borderRadius: 10,
                     border: "1px solid #E2E8F0", background: "#fff",
                     cursor: "pointer", fontFamily: "inherit", textAlign: "left",
-                    transition: "all 0.15s",
+                    transition: "all 0.15s", overflow: "hidden",
                   }}
                   onMouseEnter={e => {
                     e.currentTarget.style.borderColor = "#3B82F6";
@@ -957,14 +970,38 @@ export default function CashierPOSPage() {
                     e.currentTarget.style.boxShadow = "none";
                   }}
                 >
-                  <div style={{ fontSize: 12.5, fontWeight: 600, color: "#0F172A", marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {p.name}
+                  {/* Image */}
+                  <div style={{
+                    width: "100%", height: 90,
+                    background: p.primary_image ? "#F8FAFC" : "linear-gradient(135deg, #EFF6FF, #DBEAFE)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    overflow: "hidden",
+                  }}>
+                    {p.primary_image ? (
+                      <img
+                        src={p.primary_image}
+                        alt={p.name}
+                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                      />
+                    ) : (
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#93C5FD" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="3"/>
+                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                        <path d="m21 15-5-5L5 21"/>
+                      </svg>
+                    )}
                   </div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: "#1D4ED8" }}>
-                    {fmtPrice(parseFloat(p.selling_price))}
-                  </div>
-                  <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 2 }}>
-                    Stock: {p.current_stock}
+                  {/* Infos */}
+                  <div style={{ padding: "8px 10px" }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "#0F172A", marginBottom: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {p.name}
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#1D4ED8" }}>
+                      {fmtPrice(parseFloat(p.selling_price))}
+                    </div>
+                    <div style={{ fontSize: 10.5, color: "#94A3B8", marginTop: 2 }}>
+                      Stock: {p.current_stock}
+                    </div>
                   </div>
                 </button>
               ))}
