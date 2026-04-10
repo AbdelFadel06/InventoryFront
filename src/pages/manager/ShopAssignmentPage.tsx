@@ -8,9 +8,11 @@ import { formatDate } from "../../utils/format";
 import type { Shop, ShopAssignment } from "../../types/shop";
 import type { User } from "../../types/user";
 
-const capitalize = (s?: string) =>
+const capitalize = (s?: string | null) =>
   s?.split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ") ?? "";
-const upperCase = (s?: string) => s?.toUpperCase() ?? "";
+const upperCase = (s?: string | null) => s?.toUpperCase() ?? "";
+const initials2 = (u: { first_name?: string | null; last_name?: string | null; email?: string }) =>
+  `${u.first_name?.[0] ?? ""}${u.last_name?.[0] ?? ""}`.toUpperCase() || u.email?.[0]?.toUpperCase() || "?";
 
 // ── Onglets boutiques ───────────────────────────────────────────────
 function ShopTabs({ shops, active, onChange }: { shops: Shop[]; active: number; onChange: (id: number) => void }) {
@@ -353,7 +355,7 @@ export default function ShopAssignmentPage() {
               {employees.filter(e => e.shop === activeShopId).map(e => (
                 <div key={e.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px solid #F8FAFC" }}>
                   <div style={{ width: 28, height: 28, borderRadius: "50%", background: "linear-gradient(135deg,#8B5CF6,#6D28D9)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
-                    {`${e.first_name[0]}${e.last_name[0]}`.toUpperCase()}
+                    {initials2(e)}
                   </div>
                   <div style={{ fontSize: 12.5, color: "#374151", fontWeight: 500 }}>
                     {capitalize(e.first_name)} {upperCase(e.last_name)}
