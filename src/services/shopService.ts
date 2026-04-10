@@ -1,7 +1,7 @@
 // src/services/shopService.ts
 import api from "../api/axiosInstance";
 import { ENDPOINTS } from "../api/endpoints";
-import type { Shop, ShopCreate, ShopUpdate, ShopStatistics } from "../types/shop";
+import type { Shop, ShopCreate, ShopUpdate, ShopStatistics, ShopAssignment } from "../types/shop";
 import type { User } from "../types/user";
 import type { PaginatedResponse } from "../types/common";
 
@@ -26,8 +26,13 @@ export const shopService = {
     return data;
   },
 
-  getStaff: async (id: number): Promise<{ shop: string; total_staff: number; employees: User[] }> => {
+  getStaff: async (id: number): Promise<{ shop: string; total_staff: number; managers: User[]; employees: User[] }> => {
     const { data } = await api.get(ENDPOINTS.shops.staff(id));
+    return data;
+  },
+
+  getAssignmentHistory: async (id: number): Promise<ShopAssignment[]> => {
+    const { data } = await api.get(`${ENDPOINTS.shops.detail(id)}assignment_history/`);
     return data;
   },
 
@@ -41,8 +46,17 @@ export const shopService = {
     return data;
   },
 
-  assignManager: async (id: number, managerId: number): Promise<Shop> => {
-    const { data } = await api.post(ENDPOINTS.shops.assignManager(id), { manager_id: managerId });
+  assignManager: async (id: number, managerId: number, action: "add" | "remove" = "add"): Promise<Shop> => {
+    const { data } = await api.post(ENDPOINTS.shops.assignManager(id), { manager_id: managerId, action });
+    return data;
+  },
+
+  assignEmployees: async (id: number, userIds: number[], startDate?: string, note?: string): Promise<{ message: string; assigned: string[] }> => {
+    const { data } = await api.post(`${ENDPOINTS.shops.detail(id)}assign_employees/`, {
+      user_ids: userIds,
+      ...(startDate && { start_date: startDate }),
+      ...(note && { note }),
+    });
     return data;
   },
 

@@ -14,8 +14,10 @@ export interface User {
   date_of_birth: string | null;       // ISO date "YYYY-MM-DD"
   profile_picture: string | null;     // URL
   role: UserRole;
-  shop: number | null;                // FK id
-  shop_name?: string;                 // read_only
+  shop: number | null;                // boutique courante (FK id)
+  shop_name?: string;
+  home_shop: number | null;           // boutique de rattachement
+  home_shop_name?: string;
   is_active: boolean;
   created_at: string;
   updated_at: string;
