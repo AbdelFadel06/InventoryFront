@@ -41,7 +41,7 @@ function EmployeeCard({
   user: User; selected: boolean; currentShopId: number; onToggle: () => void;
 }) {
   const isHere = user.shop === currentShopId;
-  const initials = `${user.first_name?.[0] ?? ""}${user.last_name?.[0] ?? ""}`.toUpperCase() || "?";
+  const initials = `${user.first_name?.[0] ?? ""}${user.last_name?.[0] ?? ""}`.toUpperCase() || user.email?.[0]?.toUpperCase() || "?";
 
   return (
     <div onClick={onToggle}
@@ -185,9 +185,9 @@ export default function ShopAssignmentPage() {
   const filtered = employees.filter(e => {
     const q = search.toLowerCase();
     return (
-      e.first_name.toLowerCase().includes(q) ||
-      e.last_name.toLowerCase().includes(q) ||
-      e.email.toLowerCase().includes(q)
+      (e.first_name ?? "").toLowerCase().includes(q) ||
+      (e.last_name  ?? "").toLowerCase().includes(q) ||
+      (e.email      ?? "").toLowerCase().includes(q)
     );
   });
 
