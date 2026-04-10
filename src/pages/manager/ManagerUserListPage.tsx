@@ -169,8 +169,7 @@ export default function ManagerUserListPage() {
     setLoading(true);
     try {
       const res = await userService.getEmployees();
-      const all = res.results ?? res;
-      setEmployees(all.filter((u: User) => u.shop === user?.shop));
+      setEmployees(res.results ?? res as any);
     } finally {
       setLoading(false);
     }
