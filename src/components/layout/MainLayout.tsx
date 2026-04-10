@@ -63,7 +63,8 @@ const NAV_ITEMS: Record<UserRole, NavItem[]> = {
     { label: "Transferts",  path: "/manager/transfers",   icon: "transfers"  },
     { label: "Mouvements",  path: "/manager/movements",   icon: "movements"  },
     { label: "Inventaires", path: "/manager/inventories", icon: "inventory"  },
-    { label: "Équipe",      path: "/manager/users",       icon: "employees"  },
+    { label: "Équipe",        path: "/manager/users",        icon: "employees" },
+    { label: "Affectations",  path: "/manager/affectations", icon: "calendar"  },
 
     { label: "Caisse",      path: "/manager/caisse",     icon: "pos"      },
     { label: "Sessions",    path: "/manager/sessions",   icon: "sessions" },
