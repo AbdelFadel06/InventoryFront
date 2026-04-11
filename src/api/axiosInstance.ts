@@ -13,6 +13,13 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+
+  // Boutique active pour les managers multi-boutiques
+  const activeShopId = localStorage.getItem("shopm_active_shop_id");
+  if (activeShopId) {
+    config.headers["X-Active-Shop"] = activeShopId;
+  }
+
   return config;
 });
 
