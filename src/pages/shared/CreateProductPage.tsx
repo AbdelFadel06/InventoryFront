@@ -191,9 +191,13 @@ export default function CreateProductPage() {
             setNewCatName('')
             setShowCatModal(false)
         } catch (err: any) {
-            const msg = err?.response?.data?.name?.[0]
-                ?? err?.response?.data?.detail
-                ?? 'Erreur lors de la création de la catégorie.'
+            console.error('Category creation error:', err?.response?.status, JSON.stringify(err?.response?.data))
+            const data = err?.response?.data
+            const msg = data?.name?.[0]
+                ?? data?.detail
+                ?? (typeof data === 'string' ? data : null)
+                ?? (data ? JSON.stringify(data) : null)
+                ?? `Erreur ${err?.response?.status ?? ''} lors de la création.`
             setCatError(msg)
         } finally {
             setCreatingCat(false)
