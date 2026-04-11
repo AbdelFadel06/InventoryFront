@@ -49,7 +49,8 @@ function LivreurDetailModal({
   const [tab, setTab]               = useState<"all" | "unpaid">("unpaid");
 
   useEffect(() => {
-    api.get("/sales/", { params: { sale_type: "delivery", livreur: livreur.livreur_id, date: undefined } })
+    // all=true pour obtenir toutes les livraisons sans filtre de date
+    api.get("/sales/", { params: { sale_type: "delivery", livreur: livreur.livreur_id, all: "true" } })
       .then(r => setDeliveries((r.data.results ?? r.data) as Delivery[]))
       .finally(() => setLoading(false));
   }, [livreur.livreur_id]);
@@ -174,7 +175,7 @@ function LivreurCard({ stat, onOpen }: { stat: LivreurStat; onOpen: () => void }
         <Icon name="chevronRight" size={16} color="#CBD5E1" />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
         <div style={{ background: "#F0FDF4", borderRadius: 8, padding: "8px 12px" }}>
           <div style={{ fontSize: 18, fontWeight: 800, color: "#15803D" }}>{stat.colis_payes}</div>
           <div style={{ fontSize: 11, color: "#16A34A", marginTop: 1 }}>Points payés</div>
@@ -186,6 +187,14 @@ function LivreurCard({ stat, onOpen }: { stat: LivreurStat; onOpen: () => void }
           <div style={{ fontSize: 11, color: stat.colis_non_payes > 0 ? "#B45309" : "#94A3B8", marginTop: 1 }}>Non payés</div>
         </div>
       </div>
+
+      {/* Montant total */}
+      {stat.montant_total > 0 && (
+        <div style={{ background: "#F8FAFC", borderRadius: 8, padding: "8px 12px", marginBottom: 14 }}>
+          <div style={{ fontSize: 11, color: "#94A3B8", marginBottom: 2 }}>Montant total livré</div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: "#0F172A" }}>{fmtPrice(stat.montant_total)}</div>
+        </div>
+      )}
 
       {/* Barre de progression */}
       <div>
