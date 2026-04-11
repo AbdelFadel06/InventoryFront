@@ -376,7 +376,8 @@ export default function CashierSessionPage() {
     // Employés affectés à la boutique active uniquement
     try {
       const empRes = await userService.getEmployees(activeShop ? { shopId: activeShop.id } : undefined);
-      setEmployees((empRes as User[]).filter(e => e.is_active));
+      // Seuls les EMPLOYEE peuvent être caissiers (pas LIVREUR ni MAGASINIER)
+      setEmployees((empRes as User[]).filter(e => e.is_active && e.role === "EMPLOYEE"));
     } catch (e) {
       console.error("Erreur chargement employés :", e);
     }

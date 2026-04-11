@@ -34,6 +34,7 @@ import EmployeeMovementsPage      from "../pages/employee/EmployeeMovementsPage"
 import ShopAssignmentPage   from "../pages/manager/ShopAssignmentPage";
 import CashierSessionPage   from "../pages/manager/CashierSessionPage";
 import SalesHistoryPage     from "../pages/manager/SalesHistoryPage";
+import LivreurListPage      from "../pages/manager/LivreurListPage";
 import CashierPOSPage       from "../pages/cashier/CashierPOSPage";
 import DeliveryDriverPage   from "../pages/delivery/DeliveryDriverPage";
 import DailyReportPage      from "../pages/shared/DailyReportPage";
@@ -105,6 +106,7 @@ export const router = createBrowserRouter([
   { path: "/manager/rapport",    element: A(MANAGER, DailyReportPage)      },
   { path: "/manager/ventes",     element: A(MANAGER, SalesListPage)        },
   { path: "/manager/historique", element: A(MANAGER, SalesHistoryPage)     },
+  { path: "/manager/livreurs",  element: A(MANAGER, LivreurListPage)      },
 
 
 
