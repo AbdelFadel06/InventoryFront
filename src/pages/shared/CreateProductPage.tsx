@@ -158,6 +158,7 @@ export default function CreateProductPage() {
     const [showCatModal, setShowCatModal] = useState(false)
     const [newCatName, setNewCatName] = useState('')
     const [creatingCat, setCreatingCat] = useState(false)
+    const [catError, setCatError] = useState<string | null>(null)
 
     const [form, setForm] = useState({
         name: '',
@@ -182,12 +183,18 @@ export default function CreateProductPage() {
     const handleCreateCategory = async () => {
         if (!newCatName.trim()) return
         setCreatingCat(true)
+        setCatError(null)
         try {
             const cat = await categoryService.create({ name: newCatName.trim() })
             setCategories(prev => [...prev, cat])
             setForm(f => ({ ...f, category: String(cat.id) }))
             setNewCatName('')
             setShowCatModal(false)
+        } catch (err: any) {
+            const msg = err?.response?.data?.name?.[0]
+                ?? err?.response?.data?.detail
+                ?? 'Erreur lors de la création de la catégorie.'
+            setCatError(msg)
         } finally {
             setCreatingCat(false)
         }
@@ -642,10 +649,15 @@ export default function CreateProductPage() {
                         <Field label="Nom de la catégorie" required>
                             <Input
                                 value={newCatName}
-                                onChange={setNewCatName}
+                                onChange={v => { setNewCatName(v); setCatError(null); }}
                                 placeholder="Ex: Mobilier, Électronique..."
                             />
                         </Field>
+                        {catError && (
+                            <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, padding: '8px 12px', fontSize: 13, color: '#DC2626', marginBottom: 8 }}>
+                                {catError}
+                            </div>
+                        )}
                         <div
                             style={{
                                 display: 'flex',
@@ -659,6 +671,7 @@ export default function CreateProductPage() {
                                 onClick={() => {
                                     setShowCatModal(false)
                                     setNewCatName('')
+                                    setCatError(null)
                                 }}
                             >
                                 Annuler
