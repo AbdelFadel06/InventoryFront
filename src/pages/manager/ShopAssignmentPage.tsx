@@ -149,7 +149,7 @@ function HistoryModal({ shopId, shopName, onClose }: { shopId: number; shopName:
 
 // ── Page principale ──────────────────────────────────────────────────
 export default function ShopAssignmentPage() {
-  const { user, activeShop: globalActiveShop } = useAuth();
+  const { activeShop: globalActiveShop } = useAuth();
 
   const [shops, setShops] = useState<Shop[]>([]);
   const [employees, setEmployees] = useState<User[]>([]);
@@ -179,8 +179,7 @@ export default function ShopAssignmentPage() {
       // Initialiser sur la boutique active du sidebar, sinon la première boutique
       const defaultShopId = globalActiveShop?.id ?? myShops[0]?.id ?? null;
       if (defaultShopId) setActiveShopId(defaultShopId);
-      const allEmp = (empRes.results ?? empRes as any) as User[];
-      setEmployees(allEmp.filter((e: User) => e.role === "EMPLOYEE" || e.role === "LIVREUR"));
+      setEmployees((empRes as User[]).filter((e: User) => e.role === "EMPLOYEE" || e.role === "LIVREUR"));
     }).finally(() => setLoading(false));
   }, []);
 
@@ -228,8 +227,7 @@ export default function ShopAssignmentPage() {
       setNote("");
       // Rafraîchir les employés
       const empRes = await userService.getEmployees();
-      const allEmp = (empRes.results ?? empRes as any) as User[];
-      setEmployees(allEmp.filter((e: User) => e.role === "EMPLOYEE" || e.role === "LIVREUR"));
+      setEmployees((empRes as User[]).filter((e: User) => e.role === "EMPLOYEE" || e.role === "LIVREUR"));
     } catch {
       showToast("Erreur lors de l'affectation", false);
     } finally {
@@ -334,17 +332,18 @@ export default function ShopAssignmentPage() {
             />
           </div>
 
-          <Btn
-            onClick={handleAssign}
-            disabled={selected.size === 0 || saving}
-            style={{ width: "100%", marginBottom: 10 }}
-          >
-            {saving
-              ? "Affectation en cours..."
-              : selected.size > 0
-                ? `Affecter ${selected.size} → ${activeShop?.name}`
-                : "Sélectionner des employés"}
-          </Btn>
+          <div style={{ width: "100%", marginBottom: 10 }}>
+            <Btn
+              onClick={handleAssign}
+              disabled={selected.size === 0 || saving}
+            >
+              {saving
+                ? "Affectation en cours..."
+                : selected.size > 0
+                  ? `Affecter ${selected.size} → ${activeShop?.name}`
+                  : "Sélectionner des employés"}
+            </Btn>
+          </div>
 
           <button onClick={() => setShowHistory(true)}
             style={{ width: "100%", padding: "9px 0", borderRadius: 8, border: "1px solid #E2E8F0", background: "#F8FAFC", cursor: "pointer", fontSize: 13, fontFamily: "inherit", color: "#475569", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
@@ -364,7 +363,7 @@ export default function ShopAssignmentPage() {
                     {initials2(e)}
                   </div>
                   <div style={{ fontSize: 12.5, color: "#374151", fontWeight: 500 }}>
-                    {capitalize(e.first_name)} {upperCase(e.last_name)}
+                    {e.full_name ?? `${capitalize(e.first_name)} ${upperCase(e.last_name)}`.trim()}
                   </div>
                 </div>
               ))}
