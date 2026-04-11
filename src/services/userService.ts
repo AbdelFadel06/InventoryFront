@@ -5,11 +5,6 @@ import type { User, UserCreate, UserUpdate, ChangePassword } from "../types/user
 import type { PaginatedResponse } from "../types/common";
 
 export const userService = {
-  create: async (payload: UserCreate & { password_confirm?: string }): Promise<User> => {
-  const { data } = await api.post(ENDPOINTS.users.create, payload);
-  return data;
-},
-
   getAll: async (): Promise<PaginatedResponse<User>> => {
     const { data } = await api.get(ENDPOINTS.users.list);
     return data;
@@ -25,14 +20,22 @@ export const userService = {
     return data;
   },
 
-  // src/services/userService.ts
   getManagers: async (): Promise<User[]> => {
     const { data } = await api.get(ENDPOINTS.users.managers);
     return data;
   },
 
-  getEmployees: async (): Promise<User[]> => {
-    const { data } = await api.get(ENDPOINTS.users.employees);
+  /**
+   * Retourne les employés.
+   * - shopId      : filtre par boutique courante (affectation active) — pour la page Équipe
+   * - homeShopId  : filtre par boutique d'appartenance permanente
+   * - Sans param  : tout le pool (toutes boutiques gérées) — pour la page Affectation
+   */
+  getEmployees: async (options?: { shopId?: number; homeShopId?: number }): Promise<User[]> => {
+    const params: Record<string, number> = {};
+    if (options?.shopId)     params.shop      = options.shopId;
+    if (options?.homeShopId) params.home_shop = options.homeShopId;
+    const { data } = await api.get(ENDPOINTS.users.employees, { params });
     return data;
   },
 
@@ -41,7 +44,7 @@ export const userService = {
     return data;
   },
 
-  create: async (payload: UserCreate): Promise<User> => {
+  create: async (payload: UserCreate & { password_confirm?: string }): Promise<User> => {
     const { data } = await api.post(ENDPOINTS.users.create, payload);
     return data;
   },

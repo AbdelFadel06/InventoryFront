@@ -149,7 +149,7 @@ function HistoryModal({ shopId, shopName, onClose }: { shopId: number; shopName:
 
 // ── Page principale ──────────────────────────────────────────────────
 export default function ShopAssignmentPage() {
-  const { user } = useAuth();
+  const { user, activeShop: globalActiveShop } = useAuth();
 
   const [shops, setShops] = useState<Shop[]>([]);
   const [employees, setEmployees] = useState<User[]>([]);
@@ -176,7 +176,9 @@ export default function ShopAssignmentPage() {
     ]).then(([shopsRes, empRes]) => {
       const myShops = (shopsRes.results ?? shopsRes as any) as Shop[];
       setShops(myShops);
-      if (myShops.length > 0) setActiveShopId(myShops[0].id);
+      // Initialiser sur la boutique active du sidebar, sinon la première boutique
+      const defaultShopId = globalActiveShop?.id ?? myShops[0]?.id ?? null;
+      if (defaultShopId) setActiveShopId(defaultShopId);
       const allEmp = (empRes.results ?? empRes as any) as User[];
       setEmployees(allEmp.filter((e: User) => e.role === "EMPLOYEE" || e.role === "LIVREUR"));
     }).finally(() => setLoading(false));
@@ -337,7 +339,11 @@ export default function ShopAssignmentPage() {
             disabled={selected.size === 0 || saving}
             style={{ width: "100%", marginBottom: 10 }}
           >
-            {saving ? "Affectation..." : `Affecter ${selected.size > 0 ? `(${selected.size})` : ""}`}
+            {saving
+              ? "Affectation en cours..."
+              : selected.size > 0
+                ? `Affecter ${selected.size} → ${activeShop?.name}`
+                : "Sélectionner des employés"}
           </Btn>
 
           <button onClick={() => setShowHistory(true)}

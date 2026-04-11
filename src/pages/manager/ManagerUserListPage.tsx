@@ -158,7 +158,7 @@ function UserInfoModal({ userId, baseUser, onClose, onToggle }: {
 // ── Page principale ─────────────────────────────────────────────────
 export default function ManagerUserListPage() {
   const navigate  = useNavigate();
-  const { user }  = useAuth();
+  const { user, activeShop }  = useAuth();
 
   const [employees, setEmployees]   = useState<User[]>([]);
   const [loading, setLoading]       = useState(true);
@@ -168,14 +168,17 @@ export default function ManagerUserListPage() {
   const fetchEmployees = async () => {
     setLoading(true);
     try {
-      const res = await userService.getEmployees();
+      // Filtre par boutique active si le manager a sélectionné une boutique
+      // Filtre par affectation courante (user.shop) pour la boutique active
+      const res = await userService.getEmployees(activeShop ? { shopId: activeShop.id } : undefined);
       setEmployees(res.results ?? res as any);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchEmployees(); }, []);
+  // Re-fetch quand la boutique active change
+  useEffect(() => { fetchEmployees(); }, [activeShop?.id]);
 
   const handleToggle = async (emp: User) => {
     await userService.toggleActive(emp.id);
@@ -250,7 +253,7 @@ export default function ManagerUserListPage() {
     <div>
       <PageHeader
         title="Mon équipe"
-        subtitle={`Employés de ${user?.shop_name ?? "votre boutique"}`}
+        subtitle={`Employés de ${activeShop?.name ?? user?.shop_name ?? "votre boutique"}`}
         action={<Btn onClick={() => navigate("/manager/users/create")}>+ Nouvel employé</Btn>}
       />
 
