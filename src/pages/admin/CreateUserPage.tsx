@@ -47,7 +47,7 @@ const SectionTitle = ({ children }: { children: React.ReactNode }) => (
 );
 
 export default function CreateUserPage() {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, activeShop } = useAuth();
   const navigate = useNavigate();
 
   const isSuperAdmin = currentUser?.role === "SUPER_ADMIN";
@@ -70,7 +70,7 @@ export default function CreateUserPage() {
     gender:           "" as Gender | "",
     date_of_birth:    "",
     role:             "EMPLOYEE" as UserRole,
-    shop:             isSuperAdmin ? ("" as number | "") : (currentUser?.shop ?? ""),
+    shop:             isSuperAdmin ? ("" as number | "") : (activeShop?.id ?? currentUser?.shop ?? ""),
   });
 
   useEffect(() => {
@@ -148,7 +148,7 @@ export default function CreateUserPage() {
         title={isSuperAdmin ? "Nouvel utilisateur" : "Nouvel employé"}
         subtitle={isSuperAdmin
           ? "Créer un compte Super Admin, Manager ou Employé"
-          : `Boutique : ${currentUser?.shop_name ?? "votre boutique"}`}
+          : `Boutique : ${activeShop?.name ?? currentUser?.shop_name ?? "votre boutique"}`}
         action={
           <Btn variant="secondary" onClick={() => navigate(backPath)}>
             ← Retour
@@ -343,7 +343,7 @@ export default function CreateUserPage() {
                     ))}
                   </select>
                 ) : (
-                  <input value={currentUser?.shop_name ?? ""} disabled style={disabledInputStyle} />
+                  <input value={activeShop?.name ?? currentUser?.shop_name ?? ""} disabled style={disabledInputStyle} />
                 )}
               </Field>
             )}

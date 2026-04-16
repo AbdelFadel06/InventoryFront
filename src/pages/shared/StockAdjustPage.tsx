@@ -163,16 +163,19 @@ export default function StockAdjustPage() {
           </Field>
 
           <Field label="Boutique" required>
-            <select value={form.shop} onChange={e => set("shop")(e.target.value)}
-              disabled={user?.role === "SHOP_MANAGER" || user?.role === "MAGASINIER"}
-              style={{ ...inputStyle, opacity: (user?.role === "SHOP_MANAGER" || user?.role === "MAGASINIER") ? 0.7 : 1 }}
-              onFocus={e => (e.target.style.borderColor = "#3B82F6")}
-              onBlur={e  => (e.target.style.borderColor = "#E2E8F0")}>
-              <option value="">Sélectionner une boutique</option>
-              {shops.filter(s => s.is_active).map(s => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
+            {(user?.role === "SHOP_MANAGER" || user?.role === "MAGASINIER") ? (
+              <input value={activeShop?.name ?? shops.find(s => String(s.id) === form.shop)?.name ?? ""} disabled style={{ ...inputStyle, opacity: 0.7 }} />
+            ) : (
+              <select value={form.shop} onChange={e => set("shop")(e.target.value)}
+                style={inputStyle}
+                onFocus={e => (e.target.style.borderColor = "#3B82F6")}
+                onBlur={e  => (e.target.style.borderColor = "#E2E8F0")}>
+                <option value="">Sélectionner une boutique</option>
+                {shops.filter(s => s.is_active).map(s => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            )}
           </Field>
 
           <Field label="Nouvelle quantité" required
