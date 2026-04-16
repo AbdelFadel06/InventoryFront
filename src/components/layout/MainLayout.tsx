@@ -302,7 +302,7 @@ function SidebarContent({ collapsed, onNavClick, onLogout }: {
 }
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
-  const { user, logout, needsShopSelection, managedShops, setActiveShop, confirmShopSelection } = useAuth();
+  const { user, logout, needsShopSelection, managedShops, setActiveShop, confirmShopSelection, activeShop } = useAuth();
   const navigate  = useNavigate();
   const location  = useLocation();
   const isMobile  = useIsMobile(768);
@@ -393,7 +393,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           </div>
         </header>
 
-        <main style={{ padding: "16px", minHeight: "calc(100vh - 56px)" }}>
+        <main key={activeShop?.id ?? "no-shop"} style={{ padding: "16px", minHeight: "calc(100vh - 56px)" }}>
           {children}
         </main>
       </div>
@@ -456,7 +456,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           </div>
         </header>
 
-        <main style={{ flex: 1, padding: "28px", overflow: "auto" }}>
+        <main key={activeShop?.id ?? "no-shop"} style={{ flex: 1, padding: "28px", overflow: "auto" }}>
           {children}
         </main>
       </div>
