@@ -29,7 +29,7 @@ const Field = ({ label, required, children, hint }: {
 
 export default function CreateInventoryPage() {
   const navigate  = useNavigate();
-  const { user }  = useAuth();
+  const { user, activeShop }  = useAuth();
   const basePath  = user?.role === "SUPER_ADMIN" ? "/admin" : "/manager";
 
   const [shops, setShops]     = useState<Shop[]>([]);
@@ -39,7 +39,7 @@ export default function CreateInventoryPage() {
   const today = new Date().toISOString().split("T")[0];
 
   const [form, setForm] = useState({
-    shop:           user?.role === "SHOP_MANAGER" ? String(user?.shop ?? "") : "",
+    shop:           user?.role === "SHOP_MANAGER" ? String(activeShop?.id ?? user?.shop ?? "") : "",
     inventory_date: today,
     notes:          "",
   });
@@ -114,19 +114,22 @@ export default function CreateInventoryPage() {
           )}
 
           <Field label="Boutique" required>
-            <select
-              value={form.shop}
-              onChange={e => set("shop")(e.target.value)}
-              disabled={user?.role === "SHOP_MANAGER"}
-              style={{ ...inputStyle, opacity: user?.role === "SHOP_MANAGER" ? 0.7 : 1, cursor: user?.role === "SHOP_MANAGER" ? "not-allowed" : "pointer" }}
-              onFocus={e => (e.target.style.borderColor = "#3B82F6")}
-              onBlur={e  => (e.target.style.borderColor = "#E2E8F0")}
-            >
-              <option value="">Sélectionner une boutique</option>
-              {shops.filter(s => s.is_active).map(s => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
+            {user?.role === "SHOP_MANAGER" ? (
+              <input value={activeShop?.name ?? shops.find(s => String(s.id) === form.shop)?.name ?? ""} disabled style={{ ...inputStyle, opacity: 0.7 }} />
+            ) : (
+              <select
+                value={form.shop}
+                onChange={e => set("shop")(e.target.value)}
+                style={{ ...inputStyle, cursor: "pointer" }}
+                onFocus={e => (e.target.style.borderColor = "#3B82F6")}
+                onBlur={e  => (e.target.style.borderColor = "#E2E8F0")}
+              >
+                <option value="">Sélectionner une boutique</option>
+                {shops.filter(s => s.is_active).map(s => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            )}
           </Field>
 
           <Field label="Date de l'inventaire" required hint="Ne peut pas être dans le futur">
