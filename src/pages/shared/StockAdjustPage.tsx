@@ -32,7 +32,7 @@ const Field = ({ label, required, children, hint }: {
 export default function StockAdjustPage() {
   const navigate  = useNavigate();
   const location  = useLocation();
-  const { user }  = useAuth();
+  const { user, activeShop }  = useAuth();
   const basePath  = user?.role === "SUPER_ADMIN" ? "/admin" : "/manager";
 
   const [products, setProducts]   = useState<Product[]>([]);
@@ -46,6 +46,7 @@ export default function StockAdjustPage() {
   const [form, setForm] = useState({
     product:      state?.product ? String(state.product) : "",
     shop:         state?.shop    ? String(state.shop)    :
+                  activeShop    ? String(activeShop.id)  :
                   (user?.role === "SHOP_MANAGER" || user?.role === "MAGASINIER") ? String(user?.shop ?? "") : "",
     loc:          state?.location ?? (user?.role === "MAGASINIER" ? "MAGASIN" : "BOUTIQUE"),
     new_quantity: "",
