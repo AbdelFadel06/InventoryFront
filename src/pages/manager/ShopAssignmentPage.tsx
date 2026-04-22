@@ -15,7 +15,10 @@ const initials2 = (u: { first_name?: string | null; last_name?: string | null; e
   `${u.first_name?.[0] ?? ""}${u.last_name?.[0] ?? ""}`.toUpperCase() || u.email?.[0]?.toUpperCase() || "?";
 
 // ── Onglets boutiques ───────────────────────────────────────────────
-function ShopTabs({ shops, active, onChange }: { shops: Shop[]; active: number; onChange: (id: number) => void }) {
+function ShopTabs({ shops, active, onChange, countByShop }: {
+  shops: Shop[]; active: number; onChange: (id: number) => void;
+  countByShop: Record<number, number>;
+}) {
   return (
     <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
       {shops.map(s => (
@@ -28,7 +31,7 @@ function ShopTabs({ shops, active, onChange }: { shops: Shop[]; active: number; 
           }}>
           {s.name}
           <span style={{ marginLeft: 8, fontSize: 11, opacity: 0.7 }}>
-            {s.total_employees} emp.
+            {countByShop[s.id] ?? 0} emp.
           </span>
         </button>
       ))}
@@ -185,6 +188,11 @@ export default function ShopAssignmentPage() {
 
   const activeShop = shops.find(s => s.id === activeShopId);
 
+  const countByShop: Record<number, number> = {};
+  employees.forEach(e => {
+    if (e.shop) countByShop[e.shop] = (countByShop[e.shop] ?? 0) + 1;
+  });
+
   const filtered = employees.filter(e => {
     const q = search.toLowerCase();
     return (
@@ -259,7 +267,7 @@ export default function ShopAssignmentPage() {
 
       {/* Sélection boutique */}
       {shops.length > 1 && (
-        <ShopTabs shops={shops} active={activeShopId!} onChange={id => { setActiveShopId(id); setSelected(new Set()); }} />
+        <ShopTabs shops={shops} active={activeShopId!} onChange={id => { setActiveShopId(id); setSelected(new Set()); }} countByShop={countByShop} />
       )}
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 20, alignItems: "start" }}>

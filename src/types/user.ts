@@ -43,6 +43,8 @@ export interface UserUpdate {
   gender?: Gender;
   date_of_birth?: string;
   profile_picture?: File;
+  shop?: number | null;
+  role?: UserRole;
 }
 
 export interface ChangePassword {

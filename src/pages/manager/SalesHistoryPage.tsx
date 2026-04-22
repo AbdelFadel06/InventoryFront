@@ -24,7 +24,7 @@ const fmtDate = (iso: string) => {
 };
 
 export default function SalesHistoryPage() {
-  const { user } = useAuth();
+  const { user, activeShop } = useAuth();
   const navigate  = useNavigate();
   const now       = new Date();
 
@@ -78,7 +78,7 @@ export default function SalesHistoryPage() {
     <div>
       <PageHeader
         title="Historique des ventes"
-        subtitle={`${user?.shop_name ?? "Toutes boutiques"}`}
+        subtitle={activeShop?.name ?? user?.shop_name ?? "Toutes boutiques"}
       />
 
       {/* Sélecteur mois */}

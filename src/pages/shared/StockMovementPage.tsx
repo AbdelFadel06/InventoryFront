@@ -34,7 +34,7 @@ const inputStyle = {
 export default function StockMovementPage({ mode }: Props) {
   const navigate  = useNavigate();
   const location  = useLocation();
-  const { user }  = useAuth();
+  const { user, activeShop }  = useAuth();
   const basePath  = user?.role === "SUPER_ADMIN" ? "/admin" : "/manager";
   const isAdd     = mode === "add";
 
@@ -50,7 +50,8 @@ export default function StockMovementPage({ mode }: Props) {
   const [form, setForm] = useState({
     product:       state?.product ? String(state.product) : "",
     shop:          state?.shop    ? String(state.shop)    :
-                   user?.role === "SHOP_MANAGER" ? String(user?.shop ?? "") : "",
+                   user?.role === "SHOP_MANAGER" ? String(activeShop?.id ?? "") : "",
+    location:      "BOUTIQUE",
     quantity:      "",
     movement_type: isAdd ? "entry" : "exit",
     reason:        "",
@@ -107,6 +108,7 @@ export default function StockMovementPage({ mode }: Props) {
       const payload = {
         product:       Number(form.product),
         shop:          Number(form.shop),
+        location:      form.location,
         movement_type: form.movement_type,
         quantity:      qty,
         reason:        form.reason || undefined,
@@ -173,13 +175,26 @@ export default function StockMovementPage({ mode }: Props) {
           </Field>
 
           <Field label="Boutique" required>
-            <select value={form.shop} onChange={e => set("shop")(e.target.value)}
-              disabled={user?.role === "SHOP_MANAGER"}
-              style={{ ...inputStyle, opacity: user?.role === "SHOP_MANAGER" ? 0.7 : 1 }}>
-              <option value="">Sélectionner une boutique</option>
-              {shops.filter(s => s.is_active).map(s => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
+            {user?.role === "SHOP_MANAGER" ? (
+              <input
+                value={activeShop?.name ?? shops.find(s => String(s.id) === form.shop)?.name ?? ""}
+                disabled
+                style={{ ...inputStyle, opacity: 0.7, cursor: "not-allowed" }}
+              />
+            ) : (
+              <select value={form.shop} onChange={e => set("shop")(e.target.value)} style={inputStyle}>
+                <option value="">Sélectionner une boutique</option>
+                {shops.filter(s => s.is_active).map(s => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            )}
+          </Field>
+
+          <Field label="Emplacement" required hint="BOUTIQUE = espace de vente · MAGASIN = entrepôt">
+            <select value={form.location} onChange={e => set("location")(e.target.value)} style={inputStyle}>
+              <option value="BOUTIQUE">Boutique (espace de vente)</option>
+              <option value="MAGASIN">Magasin (entrepôt)</option>
             </select>
           </Field>
 

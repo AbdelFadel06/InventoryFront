@@ -162,6 +162,7 @@ export default function ProductListPage() {
   const [stockModal, setStockModal]   = useState<Product | null>(null);
   const [modalLoading, setModalLoading] = useState(false);
   const [modalError, setModalError]   = useState<string | null>(null);
+  const [fetchingEdit, setFetchingEdit] = useState(false);
 
   const [editForm, setEditForm] = useState({
     name: "", description: "", selling_price: "",
@@ -177,7 +178,7 @@ export default function ProductListPage() {
 
   const [stockForm, setStockForm] = useState({
     shop: isAdmin ? "" : String(user?.shop ?? ""),
-    quantity: "", reason: "",
+    quantity: "", reason: "", location: "BOUTIQUE",
   });
 
   const fetchProducts = async () => {
@@ -218,23 +219,31 @@ export default function ProductListPage() {
 
   // ── Handlers ──────────────────────────────────────────────────────
 
-  const openEdit = (p: Product) => {
-    setEditForm({
-      name:          p.name,
-      description:   p.description ?? "",
-      selling_price: String(p.selling_price),
-      category:      p.category ? String(p.category) : "",
-      unit:          p.unit,
-      minimum_stock: String(p.minimum_stock),
-      reorder_level: String(p.reorder_level),
-      barcode:       p.barcode ?? "",
-    });
-    setEditImages(p.images ?? []);
+  const openEdit = async (p: Product) => {
+    setEditModal(p);
+    setFetchingEdit(true);
+    setModalError(null);
     setEditNewUrls([]);
     setEditRemovedIds([]);
     setEditUploadError(null);
-    setModalError(null);
-    setEditModal(p);
+    try {
+      const full = await productService.getById(p.id);
+      setEditForm({
+        name:          full.name,
+        description:   full.description ?? "",
+        selling_price: String(full.selling_price),
+        category:      full.category ? String(full.category) : "",
+        unit:          full.unit,
+        minimum_stock: String(full.minimum_stock ?? ""),
+        reorder_level: String(full.reorder_level ?? ""),
+        barcode:       full.barcode ?? "",
+      });
+      setEditImages(full.images ?? []);
+    } catch {
+      setModalError("Erreur lors du chargement du produit.");
+    } finally {
+      setFetchingEdit(false);
+    }
   };
 
   const handleEdit = async () => {
@@ -292,7 +301,7 @@ export default function ProductListPage() {
   };
 
   const openStock = (p: Product) => {
-    setStockForm({ shop: isAdmin ? "" : String(user?.shop ?? ""), quantity: "", reason: "" });
+    setStockForm({ shop: isAdmin ? "" : String(user?.shop ?? ""), quantity: "", reason: "", location: "BOUTIQUE" });
     setModalError(null);
     setStockModal(p);
   };
@@ -309,6 +318,7 @@ export default function ProductListPage() {
       await stockMovementService.addStock({
         product:       stockModal.id,
         shop:          Number(stockForm.shop),
+        location:      stockForm.location as "BOUTIQUE" | "MAGASIN",
         movement_type: "entry",
         quantity:      Number(stockForm.quantity),
         reason:        stockForm.reason || undefined,
@@ -440,6 +450,12 @@ export default function ProductListPage() {
       {/* ── Modal Modifier ─────────────────────────────────────── */}
       {editModal && (
         <Modal title={`Modifier — ${editModal.name}`} onClose={() => setEditModal(null)}>
+          {fetchingEdit ? (
+            <div style={{ textAlign: "center", padding: "32px 0", color: "#94A3B8", fontSize: 14 }}>
+              Chargement des données...
+            </div>
+          ) : (
+          <>
           {modalError && (
             <div style={{ background: "#FEF2F2", border: "1px solid #FECACA", color: "#DC2626", borderRadius: 9, padding: "10px 14px", fontSize: 13, marginBottom: 14 }}>
               {modalError}
@@ -560,8 +576,10 @@ export default function ProductListPage() {
 
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 6 }}>
             <Btn variant="secondary" onClick={() => setEditModal(null)}>Annuler</Btn>
-            <Btn onClick={handleEdit} disabled={modalLoading}>{modalLoading ? "Enregistrement..." : "Enregistrer"}</Btn>
+            <Btn onClick={handleEdit} disabled={modalLoading || fetchingEdit}>{modalLoading ? "Enregistrement..." : "Enregistrer"}</Btn>
           </div>
+          </>
+          )}
         </Modal>
       )}
 
@@ -586,6 +604,13 @@ export default function ProductListPage() {
               <Icon name="store" size={14} color="#15803D" /> {user?.shop_name}
             </div>
           )}
+          <Field label="Emplacement" required>
+            <select value={stockForm.location} onChange={e => setStockForm(f => ({ ...f, location: e.target.value }))}
+              style={{ ...iStyle, cursor: "pointer" }}>
+              <option value="BOUTIQUE">Boutique (espace de vente)</option>
+              <option value="MAGASIN">Magasin (entrepôt)</option>
+            </select>
+          </Field>
           <Field label="Quantité à ajouter" required>
             <input type="number" min="1" value={stockForm.quantity}
               onChange={e => setStockForm(f => ({ ...f, quantity: e.target.value }))}

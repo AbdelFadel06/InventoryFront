@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { PageHeader, StatCard, Icon } from "../../components/ui";
+import { PageHeader, StatCard, Icon, DateInput } from "../../components/ui";
 import { formatDate, formatDateTime } from "../../utils/format";
 import axiosInstance from "../../api/axiosInstance";
 
@@ -308,7 +308,7 @@ ${report.expenses.length > 0 ? `
 
 // ── Page principale ───────────────────────────────────────────────
 export default function DailyReportPage() {
-  const { user } = useAuth();
+  const { user, activeShop } = useAuth();
   const [searchParams] = useSearchParams();
   const today = new Date().toISOString().split("T")[0];
 
@@ -319,7 +319,7 @@ export default function DailyReportPage() {
 
   const handlePrint = () => {
     if (!report) return;
-    const shopName = user?.shop_name ?? "Toutes boutiques";
+    const shopName = activeShop?.name ?? user?.shop_name ?? "Toutes boutiques";
     const html = buildPrintHTML(report, shopName, selectedDate);
     // Blob URL → le browser n'affiche pas de titre ni d'URL dans les marges
     const blob = new Blob([html], { type: "text/html;charset=utf-8" });
@@ -351,19 +351,10 @@ export default function DailyReportPage() {
     <div id="print-report">
       <PageHeader
         title="Rapport journalier"
-        subtitle={`${user?.shop_name ?? "Toutes boutiques"} · ${formatDate(selectedDate)}`}
+        subtitle={`${activeShop?.name ?? user?.shop_name ?? "Toutes boutiques"} · ${formatDate(selectedDate)}`}
         action={
           <div className="no-print" style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <input
-              type="date"
-              value={selectedDate}
-              max={today}
-              onChange={e => setSelectedDate(e.target.value)}
-              style={{
-                padding: "8px 12px", border: "1px solid #E2E8F0", borderRadius: 9,
-                fontSize: 13.5, color: "#374151", outline: "none", fontFamily: "inherit",
-              }}
-            />
+            <DateInput value={selectedDate} onChange={setSelectedDate} max={today} />
             <button
               onClick={handlePrint}
               disabled={!report || loading}

@@ -203,9 +203,11 @@ const ROLE_LABELS: Record<string, string> = {
 function SidebarContent({ collapsed, onNavClick, onLogout }: {
   collapsed: boolean; onNavClick?: () => void; onLogout: () => void;
 }) {
-  const { user, activeShop } = useAuth();
+  const { user, activeShop, managedShops } = useAuth();
   if (!user) return null;
-  const navItems  = NAV_ITEMS[user.role] ?? [];
+  const navItems = (NAV_ITEMS[user.role] ?? []).filter(item =>
+    item.path !== "/manager/affectations" || managedShops.length > 1
+  );
   const roleLabel = ROLE_LABELS[user.role];
   const initials  = `${user.first_name?.[0] ?? ""}${user.last_name?.[0] ?? ""}`.toUpperCase() || "?";
 
