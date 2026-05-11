@@ -50,8 +50,9 @@ export default function WarehouseArrivagePage() {
   const set = (k: keyof typeof form) => (v: string) => setForm(f => ({ ...f, [k]: v }));
 
   useEffect(() => {
-    productService.getAll().then(res => setProducts(res.results ?? []));
-  }, []);
+    if (!user?.shop) return;
+    productService.getAll({ shop: user.shop }).then(res => setProducts(res.results ?? []));
+  }, [user?.shop]);
 
   useEffect(() => {
     if (!form.product || !user?.shop) { setCurrentStock(null); return; }

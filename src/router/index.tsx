@@ -31,8 +31,10 @@ import EmployeeInventoryListPage  from "../pages/employee/EmployeeInventoryListP
 import EmployeeInventoryCountPage from "../pages/employee/EmployeeInventoryCountPage";
 import EmployeeMovementsPage      from "../pages/employee/EmployeeMovementsPage";
 
+import ShopAssignmentPage   from "../pages/manager/ShopAssignmentPage";
 import CashierSessionPage   from "../pages/manager/CashierSessionPage";
 import SalesHistoryPage     from "../pages/manager/SalesHistoryPage";
+import LivreurListPage      from "../pages/manager/LivreurListPage";
 import CashierPOSPage       from "../pages/cashier/CashierPOSPage";
 import DeliveryDriverPage   from "../pages/delivery/DeliveryDriverPage";
 import DailyReportPage      from "../pages/shared/DailyReportPage";
@@ -85,6 +87,7 @@ export const router = createBrowserRouter([
   { path: "/manager",                              element: A(MANAGER, ManagerDashboard)                        },
   { path: "/manager/users",                        element: A(MANAGER, ManagerUserListPage)                     },
   { path: "/manager/users/create",                 element: A(MANAGER, CreateUserPage)                          },
+  { path: "/manager/affectations",                 element: A(MANAGER, ShopAssignmentPage)                      },
   { path: "/manager/products",                     element: A(MANAGER, ProductListPage)                         },
   { path: "/manager/products/create",              element: A(MANAGER, CreateProductPage)                       },
   { path: "/manager/stocks",                       element: A(MANAGER, StockListPage)                           },
@@ -103,6 +106,7 @@ export const router = createBrowserRouter([
   { path: "/manager/rapport",    element: A(MANAGER, DailyReportPage)      },
   { path: "/manager/ventes",     element: A(MANAGER, SalesListPage)        },
   { path: "/manager/historique", element: A(MANAGER, SalesHistoryPage)     },
+  { path: "/manager/livreurs",  element: A(MANAGER, LivreurListPage)      },
 
 
 

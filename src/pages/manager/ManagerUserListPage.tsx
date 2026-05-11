@@ -7,6 +7,134 @@ import { PageHeader, Btn, Badge, DataTable, StatCard, Icon } from "../../compone
 import { formatDate }   from "../../utils/format";
 import type { User }    from "../../types/user";
 
+const iStyle = {
+  width: "100%", padding: "9px 12px",
+  border: "1px solid #E2E8F0", borderRadius: 9,
+  fontSize: 13.5, color: "#374151", outline: "none",
+  fontFamily: "inherit", boxSizing: "border-box" as const,
+  background: "#fff",
+};
+const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
+  <div style={{ marginBottom: 14 }}>
+    <label style={{ display: "block", fontSize: 12.5, fontWeight: 600, color: "#374151", marginBottom: 5 }}>{label}</label>
+    {children}
+  </div>
+);
+
+function EditEmployeeModal({ user, onClose, onRefresh }: {
+  user: User; onClose: () => void; onRefresh: () => void;
+}) {
+  const [form, setForm] = useState({
+    first_name:    user.first_name    ?? "",
+    last_name:     user.last_name     ?? "",
+    phone_number:  user.phone_number  ?? "",
+    gender:        user.gender        ?? "",
+    date_of_birth: user.date_of_birth ?? "",
+    role:          user.role,
+  });
+  const [loading,  setLoading]  = useState(false);
+  const [fetching, setFetching] = useState(true);
+  const [error,    setError]    = useState<string | null>(null);
+
+  useEffect(() => {
+    userService.getById(user.id)
+      .then(full => setForm({
+        first_name:    full.first_name    ?? "",
+        last_name:     full.last_name     ?? "",
+        phone_number:  full.phone_number  ?? "",
+        gender:        full.gender        ?? "",
+        date_of_birth: full.date_of_birth ?? "",
+        role:          full.role,
+      }))
+      .finally(() => setFetching(false));
+  }, [user.id]);
+
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+    setForm(f => ({ ...f, [k]: e.target.value }));
+
+  const handleSave = async () => {
+    setLoading(true); setError(null);
+    try {
+      await userService.update(user.id, {
+        first_name:    form.first_name    || undefined,
+        last_name:     form.last_name     || undefined,
+        phone_number:  form.phone_number  || undefined,
+        gender:        form.gender as any || undefined,
+        date_of_birth: form.date_of_birth || undefined,
+        role:          form.role          as any,
+      });
+      onRefresh(); onClose();
+    } catch (e: any) {
+      setError(e?.response?.data?.detail ?? e?.response?.data?.role?.[0] ?? "Erreur lors de la mise à jour.");
+    } finally { setLoading(false); }
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 460, boxShadow: "0 20px 60px rgba(0,0,0,0.2)", maxHeight: "90vh", overflowY: "auto" }}>
+        <div style={{ padding: "20px 24px", borderBottom: "1px solid #F1F5F9", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#0F172A" }}>
+            Modifier — {user.first_name} {user.last_name?.toUpperCase()}
+          </h3>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#94A3B8", fontSize: 22 }}>×</button>
+        </div>
+        <div style={{ padding: "18px 24px" }}>
+          {fetching ? (
+            <div style={{ textAlign: "center", padding: "20px 0", color: "#94A3B8", fontSize: 13 }}>Chargement…</div>
+          ) : (
+            <>
+              {error && (
+                <div style={{ background: "#FEF2F2", border: "1px solid #FECACA", color: "#DC2626", borderRadius: 9, padding: "9px 12px", fontSize: 13, marginBottom: 14 }}>
+                  {error}
+                </div>
+              )}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <Field label="Prénom">
+                  <input value={form.first_name} onChange={set("first_name")} style={iStyle}
+                    onFocus={e => (e.target.style.borderColor = "#3B82F6")} onBlur={e => (e.target.style.borderColor = "#E2E8F0")} />
+                </Field>
+                <Field label="Nom">
+                  <input value={form.last_name} onChange={set("last_name")} style={iStyle}
+                    onFocus={e => (e.target.style.borderColor = "#3B82F6")} onBlur={e => (e.target.style.borderColor = "#E2E8F0")} />
+                </Field>
+              </div>
+              <Field label="Téléphone">
+                <input value={form.phone_number} onChange={set("phone_number")} placeholder="+229..." style={iStyle}
+                  onFocus={e => (e.target.style.borderColor = "#3B82F6")} onBlur={e => (e.target.style.borderColor = "#E2E8F0")} />
+              </Field>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <Field label="Genre">
+                  <select value={form.gender} onChange={set("gender")} style={{ ...iStyle, cursor: "pointer" }}>
+                    <option value="">Non spécifié</option>
+                    <option value="M">Masculin</option>
+                    <option value="F">Féminin</option>
+                    <option value="O">Autre</option>
+                  </select>
+                </Field>
+                <Field label="Date de naissance">
+                  <input type="date" value={form.date_of_birth} onChange={set("date_of_birth")} style={iStyle}
+                    onFocus={e => (e.target.style.borderColor = "#3B82F6")} onBlur={e => (e.target.style.borderColor = "#E2E8F0")} />
+                </Field>
+              </div>
+              <Field label="Rôle">
+                <select value={form.role} onChange={set("role")} style={{ ...iStyle, cursor: "pointer" }}>
+                  <option value="EMPLOYEE">Employé</option>
+                  <option value="LIVREUR">Livreur</option>
+                  <option value="MAGASINIER">Magasinier</option>
+                </select>
+              </Field>
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 6 }}>
+                <Btn variant="secondary" onClick={onClose}>Annuler</Btn>
+                <Btn onClick={handleSave} disabled={loading}>{loading ? "Enregistrement..." : "Enregistrer"}</Btn>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── ActionMenu position fixed ──────────────────────────────────────
 interface ActionItem { label: string; icon: React.ReactNode; onClick: () => void; danger?: boolean; }
 
@@ -158,25 +286,28 @@ function UserInfoModal({ userId, baseUser, onClose, onToggle }: {
 // ── Page principale ─────────────────────────────────────────────────
 export default function ManagerUserListPage() {
   const navigate  = useNavigate();
-  const { user }  = useAuth();
+  const { user, activeShop }  = useAuth();
 
   const [employees, setEmployees]   = useState<User[]>([]);
   const [loading, setLoading]       = useState(true);
   const [search, setSearch]         = useState("");
   const [infoModal, setInfoModal]   = useState<User | null>(null);
+  const [editModal, setEditModal]   = useState<User | null>(null);
 
   const fetchEmployees = async () => {
     setLoading(true);
     try {
-      const res = await userService.getEmployees();
-      const all = res.results ?? res;
-      setEmployees(all.filter((u: User) => u.shop === user?.shop));
+      // Filtre par boutique active si le manager a sélectionné une boutique
+      // Filtre par affectation courante (user.shop) pour la boutique active
+      const res = await userService.getEmployees(activeShop ? { shopId: activeShop.id } : undefined);
+      setEmployees(res.results ?? res as any);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchEmployees(); }, []);
+  // Re-fetch quand la boutique active change
+  useEffect(() => { fetchEmployees(); }, [activeShop?.id]);
 
   const handleToggle = async (emp: User) => {
     await userService.toggleActive(emp.id);
@@ -237,7 +368,8 @@ export default function ManagerUserListPage() {
       key: "actions", label: "",
       render: (row: User) => (
         <ActionMenu items={[
-          { icon: <Icon name="eye" size={15} />, label: "Voir les infos",  onClick: () => setInfoModal(row) },
+          { icon: <Icon name="eye"  size={15} />, label: "Voir les infos", onClick: () => setInfoModal(row) },
+          { icon: <Icon name="edit" size={15} />, label: "Modifier",       onClick: () => setEditModal(row) },
           { icon: row.is_active ? <Icon name="xCircle" size={15} /> : <Icon name="checkCircle" size={15} />,
             label: row.is_active ? "Désactiver" : "Activer",
             onClick: () => handleToggle(row),
@@ -251,7 +383,7 @@ export default function ManagerUserListPage() {
     <div>
       <PageHeader
         title="Mon équipe"
-        subtitle={`Employés de ${user?.shop_name ?? "votre boutique"}`}
+        subtitle={`Employés de ${activeShop?.name ?? user?.shop_name ?? "votre boutique"}`}
         action={<Btn onClick={() => navigate("/manager/users/create")}>+ Nouvel employé</Btn>}
       />
 
@@ -277,6 +409,14 @@ export default function ManagerUserListPage() {
           baseUser={infoModal}
           onClose={() => setInfoModal(null)}
           onToggle={() => handleToggle(infoModal)}
+        />
+      )}
+
+      {editModal && (
+        <EditEmployeeModal
+          user={editModal}
+          onClose={() => setEditModal(null)}
+          onRefresh={fetchEmployees}
         />
       )}
     </div>

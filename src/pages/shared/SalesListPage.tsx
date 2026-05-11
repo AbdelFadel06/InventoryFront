@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { PageHeader, Badge, DataTable, StatCard, Icon } from "../../components/ui";
+import { PageHeader, Badge, DataTable, StatCard, Icon, DateInput } from "../../components/ui";
 import { formatDateTime } from "../../utils/format";
 import axiosInstance from "../../api/axiosInstance";
 
@@ -361,14 +361,7 @@ export default function SalesListPage() {
         title="Ventes"
         subtitle={`Historique des ventes`}
         action={
-          <input type="date" value={selectedDate} max={today}
-            onChange={e => setSelectedDate(e.target.value)}
-            style={{
-              padding: "8px 12px", border: "1px solid #E2E8F0", borderRadius: 9,
-              fontSize: 13.5, color: "#374151", outline: "none", fontFamily: "inherit",
-              background: "#fff",
-            }}
-          />
+          <DateInput value={selectedDate} onChange={setSelectedDate} max={today} />
         }
       />
 

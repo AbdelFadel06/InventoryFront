@@ -170,16 +170,32 @@ function EditUserModal({ user, shops, onClose, onRefresh }: {
   user: User; shops: Shop[]; onClose: () => void; onRefresh: () => void;
 }) {
   const [form, setForm] = useState({
-    first_name:   user.first_name ?? "",
-    last_name:    user.last_name  ?? "",
-    phone_number: user.phone_number ?? "",
-    gender:       user.gender ?? "",
+    first_name:    user.first_name    ?? "",
+    last_name:     user.last_name     ?? "",
+    phone_number:  user.phone_number  ?? "",
+    gender:        user.gender        ?? "",
     date_of_birth: user.date_of_birth ?? "",
-    shop:         user.shop ? String(user.shop) : "",
-    role:         user.role,
+    shop:          user.shop ? String(user.shop) : "",
+    role:          user.role,
   });
-  const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState<string | null>(null);
+  const [loading,  setLoading]  = useState(false);
+  const [fetching, setFetching] = useState(true);
+  const [error,    setError]    = useState<string | null>(null);
+
+  // Charger les données complètes (gender/dob absents du serializer de liste)
+  useEffect(() => {
+    userService.getById(user.id)
+      .then(full => setForm({
+        first_name:    full.first_name    ?? "",
+        last_name:     full.last_name     ?? "",
+        phone_number:  full.phone_number  ?? "",
+        gender:        full.gender        ?? "",
+        date_of_birth: full.date_of_birth ?? "",
+        shop:          full.shop ? String(full.shop) : "",
+        role:          full.role,
+      }))
+      .finally(() => setFetching(false));
+  }, [user.id]);
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm(f => ({ ...f, [k]: e.target.value }));
@@ -218,66 +234,69 @@ function EditUserModal({ user, shops, onClose, onRefresh }: {
         </div>
 
         <div style={{ padding: "20px 28px" }}>
-          {error && (
-            <div style={{ background: "#FEF2F2", border: "1px solid #FECACA", color: "#DC2626", borderRadius: 9, padding: "10px 14px", fontSize: 13, marginBottom: 16 }}>
-              {error}
+          {fetching ? (
+            <div style={{ textAlign: "center", padding: "20px 0", color: "#94A3B8", fontSize: 13 }}>
+              Chargement des données…
             </div>
-          )}
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <Field label="Prénom">
-              <input value={form.first_name} onChange={set("first_name")} style={iStyle}
-                onFocus={e => (e.target.style.borderColor = "#3B82F6")} onBlur={e => (e.target.style.borderColor = "#E2E8F0")} />
-            </Field>
-            <Field label="Nom">
-              <input value={form.last_name} onChange={set("last_name")} style={iStyle}
-                onFocus={e => (e.target.style.borderColor = "#3B82F6")} onBlur={e => (e.target.style.borderColor = "#E2E8F0")} />
-            </Field>
-          </div>
-
-          <Field label="Téléphone">
-            <input value={form.phone_number} onChange={set("phone_number")} placeholder="+229..." style={iStyle}
-              onFocus={e => (e.target.style.borderColor = "#3B82F6")} onBlur={e => (e.target.style.borderColor = "#E2E8F0")} />
-          </Field>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <Field label="Genre">
-              <select value={form.gender} onChange={set("gender")} style={{ ...iStyle, cursor: "pointer" }}>
-                <option value="">Non spécifié</option>
-                <option value="M">Masculin</option>
-                <option value="F">Féminin</option>
-                <option value="O">Autre</option>
-              </select>
-            </Field>
-            <Field label="Date de naissance">
-              <input type="date" value={form.date_of_birth} onChange={set("date_of_birth")} style={iStyle}
-                onFocus={e => (e.target.style.borderColor = "#3B82F6")} onBlur={e => (e.target.style.borderColor = "#E2E8F0")} />
-            </Field>
-          </div>
-
-          <Field label="Rôle">
-            <select value={form.role} onChange={set("role")} style={{ ...iStyle, cursor: "pointer" }}>
-              <option value="EMPLOYEE">Employé</option>
-              <option value="SHOP_MANAGER">Manager</option>
-              <option value="SUPER_ADMIN">Super Admin</option>
-            </select>
-          </Field>
-
-          {form.role !== "SUPER_ADMIN" && (
-            <Field label="Boutique">
-              <select value={form.shop} onChange={set("shop")} style={{ ...iStyle, cursor: "pointer" }}>
-                <option value="">Aucune boutique</option>
-                {shops.filter(s => s.is_active).map(s => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
-            </Field>
+          ) : (
+            <>
+              {error && (
+                <div style={{ background: "#FEF2F2", border: "1px solid #FECACA", color: "#DC2626", borderRadius: 9, padding: "10px 14px", fontSize: 13, marginBottom: 16 }}>
+                  {error}
+                </div>
+              )}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <Field label="Prénom">
+                  <input value={form.first_name} onChange={set("first_name")} style={iStyle}
+                    onFocus={e => (e.target.style.borderColor = "#3B82F6")} onBlur={e => (e.target.style.borderColor = "#E2E8F0")} />
+                </Field>
+                <Field label="Nom">
+                  <input value={form.last_name} onChange={set("last_name")} style={iStyle}
+                    onFocus={e => (e.target.style.borderColor = "#3B82F6")} onBlur={e => (e.target.style.borderColor = "#E2E8F0")} />
+                </Field>
+              </div>
+              <Field label="Téléphone">
+                <input value={form.phone_number} onChange={set("phone_number")} placeholder="+229..." style={iStyle}
+                  onFocus={e => (e.target.style.borderColor = "#3B82F6")} onBlur={e => (e.target.style.borderColor = "#E2E8F0")} />
+              </Field>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <Field label="Genre">
+                  <select value={form.gender} onChange={set("gender")} style={{ ...iStyle, cursor: "pointer" }}>
+                    <option value="">Non spécifié</option>
+                    <option value="M">Masculin</option>
+                    <option value="F">Féminin</option>
+                    <option value="O">Autre</option>
+                  </select>
+                </Field>
+                <Field label="Date de naissance">
+                  <input type="date" value={form.date_of_birth} onChange={set("date_of_birth")} style={iStyle}
+                    onFocus={e => (e.target.style.borderColor = "#3B82F6")} onBlur={e => (e.target.style.borderColor = "#E2E8F0")} />
+                </Field>
+              </div>
+              <Field label="Rôle">
+                <select value={form.role} onChange={set("role")} style={{ ...iStyle, cursor: "pointer" }}>
+                  <option value="EMPLOYEE">Employé</option>
+                  <option value="SHOP_MANAGER">Manager</option>
+                  <option value="SUPER_ADMIN">Super Admin</option>
+                </select>
+              </Field>
+              {form.role !== "SUPER_ADMIN" && (
+                <Field label="Boutique">
+                  <select value={form.shop} onChange={set("shop")} style={{ ...iStyle, cursor: "pointer" }}>
+                    <option value="">Aucune boutique</option>
+                    {shops.filter(s => s.is_active).map(s => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                </Field>
+              )}
+            </>
           )}
         </div>
 
         <div style={{ padding: "0 28px 24px", display: "flex", gap: 10, justifyContent: "flex-end" }}>
           <Btn variant="secondary" onClick={onClose}>Annuler</Btn>
-          <Btn onClick={handleSave} disabled={loading}>
+          <Btn onClick={handleSave} disabled={loading || fetching}>
             {loading ? "Enregistrement..." : "Enregistrer"}
           </Btn>
         </div>

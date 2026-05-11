@@ -5,13 +5,14 @@ export interface Shop {
   slogan: string | null;
   logo: string | null;
   ifu: string | null;
-  phone_number?: string ;
+  phone_number?: string;
   email: string | null;
   address: string | null;
   city: string | null;
   country: string;
-  manager: number | null;
-  manager_details: ShopManagerDetails | null;  // ← champ réel
+  managers: number[];
+  managers_details: ShopManagerDetails[];
+  managers_names: string[];
   employees: ShopEmployee[];
   is_active: boolean;
   total_employees: number;
@@ -20,6 +21,21 @@ export interface Shop {
   updated_at: string;
   created_by: number | null;
   created_by_name: string | null;
+}
+
+export interface ShopAssignment {
+  id: number;
+  user: number;
+  user_name: string;
+  shop: number;
+  shop_name: string;
+  start_date: string;
+  end_date: string | null;
+  is_active: boolean;
+  assigned_by: number | null;
+  assigned_by_name: string | null;
+  note: string | null;
+  created_at: string;
 }
 
 export interface ShopCreate {

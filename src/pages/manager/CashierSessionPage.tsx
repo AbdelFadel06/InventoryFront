@@ -360,7 +360,7 @@ function SessionDetailModal({ session, onClose, onRefresh }: {
 
 // ── Page principale ────────────────────────────────────────────────
 export default function CashierSessionPage() {
-  const { user } = useAuth();
+  const { user, activeShop } = useAuth();
 
   const [sessions, setSessions] = useState<CashierSession[]>([]);
   const [employees, setEmployees] = useState<User[]>([]);
@@ -373,11 +373,11 @@ export default function CashierSessionPage() {
   const fetchData = async () => {
     setLoading(true);
 
-    // Employés — indépendant des sessions
+    // Employés affectés à la boutique active uniquement
     try {
-      const empRes = await userService.getEmployees();
-      const empData: User[] = (empRes as any).results ?? empRes;
-      setEmployees(empData.filter(e => e.is_active));
+      const empRes = await userService.getEmployees(activeShop ? { shopId: activeShop.id } : undefined);
+      // Seuls les EMPLOYEE peuvent être caissiers (pas LIVREUR ni MAGASINIER)
+      setEmployees((empRes as User[]).filter(e => e.is_active && e.role === "EMPLOYEE"));
     } catch (e) {
       console.error("Erreur chargement employés :", e);
     }
@@ -394,7 +394,7 @@ export default function CashierSessionPage() {
     setLoading(false);
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { fetchData(); }, [activeShop?.id]);
 
   const active   = sessions.filter(s => s.status === "active").length;
   const closed   = sessions.filter(s => s.status === "closed").length;
@@ -590,7 +590,7 @@ export default function CashierSessionPage() {
       {showCreate && (
         <CreateSessionModal
           employees={employees}
-          shopId={user?.shop ?? 0}
+          shopId={activeShop?.id ?? user?.shop ?? 0}
           onClose={() => setShowCreate(false)}
           onCreated={fetchData}
         />

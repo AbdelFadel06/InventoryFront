@@ -1,7 +1,7 @@
 // src/pages/delivery/DeliveryDriverPage.tsx
 import { useEffect, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
-import { Badge, PageHeader, StatCard, Icon } from "../../components/ui";
+import { Badge, PageHeader, StatCard, Icon, DateInput } from "../../components/ui";
 import { formatDateTime } from "../../utils/format";
 import api from "../../api/axiosInstance";
 
@@ -224,16 +224,7 @@ export default function DeliveryDriverPage() {
         title="Mes livraisons"
         subtitle={`${user?.first_name} ${user?.last_name} · ${user?.shop_name ?? ""}`}
         action={
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={e => setSelectedDate(e.target.value)}
-            style={{
-              padding: "8px 12px", border: "1px solid #E2E8F0", borderRadius: 9,
-              fontSize: 13.5, color: "#374151", outline: "none", fontFamily: "inherit",
-              background: "#fff",
-            }}
-          />
+          <DateInput value={selectedDate} onChange={setSelectedDate} />
         }
       />
 

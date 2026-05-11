@@ -270,8 +270,9 @@ function PaymentModal({
   const total = cart.reduce((s, i) => s + i.total_price, 0);
   const [saleType, setSaleType] = useState<"direct" | "delivery">("direct");
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "mobile_money" | "on_delivery">("cash");
-  const [livreur, setLivreur] = useState("");
-  const [address, setAddress] = useState("");
+  const [livreur, setLivreur]       = useState("");
+  const [address, setAddress]       = useState("");
+  const [clientPhone, setClientPhone] = useState("");
   const [notes, setNotes] = useState("");
   const [amountGiven, setAmountGiven] = useState("");
   const [loading, setLoading] = useState(false);
@@ -292,6 +293,7 @@ function PaymentModal({
         payment_method: paymentMethod,
         livreur: saleType === "delivery" ? Number(livreur) : undefined,
         delivery_address: address || undefined,
+        client_phone: saleType === "delivery" ? (clientPhone || undefined) : undefined,
         notes: notes || undefined,
         items: cart.map(item => ({
           product: item.product.id,
@@ -403,6 +405,13 @@ function PaymentModal({
               </select>
               <input type="text" value={address} onChange={e => setAddress(e.target.value)}
                 placeholder="Adresse de livraison..."
+                style={{
+                  width: "100%", padding: "10px 12px", border: "1px solid #E2E8F0",
+                  borderRadius: 9, fontSize: 13.5, color: "#374151", outline: "none",
+                  fontFamily: "inherit", boxSizing: "border-box", marginBottom: 10,
+                }} />
+              <input type="tel" value={clientPhone} onChange={e => setClientPhone(e.target.value)}
+                placeholder="Téléphone du client (optionnel)..."
                 style={{
                   width: "100%", padding: "10px 12px", border: "1px solid #E2E8F0",
                   borderRadius: 9, fontSize: 13.5, color: "#374151", outline: "none",

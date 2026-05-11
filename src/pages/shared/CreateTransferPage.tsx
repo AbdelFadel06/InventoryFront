@@ -47,7 +47,7 @@ const Select = ({
 
 export default function CreateTransferPage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, activeShop } = useAuth();
   const basePath = user?.role === "SUPER_ADMIN" ? "/admin" : "/manager";
 
   const [shops, setShops]       = useState<Shop[]>([]);
@@ -57,7 +57,7 @@ export default function CreateTransferPage() {
   const [currentStock, setCurrentStock] = useState<number | null>(null);
 
   const [form, setForm] = useState({
-    from_shop: user?.role === "SHOP_MANAGER" ? String(user?.shop_id ?? "") : "",
+    from_shop: user?.role === "SHOP_MANAGER" ? String(activeShop?.id ?? "") : "",
     to_shop:   "",
     product:   "",
     quantity:  "",
@@ -166,16 +166,16 @@ export default function CreateTransferPage() {
 
           {/* Boutique source */}
           <Field label="Boutique source *">
-            <Select
-              value={form.from_shop}
-              onChange={set("from_shop")}
-              disabled={isManager}
-            >
-              <option value="">Sélectionner la boutique source</option>
-              {shops.filter(s => s.is_active).map(s => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </Select>
+            {isManager ? (
+              <input value={activeShop?.name ?? shops.find(s => String(s.id) === form.from_shop)?.name ?? ""} disabled style={{ width: "100%", padding: "10px 12px", border: "1px solid #E2E8F0", borderRadius: 9, fontSize: 13.5, color: "#374151", background: "#F8FAFC", opacity: 0.8, boxSizing: "border-box" as const }} />
+            ) : (
+              <Select value={form.from_shop} onChange={set("from_shop")}>
+                <option value="">Sélectionner la boutique source</option>
+                {shops.filter(s => s.is_active).map(s => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </Select>
+            )}
           </Field>
 
           {/* Boutique destination */}

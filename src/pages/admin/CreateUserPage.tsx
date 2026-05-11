@@ -47,7 +47,7 @@ const SectionTitle = ({ children }: { children: React.ReactNode }) => (
 );
 
 export default function CreateUserPage() {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, activeShop } = useAuth();
   const navigate = useNavigate();
 
   const isSuperAdmin = currentUser?.role === "SUPER_ADMIN";
@@ -70,7 +70,7 @@ export default function CreateUserPage() {
     gender:           "" as Gender | "",
     date_of_birth:    "",
     role:             "EMPLOYEE" as UserRole,
-    shop:             isSuperAdmin ? ("" as number | "") : (currentUser?.shop ?? ""),
+    shop:             isSuperAdmin ? ("" as number | "") : (activeShop?.id ?? currentUser?.shop ?? ""),
   });
 
   useEffect(() => {
@@ -148,7 +148,7 @@ export default function CreateUserPage() {
         title={isSuperAdmin ? "Nouvel utilisateur" : "Nouvel employé"}
         subtitle={isSuperAdmin
           ? "Créer un compte Super Admin, Manager ou Employé"
-          : `Boutique : ${currentUser?.shop_name ?? "votre boutique"}`}
+          : `Boutique : ${activeShop?.name ?? currentUser?.shop_name ?? "votre boutique"}`}
         action={
           <Btn variant="secondary" onClick={() => navigate(backPath)}>
             ← Retour
@@ -253,8 +253,12 @@ export default function CreateUserPage() {
                   onBlur={e  => (e.target.style.borderColor = "#E2E8F0")}
                 />
                 <button type="button" onClick={() => setShowPwd(!showPwd)}
-                  style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#94A3B8", fontSize: 14 }}>
-                  {showPwd ? "●" : "○"}
+                  style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#94A3B8", display: "flex", alignItems: "center" }}>
+                  {showPwd ? (
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                  ) : (
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  )}
                 </button>
               </div>
               {pwdStrength && (
@@ -291,8 +295,12 @@ export default function CreateUserPage() {
                   onBlur={e  => (e.target.style.borderColor = pwdMatch === null ? "#E2E8F0" : pwdMatch ? "#22C55E" : "#EF4444")}
                 />
                 <button type="button" onClick={() => setShowConfirm(!showConfirm)}
-                  style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#94A3B8", fontSize: 14 }}>
-                  {showConfirm ? "●" : "○"}
+                  style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#94A3B8", display: "flex", alignItems: "center" }}>
+                  {showConfirm ? (
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                  ) : (
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  )}
                 </button>
               </div>
               {pwdMatch !== null && (
@@ -335,7 +343,7 @@ export default function CreateUserPage() {
                     ))}
                   </select>
                 ) : (
-                  <input value={currentUser?.shop_name ?? ""} disabled style={disabledInputStyle} />
+                  <input value={activeShop?.name ?? currentUser?.shop_name ?? ""} disabled style={disabledInputStyle} />
                 )}
               </Field>
             )}

@@ -48,6 +48,15 @@ export default function EmployeeStockListPage() {
       ),
     },
     {
+      key: "location", label: "Emplacement",
+      render: (row: Stock) => (
+        <Badge
+          label={row.location === "MAGASIN" ? "Magasin" : "Boutique"}
+          color={row.location === "MAGASIN" ? "blue" : "green"}
+        />
+      ),
+    },
+    {
       key: "quantity", label: "Quantité",
       render: (row: Stock) => {
         const color =
