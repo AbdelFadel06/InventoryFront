@@ -108,7 +108,7 @@ export default function ShopListPage() {
         userService.getManagers(),
       ]);
       setShops(shopsRes.results ?? shopsRes);
-      setManagers(managersRes.results ?? managersRes);
+      setManagers(Array.isArray(managersRes) ? managersRes : managersRes.results ?? []);
     } finally {
       setLoading(false);
     }
@@ -125,7 +125,7 @@ export default function ShopListPage() {
 
   const openAssign = (shop: Shop) => {
     setAssignModal(shop);
-    setSelectedManager(shop.manager ? String(shop.manager) : "");
+    setSelectedManager(shop.managers?.[0] ? String(shop.managers[0]) : "");
     setAssignError(null);
   };
 
@@ -147,14 +147,14 @@ export default function ShopListPage() {
 
   const active   = shops.filter(s => s.is_active).length;
   const inactive = shops.filter(s => !s.is_active).length;
-  const noMgr    = shops.filter(s => !s.manager).length;
+  const noMgr    = shops.filter(s => !s.managers?.length).length;
 
   const filtered = shops.filter(s => {
     const q = search.toLowerCase();
     return (
       s.name.toLowerCase().includes(q) ||
       (s.city ?? "").toLowerCase().includes(q) ||
-      (s.manager_name ?? "").toLowerCase().includes(q)
+      (s.managers_names ?? []).some(n => n.toLowerCase().includes(q))
     );
   });
 
@@ -186,20 +186,22 @@ export default function ShopListPage() {
       ),
     },
     {
-      key: "manager_name", label: "Manager",
-      render: (row: Shop) => row.manager_name ? (
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{
-            width: 28, height: 28, borderRadius: "50%",
-            background: "linear-gradient(135deg, #3B82F6, #1D4ED8)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            color: "#fff", fontSize: 11, fontWeight: 700, flexShrink: 0,
-          }}>
-            {(row.manager_name as string)[0]?.toUpperCase() ?? "?"}
-          </div>
-          <span style={{ fontSize: 13, color: "#374151", fontWeight: 500 }}>
-            {row.manager_name}
-          </span>
+      key: "managers_names", label: "Manager",
+      render: (row: Shop) => row.managers_names?.length ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          {row.managers_names.map((name, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{
+                width: 28, height: 28, borderRadius: "50%",
+                background: "linear-gradient(135deg, #3B82F6, #1D4ED8)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                color: "#fff", fontSize: 11, fontWeight: 700, flexShrink: 0,
+              }}>
+                {name[0]?.toUpperCase() ?? "?"}
+              </div>
+              <span style={{ fontSize: 13, color: "#374151", fontWeight: 500 }}>{name}</span>
+            </div>
+          ))}
         </div>
       ) : (
         <span style={{
@@ -233,7 +235,7 @@ export default function ShopListPage() {
       key: "actions", label: "",
       render: (row: Shop) => (
         <ActionMenu items={[
-          ...(row.manager_name ? [
+          ...(row.managers_names?.length ? [
             {
               icon: <Icon name="person" size={15} />,
               label: "Changer de manager",
@@ -302,7 +304,7 @@ export default function ShopListPage() {
           }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
               <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#0F172A" }}>
-                {assignModal.manager_name ? "Changer le manager" : "Assigner un manager"}
+                {assignModal.managers_names?.length ? "Changer le manager" : "Assigner un manager"}
               </h3>
               <button onClick={() => setAssignModal(null)}
                 style={{ background: "none", border: "none", cursor: "pointer", color: "#94A3B8", fontSize: 22 }}>×</button>
@@ -313,15 +315,15 @@ export default function ShopListPage() {
             </p>
 
             {/* Manager actuel */}
-            {assignModal.manager_name && (
+            {assignModal.managers_names?.length ? (
               <div style={{
                 background: "#F0FDF4", border: "1px solid #BBF7D0",
                 borderRadius: 9, padding: "10px 14px", marginBottom: 16,
                 fontSize: 13, color: "#15803D",
               }}>
-                Manager actuel : <strong>{assignModal.manager_name}</strong>
+                Manager actuel : <strong>{assignModal.managers_names.join(", ")}</strong>
               </div>
-            )}
+            ) : null}
 
             {assignError && (
               <div style={{
@@ -335,7 +337,7 @@ export default function ShopListPage() {
 
             <div style={{ marginBottom: 20 }}>
               <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 6 }}>
-                {assignModal.manager_name ? "Nouveau manager" : "Manager"} *
+                {assignModal.managers_names?.length ? "Nouveau manager" : "Manager"} *
               </label>
               <select
                 value={selectedManager}

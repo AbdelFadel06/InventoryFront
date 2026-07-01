@@ -44,6 +44,8 @@ export const ENDPOINTS = {
     toggleActive:     (id: number) => `/products/${id}/toggle_active/`,
     addImage:         (id: number) => `/products/${id}/add_image/`,
     removeImage:      (id: number, imageId: number) => `/products/${id}/remove_image/${imageId}/`,
+    generateBarcode:  (id: number) => `/products/${id}/generate_barcode/`,
+    byBarcode:        "/products/by_barcode/",
   },
 
   // ── Shops ────────────────────────────────────────────────────────

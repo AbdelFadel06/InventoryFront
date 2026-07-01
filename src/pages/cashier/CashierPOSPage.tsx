@@ -725,13 +725,18 @@ export default function CashierPOSPage() {
       if (e.key === "Enter") {
         if (barcodeBuffer.current.length > 3) {
           const code = barcodeBuffer.current;
-          const product = products.find(p => p.barcode === code || p.sku === code);
-          if (product) {
-            addToCart(product);
+          barcodeBuffer.current = "";
+          const local = products.find(p => p.barcode === code || p.sku === code);
+          if (local) {
+            addToCart(local);
             barcodeJustFired.current = true;
             setTimeout(() => { barcodeJustFired.current = false; }, 50);
+          } else {
+            // Lookup backend si non trouvé localement
+            axiosInstance.get(`/products/by_barcode/?code=${encodeURIComponent(code)}`)
+              .then(r => { addToCart(r.data); })
+              .catch(() => { /* produit introuvable */ });
           }
-          barcodeBuffer.current = "";
         }
         return;
       }

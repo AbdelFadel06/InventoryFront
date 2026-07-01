@@ -78,4 +78,14 @@ export const productService = {
   removeImage: async (productId: number, imageId: number): Promise<void> => {
     await api.delete(ENDPOINTS.products.removeImage(productId, imageId));
   },
+
+  generateBarcode: async (id: number): Promise<{ barcode: string }> => {
+    const { data } = await api.post(ENDPOINTS.products.generateBarcode(id));
+    return data;
+  },
+
+  getByBarcode: async (code: string): Promise<Product> => {
+    const { data } = await api.get(ENDPOINTS.products.byBarcode, { params: { code } });
+    return data;
+  },
 };

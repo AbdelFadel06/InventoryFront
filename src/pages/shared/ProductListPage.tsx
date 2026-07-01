@@ -7,7 +7,8 @@ import { stockMovementService } from "../../services/stockService";
 import { shopService }          from "../../services/shopService";
 import { useAuth }              from "../../context/AuthContext";
 import { PageHeader, Btn, Badge, DataTable, StatCard, Icon } from "../../components/ui";
-import { uploadToCloudinary } from "../../utils/cloudinary";
+import { uploadToCloudinary }   from "../../utils/cloudinary";
+import { printBarcodeLabels }   from "../../utils/barcodePrint";
 import type { Product, ProductImage }  from "../../types/product";
 import type { Category } from "../../types/category";
 import type { Shop }     from "../../types/shop";
@@ -300,6 +301,13 @@ export default function ProductListPage() {
     } catch { console.error("Erreur toggle"); }
   };
 
+  const handleGenerateBarcode = async (p: Product) => {
+    try {
+      const { barcode } = await productService.generateBarcode(p.id);
+      setProducts(prev => prev.map(x => x.id === p.id ? { ...x, barcode } : x));
+    } catch { /* ignore */ }
+  };
+
   const openStock = (p: Product) => {
     setStockForm({ shop: isAdmin ? "" : String(user?.shop ?? ""), quantity: "", reason: "", location: "BOUTIQUE" });
     setModalError(null);
@@ -382,6 +390,16 @@ export default function ProductListPage() {
       },
     },
     {
+      key: "barcode", label: "Code-barres",
+      render: (row: Product) => row.barcode ? (
+        <span style={{ fontSize: 12, color: "#374151", fontFamily: "monospace", background: "#F1F5F9", padding: "3px 8px", borderRadius: 5 }}>
+          {row.barcode}
+        </span>
+      ) : (
+        <span style={{ fontSize: 11.5, color: "#94A3B8" }}>—</span>
+      ),
+    },
+    {
       key: "is_active", label: "Statut",
       render: (row: Product) => <Badge label={row.is_active ? "Actif" : "Inactif"} color={row.is_active ? "green" : "gray"} />,
     },
@@ -389,12 +407,18 @@ export default function ProductListPage() {
       key: "actions", label: "",
       render: (row: Product) => (
         <ActionMenu items={[
-          { icon: <Icon name="edit"    size={15} color="#374151" />, label: "Modifier",           onClick: () => openEdit(row)                                        },
-          { icon: <Icon name="package" size={15} color="#374151" />, label: "Ajouter du stock",   onClick: () => openStock(row)                                       },
+          { icon: <Icon name="edit"    size={15} color="#374151" />, label: "Modifier",          onClick: () => openEdit(row)                                       },
+          { icon: <Icon name="package" size={15} color="#374151" />, label: "Ajouter du stock",  onClick: () => openStock(row)                                      },
+          row.barcode
+            ? { icon: <Icon name="target" size={15} color="#1D4ED8" />, label: "Imprimer étiquettes",
+                onClick: () => printBarcodeLabels({ id: row.id, name: row.name, barcode: row.barcode! }) }
+            : { icon: <Icon name="plus"   size={15} color="#7C3AED" />, label: "Générer code-barres",
+                onClick: () => handleGenerateBarcode(row) },
           { icon: <Icon name={row.is_active ? "xCircle" : "checkCircle"} size={15} color="#374151" />,
             label: row.is_active ? "Désactiver" : "Activer",
-            onClick: () => handleToggle(row)                                                                                     },
-          { icon: <Icon name="trash"   size={15} color="#DC2626" />, label: "Supprimer", danger: true, onClick: () => { setModalError(null); setDeleteModal(row); }  },
+            onClick: () => handleToggle(row) },
+          { icon: <Icon name="trash" size={15} color="#DC2626" />, label: "Supprimer", danger: true,
+            onClick: () => { setModalError(null); setDeleteModal(row); } },
         ]} />
       ),
     },
