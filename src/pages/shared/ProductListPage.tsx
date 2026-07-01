@@ -158,6 +158,7 @@ export default function ProductListPage() {
   const [search, setSearch]         = useState("");
   const [filterStatus, setFilterStatus] = useState<"all"|"active"|"inactive"|"low"|"out"|"no_barcode">("all");
   const [generatingAll, setGeneratingAll] = useState(false);
+  const [printSelection, setPrintSelection] = useState<Set<number>>(new Set());
 
   const [editModal, setEditModal]     = useState<Product | null>(null);
   const [deleteModal, setDeleteModal] = useState<Product | null>(null);
@@ -304,12 +305,6 @@ export default function ProductListPage() {
     } catch { console.error("Erreur toggle"); }
   };
 
-  const handleGenerateBarcode = async (p: Product) => {
-    try {
-      const { barcode } = await productService.generateBarcode(p.id);
-      setProducts(prev => prev.map(x => x.id === p.id ? { ...x, barcode } : x));
-    } catch { /* ignore */ }
-  };
 
   const handleGenerateAll = async () => {
     setGeneratingAll(true);
@@ -318,15 +313,50 @@ export default function ProductListPage() {
       const map: Record<number, string> = {};
       barcodes.forEach(b => { map[b.id] = b.barcode; });
       setProducts(prev => prev.map(p => map[p.id] ? { ...p, barcode: map[p.id] } : p));
+      // Cocher automatiquement les produits fraîchement générés
+      setPrintSelection(new Set(barcodes.map(b => b.id)));
     } catch { /* ignore */ } finally {
       setGeneratingAll(false);
     }
   };
 
-  const handlePrintAll = () => {
-    const withBarcode = filtered.filter(p => p.barcode);
-    if (!withBarcode.length) return;
-    printAllBarcodeLabels(withBarcode.map(p => ({ id: p.id, name: p.name, barcode: p.barcode! })));
+  const handleGenerateBarcodeSingle = async (p: Product) => {
+    try {
+      const { barcode } = await productService.generateBarcode(p.id);
+      setProducts(prev => prev.map(x => x.id === p.id ? { ...x, barcode } : x));
+      setPrintSelection(prev => new Set([...prev, p.id]));
+    } catch { /* ignore */ }
+  };
+
+  const handlePrintSelected = () => {
+    const toPrint = products.filter(p => p.barcode && printSelection.has(p.id));
+    if (!toPrint.length) return;
+    printAllBarcodeLabels(toPrint.map(p => ({ id: p.id, name: p.name, barcode: p.barcode! })));
+    setPrintSelection(new Set());
+  };
+
+  const togglePrint = (id: number) => {
+    setPrintSelection(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const filteredWithBarcode = filtered.filter(p => p.barcode);
+  const allFilteredSelected = filteredWithBarcode.length > 0 &&
+    filteredWithBarcode.every(p => printSelection.has(p.id));
+
+  const toggleSelectAll = () => {
+    if (allFilteredSelected) {
+      setPrintSelection(prev => {
+        const next = new Set(prev);
+        filteredWithBarcode.forEach(p => next.delete(p.id));
+        return next;
+      });
+    } else {
+      setPrintSelection(prev => new Set([...prev, ...filteredWithBarcode.map(p => p.id)]));
+    }
   };
 
   const openStock = (p: Product) => {
@@ -363,6 +393,27 @@ export default function ProductListPage() {
 
   // ── Columns ───────────────────────────────────────────────────────
   const columns = [
+    {
+      key: "print_select", label: (
+        <input
+          type="checkbox"
+          checked={allFilteredSelected}
+          onChange={toggleSelectAll}
+          title={allFilteredSelected ? "Tout désélectionner" : "Tout sélectionner pour impression"}
+          style={{ cursor: "pointer", width: 15, height: 15 }}
+        />
+      ) as any,
+      render: (row: Product) => row.barcode ? (
+        <input
+          type="checkbox"
+          checked={printSelection.has(row.id)}
+          onChange={() => togglePrint(row.id)}
+          style={{ cursor: "pointer", width: 15, height: 15 }}
+        />
+      ) : (
+        <span style={{ color: "#CBD5E1", fontSize: 12 }}>—</span>
+      ),
+    },
     {
       key: "name", label: "Produit",
       render: (row: Product) => (
@@ -434,7 +485,7 @@ export default function ProductListPage() {
             ? { icon: <Icon name="target" size={15} color="#1D4ED8" />, label: "Imprimer étiquettes",
                 onClick: () => printBarcodeLabels({ id: row.id, name: row.name, barcode: row.barcode! }) }
             : { icon: <Icon name="plus"   size={15} color="#7C3AED" />, label: "Générer code-barres",
-                onClick: () => handleGenerateBarcode(row) },
+                onClick: () => handleGenerateBarcodeSingle(row) },
           { icon: <Icon name={row.is_active ? "xCircle" : "checkCircle"} size={15} color="#374151" />,
             label: row.is_active ? "Désactiver" : "Activer",
             onClick: () => handleToggle(row) },
@@ -499,15 +550,15 @@ export default function ProductListPage() {
               {generatingAll ? "Génération…" : `Générer tous (${noBarcode})`}
             </button>
           )}
-          {filtered.some(p => p.barcode) && (
+          {printSelection.size > 0 && (
             <button
-              onClick={handlePrintAll}
+              onClick={handlePrintSelected}
               style={{
                 padding: "6px 14px", borderRadius: 20, fontSize: 12.5, fontWeight: 600,
                 background: "#1D4ED8", color: "#fff",
                 border: "none", cursor: "pointer", fontFamily: "inherit",
               }}>
-              Imprimer étiquettes ({filtered.filter(p => p.barcode).length})
+              Imprimer la sélection ({printSelection.size})
             </button>
           )}
         </div>
