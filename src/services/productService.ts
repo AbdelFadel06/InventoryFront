@@ -84,6 +84,11 @@ export const productService = {
     return data;
   },
 
+  generateAllBarcodes: async (): Promise<{ generated: number; barcodes: { id: number; name: string; barcode: string }[] }> => {
+    const { data } = await api.post(ENDPOINTS.products.generateAllBarcodes);
+    return data;
+  },
+
   getByBarcode: async (code: string): Promise<Product> => {
     const { data } = await api.get(ENDPOINTS.products.byBarcode, { params: { code } });
     return data;

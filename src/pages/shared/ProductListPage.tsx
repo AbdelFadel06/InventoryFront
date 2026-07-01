@@ -8,7 +8,7 @@ import { shopService }          from "../../services/shopService";
 import { useAuth }              from "../../context/AuthContext";
 import { PageHeader, Btn, Badge, DataTable, StatCard, Icon } from "../../components/ui";
 import { uploadToCloudinary }   from "../../utils/cloudinary";
-import { printBarcodeLabels }   from "../../utils/barcodePrint";
+import { printBarcodeLabels, printAllBarcodeLabels } from "../../utils/barcodePrint";
 import type { Product, ProductImage }  from "../../types/product";
 import type { Category } from "../../types/category";
 import type { Shop }     from "../../types/shop";
@@ -156,7 +156,8 @@ export default function ProductListPage() {
   const [shops, setShops]           = useState<Shop[]>([]);
   const [loading, setLoading]       = useState(true);
   const [search, setSearch]         = useState("");
-  const [filterStatus, setFilterStatus] = useState<"all"|"active"|"inactive"|"low"|"out">("all");
+  const [filterStatus, setFilterStatus] = useState<"all"|"active"|"inactive"|"low"|"out"|"no_barcode">("all");
+  const [generatingAll, setGeneratingAll] = useState(false);
 
   const [editModal, setEditModal]     = useState<Product | null>(null);
   const [deleteModal, setDeleteModal] = useState<Product | null>(null);
@@ -198,10 +199,11 @@ export default function ProductListPage() {
     if (isAdmin) shopService.getAll().then(res => setShops(res.results ?? res));
   }, []);
 
-  const active   = products.filter(p => p.is_active).length;
-  const inactive = products.filter(p => !p.is_active).length;
-  const lowStock = products.filter(p => p.is_low_stock).length;
-  const outStock = products.filter(p => p.current_stock === 0).length;
+  const active    = products.filter(p => p.is_active).length;
+  const inactive  = products.filter(p => !p.is_active).length;
+  const lowStock  = products.filter(p => p.is_low_stock).length;
+  const outStock  = products.filter(p => p.current_stock === 0).length;
+  const noBarcode = products.filter(p => !p.barcode).length;
 
   const filtered = products.filter(p => {
     const q = search.toLowerCase();
@@ -210,11 +212,12 @@ export default function ProductListPage() {
       p.sku.toLowerCase().includes(q)  ||
       (p.category_name ?? "").toLowerCase().includes(q);
     const matchStatus =
-      filterStatus === "all"      ? true :
-      filterStatus === "active"   ? p.is_active :
-      filterStatus === "inactive" ? !p.is_active :
-      filterStatus === "low"      ? p.is_low_stock :
-      filterStatus === "out"      ? p.current_stock === 0 : true;
+      filterStatus === "all"        ? true :
+      filterStatus === "active"     ? p.is_active :
+      filterStatus === "inactive"   ? !p.is_active :
+      filterStatus === "low"        ? p.is_low_stock :
+      filterStatus === "out"        ? p.current_stock === 0 :
+      filterStatus === "no_barcode" ? !p.barcode : true;
     return matchSearch && matchStatus;
   });
 
@@ -306,6 +309,24 @@ export default function ProductListPage() {
       const { barcode } = await productService.generateBarcode(p.id);
       setProducts(prev => prev.map(x => x.id === p.id ? { ...x, barcode } : x));
     } catch { /* ignore */ }
+  };
+
+  const handleGenerateAll = async () => {
+    setGeneratingAll(true);
+    try {
+      const { barcodes } = await productService.generateAllBarcodes();
+      const map: Record<number, string> = {};
+      barcodes.forEach(b => { map[b.id] = b.barcode; });
+      setProducts(prev => prev.map(p => map[p.id] ? { ...p, barcode: map[p.id] } : p));
+    } catch { /* ignore */ } finally {
+      setGeneratingAll(false);
+    }
+  };
+
+  const handlePrintAll = () => {
+    const withBarcode = filtered.filter(p => p.barcode);
+    if (!withBarcode.length) return;
+    printAllBarcodeLabels(withBarcode.map(p => ({ id: p.id, name: p.name, barcode: p.barcode! })));
   };
 
   const openStock = (p: Product) => {
@@ -439,26 +460,57 @@ export default function ProductListPage() {
         <StatCard label="Ruptures"          value={outStock} icon={<Icon name="package"      size={22} />} color="red"    loading={loading} />
       </div>
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
         {[
-          { key: "all",      label: "Tous"      },
-          { key: "active",   label: "Actifs"    },
-          { key: "inactive", label: "Inactifs"  },
-          { key: "low",      label: "Stock bas" },
-          { key: "out",      label: "Ruptures"  },
+          { key: "all",        label: "Tous"            },
+          { key: "active",     label: "Actifs"          },
+          { key: "inactive",   label: "Inactifs"        },
+          { key: "low",        label: "Stock bas"       },
+          { key: "out",        label: "Ruptures"        },
+          { key: "no_barcode", label: `Sans code-barres${noBarcode > 0 ? ` (${noBarcode})` : ""}` },
         ].map(f => (
           <button key={f.key} onClick={() => setFilterStatus(f.key as any)}
             style={{
               padding: "6px 14px", borderRadius: 20, fontSize: 12.5,
               fontWeight: filterStatus === f.key ? 600 : 400,
-              background: filterStatus === f.key ? "#0F172A" : "#fff",
-              color:      filterStatus === f.key ? "#fff"    : "#64748B",
-              border:     filterStatus === f.key ? "none"    : "1px solid #E2E8F0",
+              background: filterStatus === f.key
+                ? (f.key === "no_barcode" ? "#7C3AED" : "#0F172A")
+                : "#fff",
+              color:  filterStatus === f.key ? "#fff" : "#64748B",
+              border: filterStatus === f.key ? "none" : "1px solid #E2E8F0",
               cursor: "pointer", transition: "all 0.15s", fontFamily: "inherit",
             }}>
             {f.label}
           </button>
         ))}
+
+        {/* Actions barcode — visibles quelle que soit la vue */}
+        <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+          {filterStatus === "no_barcode" && noBarcode > 0 && (
+            <button
+              onClick={handleGenerateAll}
+              disabled={generatingAll}
+              style={{
+                padding: "6px 14px", borderRadius: 20, fontSize: 12.5, fontWeight: 600,
+                background: generatingAll ? "#C4B5FD" : "#7C3AED", color: "#fff",
+                border: "none", cursor: generatingAll ? "not-allowed" : "pointer",
+                fontFamily: "inherit", transition: "background 0.2s",
+              }}>
+              {generatingAll ? "Génération…" : `Générer tous (${noBarcode})`}
+            </button>
+          )}
+          {filtered.some(p => p.barcode) && (
+            <button
+              onClick={handlePrintAll}
+              style={{
+                padding: "6px 14px", borderRadius: 20, fontSize: 12.5, fontWeight: 600,
+                background: "#1D4ED8", color: "#fff",
+                border: "none", cursor: "pointer", fontFamily: "inherit",
+              }}>
+              Imprimer étiquettes ({filtered.filter(p => p.barcode).length})
+            </button>
+          )}
+        </div>
       </div>
 
       <DataTable
