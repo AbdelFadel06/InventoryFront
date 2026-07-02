@@ -8,7 +8,14 @@ import type {
 import type { PaginatedResponse } from "../types/common";
 
 export const productService = {
-  getAll: async (params?: { shop?: number | string; is_active?: boolean }): Promise<PaginatedResponse<Product>> => {
+  getAll: async (params?: {
+    shop?: number | string;
+    is_active?: boolean;
+    page?: number;
+    page_size?: number;
+    search?: string;
+    has_barcode?: boolean;
+  }): Promise<PaginatedResponse<Product>> => {
     const { data } = await api.get(ENDPOINTS.products.list, { params });
     return data;
   },

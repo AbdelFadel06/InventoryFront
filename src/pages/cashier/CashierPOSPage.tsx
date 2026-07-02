@@ -675,7 +675,7 @@ export default function CashierPOSPage() {
         }
         // Charger produits et livreurs
         const [prods, livs] = await Promise.all([
-          axiosInstance.get("/products/"),
+          axiosInstance.get("/products/?page_size=500"),
           userService.getLivreurs().catch(() => []),
         ]);
         setProducts(prods.data.results ?? prods.data);

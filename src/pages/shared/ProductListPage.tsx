@@ -157,6 +157,20 @@ export default function ProductListPage() {
   const [loading, setLoading]       = useState(true);
   const [search, setSearch]         = useState("");
   const [filterStatus, setFilterStatus] = useState<"all"|"active"|"inactive"|"low"|"out"|"no_barcode">("all");
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount]   = useState(0);
+  const PAGE_SIZE = 10;
+
+  // Stats (loaded separately so they're accurate across all pages)
+  const [statsData, setStatsData]         = useState({ total: 0, active: 0, inactive: 0 });
+  const [lowStockProds, setLowStockProds] = useState<Product[]>([]);
+  const [outStockProds, setOutStockProds] = useState<Product[]>([]);
+  const [noBarcodeCount, setNoBarcodeCount] = useState(0);
+
+  // Search debounce
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [generatingAll, setGeneratingAll] = useState(false);
   const [printSelection, setPrintSelection] = useState<Set<number>>(new Set());
 
@@ -184,44 +198,85 @@ export default function ProductListPage() {
     quantity: "", reason: "", location: "BOUTIQUE",
   });
 
-  const fetchProducts = async () => {
+  const matchesSearch = (p: Product, q: string) => {
+    const lq = q.toLowerCase();
+    return (
+      p.name.toLowerCase().includes(lq) ||
+      p.sku.toLowerCase().includes(lq)  ||
+      (p.barcode ?? "").toLowerCase().includes(lq) ||
+      (p.category_name ?? "").toLowerCase().includes(lq)
+    );
+  };
+
+  const fetchProducts = async (page = currentPage, q = search, status = filterStatus) => {
     setLoading(true);
     try {
-      const res = await productService.getAll();
-      setProducts(res.results ?? []);
+      if (status === "low") {
+        const list = q ? lowStockProds.filter(p => matchesSearch(p, q)) : lowStockProds;
+        setProducts(list);
+        setTotalCount(0);
+      } else if (status === "out") {
+        const list = q ? outStockProds.filter(p => matchesSearch(p, q)) : outStockProds;
+        setProducts(list);
+        setTotalCount(0);
+      } else {
+        const params: Record<string, unknown> = { page };
+        if (q)                   params.search     = q;
+        if (status === "active") params.is_active  = true;
+        if (status === "inactive") params.is_active = false;
+        if (status === "no_barcode") params.has_barcode = false;
+        const res = await productService.getAll(params);
+        setProducts(res.results ?? []);
+        setTotalCount(res.count ?? 0);
+      }
     } finally {
       setLoading(false);
     }
   };
 
+  // Load stats + special lists once at mount
   useEffect(() => {
-    fetchProducts();
+    Promise.all([
+      productService.getStatistics(),
+      productService.getLowStock(),
+      productService.getOutOfStock(),
+      productService.getAll({ has_barcode: false }),
+    ]).then(([s, l, o, nb]) => {
+      setStatsData({ total: s.total_products, active: s.active_products, inactive: s.inactive_products });
+      setLowStockProds(l.products);
+      setOutStockProds(o.products);
+      setNoBarcodeCount(nb.count ?? 0);
+    });
     categoryService.getAll().then(res => setCategories(res.results ?? res));
     if (isAdmin) shopService.getAll().then(res => setShops(res.results ?? res));
   }, []);
 
-  const active    = products.filter(p => p.is_active).length;
-  const inactive  = products.filter(p => !p.is_active).length;
-  const lowStock  = products.filter(p => p.is_low_stock).length;
-  const outStock  = products.filter(p => p.current_stock === 0).length;
-  const noBarcode = products.filter(p => !p.barcode).length;
+  // Re-fetch when page changes
+  useEffect(() => {
+    fetchProducts(currentPage, search, filterStatus);
+  }, [currentPage]);
 
-  const filtered = products.filter(p => {
-    const q = search.toLowerCase();
-    const matchSearch =
-      p.name.toLowerCase().includes(q) ||
-      p.sku.toLowerCase().includes(q)  ||
-      (p.barcode ?? "").toLowerCase().includes(q) ||
-      (p.category_name ?? "").toLowerCase().includes(q);
-    const matchStatus =
-      filterStatus === "all"        ? true :
-      filterStatus === "active"     ? p.is_active :
-      filterStatus === "inactive"   ? !p.is_active :
-      filterStatus === "low"        ? p.is_low_stock :
-      filterStatus === "out"        ? p.current_stock === 0 :
-      filterStatus === "no_barcode" ? !p.barcode : true;
-    return matchSearch && matchStatus;
-  });
+  // Debounce search → server-side
+  const handleSearch = (val: string) => {
+    setSearch(val);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => {
+      setCurrentPage(1);
+      fetchProducts(1, val, filterStatus);
+    }, 300);
+  };
+
+  const handleFilterStatus = (status: typeof filterStatus) => {
+    setFilterStatus(status);
+    setCurrentPage(1);
+    fetchProducts(1, search, status);
+  };
+
+  const active    = statsData.active;
+  const inactive  = statsData.inactive;
+  const lowStock  = lowStockProds.length;
+  const outStock  = outStockProds.length;
+  const noBarcode = noBarcodeCount;
 
   // ── Handlers ──────────────────────────────────────────────────────
 
@@ -314,8 +369,8 @@ export default function ProductListPage() {
       const map: Record<number, string> = {};
       barcodes.forEach(b => { map[b.id] = b.barcode; });
       setProducts(prev => prev.map(p => map[p.id] ? { ...p, barcode: map[p.id] } : p));
-      // Cocher automatiquement les produits fraîchement générés
       setPrintSelection(new Set(barcodes.map(b => b.id)));
+      setNoBarcodeCount(0);
     } catch { /* ignore */ } finally {
       setGeneratingAll(false);
     }
@@ -326,6 +381,7 @@ export default function ProductListPage() {
       const { barcode } = await productService.generateBarcode(p.id);
       setProducts(prev => prev.map(x => x.id === p.id ? { ...x, barcode } : x));
       setPrintSelection(prev => new Set([...prev, p.id]));
+      setNoBarcodeCount(prev => Math.max(0, prev - 1));
     } catch { /* ignore */ }
   };
 
@@ -344,19 +400,19 @@ export default function ProductListPage() {
     });
   };
 
-  const filteredWithBarcode = filtered.filter(p => p.barcode);
-  const allFilteredSelected = filteredWithBarcode.length > 0 &&
-    filteredWithBarcode.every(p => printSelection.has(p.id));
+  const productsWithBarcode = products.filter(p => p.barcode);
+  const allFilteredSelected = productsWithBarcode.length > 0 &&
+    productsWithBarcode.every(p => printSelection.has(p.id));
 
   const toggleSelectAll = () => {
     if (allFilteredSelected) {
       setPrintSelection(prev => {
         const next = new Set(prev);
-        filteredWithBarcode.forEach(p => next.delete(p.id));
+        productsWithBarcode.forEach(p => next.delete(p.id));
         return next;
       });
     } else {
-      setPrintSelection(prev => new Set([...prev, ...filteredWithBarcode.map(p => p.id)]));
+      setPrintSelection(prev => new Set([...prev, ...productsWithBarcode.map(p => p.id)]));
     }
   };
 
@@ -501,7 +557,7 @@ export default function ProductListPage() {
     <div>
       <PageHeader
         title="Produits"
-        subtitle={`${products.length} produits au total`}
+        subtitle={`${statsData.total} produits au total`}
         action={<Btn onClick={() => navigate(`${basePath}/products/create`)}>+ Nouveau produit</Btn>}
       />
 
@@ -521,7 +577,7 @@ export default function ProductListPage() {
           { key: "out",        label: "Ruptures"        },
           { key: "no_barcode", label: `Sans code-barres${noBarcode > 0 ? ` (${noBarcode})` : ""}` },
         ].map(f => (
-          <button key={f.key} onClick={() => setFilterStatus(f.key as any)}
+          <button key={f.key} onClick={() => handleFilterStatus(f.key as any)}
             style={{
               padding: "6px 14px", borderRadius: 20, fontSize: 12.5,
               fontWeight: filterStatus === f.key ? 600 : 400,
@@ -567,13 +623,57 @@ export default function ProductListPage() {
 
       <DataTable
         columns={columns as any}
-        data={filtered}
+        data={products}
         loading={loading}
         emptyText="Aucun produit trouvé"
         searchValue={search}
-        onSearch={setSearch}
+        onSearch={handleSearch}
         searchPlaceholder="Nom, SKU, catégorie..."
+        rowStyle={(row: Product) =>
+          row.current_stock === 0 ? { background: "#FEF2F2" } :
+          row.is_low_stock       ? { background: "#FFF7F7" } :
+          {}
+        }
       />
+
+      {/* ── Pagination ─────────────────────────────────────────── */}
+      {!["low", "out"].includes(filterStatus) && totalCount > PAGE_SIZE && (
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "center",
+          gap: 12, marginTop: 20,
+        }}>
+          <button
+            disabled={currentPage <= 1}
+            onClick={() => setCurrentPage(p => p - 1)}
+            style={{
+              padding: "7px 18px", borderRadius: 8, fontSize: 13.5, fontWeight: 500,
+              background: currentPage <= 1 ? "#F1F5F9" : "#0F172A",
+              color: currentPage <= 1 ? "#94A3B8" : "#fff",
+              border: "none", cursor: currentPage <= 1 ? "not-allowed" : "pointer",
+              fontFamily: "inherit",
+            }}>
+            ← Précédent
+          </button>
+          <span style={{ fontSize: 13.5, color: "#64748B", fontWeight: 500 }}>
+            Page {currentPage} / {Math.ceil(totalCount / PAGE_SIZE)}
+            <span style={{ color: "#94A3B8", fontWeight: 400, marginLeft: 6 }}>
+              ({totalCount} produits)
+            </span>
+          </span>
+          <button
+            disabled={currentPage >= Math.ceil(totalCount / PAGE_SIZE)}
+            onClick={() => setCurrentPage(p => p + 1)}
+            style={{
+              padding: "7px 18px", borderRadius: 8, fontSize: 13.5, fontWeight: 500,
+              background: currentPage >= Math.ceil(totalCount / PAGE_SIZE) ? "#F1F5F9" : "#0F172A",
+              color: currentPage >= Math.ceil(totalCount / PAGE_SIZE) ? "#94A3B8" : "#fff",
+              border: "none", cursor: currentPage >= Math.ceil(totalCount / PAGE_SIZE) ? "not-allowed" : "pointer",
+              fontFamily: "inherit",
+            }}>
+            Suivant →
+          </button>
+        </div>
+      )}
 
       {/* ── Modal Modifier ─────────────────────────────────────── */}
       {editModal && (

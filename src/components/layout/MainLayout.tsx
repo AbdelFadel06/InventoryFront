@@ -160,12 +160,13 @@ const NAV_ITEMS: Record<UserRole, NavItem[]> = {
     { label: "Équipe",        path: "/manager/users",        icon: "employees" },
     { label: "Affectations",  path: "/manager/affectations", icon: "calendar"  },
 
-    { label: "Caisse",      path: "/manager/caisse",     icon: "pos"      },
-    { label: "Sessions",    path: "/manager/sessions",   icon: "sessions" },
-    { label: "Ventes",      path: "/manager/ventes",     icon: "movements"},
-    { label: "Historique",  path: "/manager/historique", icon: "inventory"},
-    { label: "Livreurs",    path: "/manager/livreurs",   icon: "livreur"  },
-    { label: "Rapport",     path: "/manager/rapport",    icon: "report"   },
+    { label: "Caisse",      path: "/manager/caisse",      icon: "pos"      },
+    { label: "Sessions",    path: "/manager/sessions",    icon: "sessions" },
+    { label: "Ventes",      path: "/manager/ventes",      icon: "movements"},
+    { label: "Historique",  path: "/manager/historique",  icon: "inventory"},
+    { label: "Livraisons",  path: "/manager/livraisons",  icon: "livreur"  },
+    { label: "Livreurs",    path: "/manager/livreurs",    icon: "employees"},
+    { label: "Rapport",     path: "/manager/rapport",     icon: "report"   },
   ],
   EMPLOYEE: [
     { label: "Dashboard",   path: "/employee",             icon: "dashboard"  },
@@ -174,8 +175,9 @@ const NAV_ITEMS: Record<UserRole, NavItem[]> = {
     { label: "Inventaires", path: "/employee/inventories", icon: "inventory"  },
     { label: "Mouvements",  path: "/employee/movements",   icon: "movements"  },
 
-    { label: "Caisse",      path: "/employee/caisse",   icon: "pos"      },
-    { label: "Rapport",     path: "/employee/rapport",  icon: "report"   },
+    { label: "Caisse",      path: "/employee/caisse",      icon: "pos"      },
+    { label: "Livraisons",  path: "/employee/livraisons",  icon: "livreur"  },
+    { label: "Rapport",     path: "/employee/rapport",     icon: "report"   },
   ],
   LIVREUR: [
     { label: "Mes livraisons", path: "/livreur", icon: "transfers" },

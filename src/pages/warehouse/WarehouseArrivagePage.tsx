@@ -51,7 +51,7 @@ export default function WarehouseArrivagePage() {
 
   useEffect(() => {
     if (!user?.shop) return;
-    productService.getAll({ shop: user.shop }).then(res => setProducts(res.results ?? []));
+    productService.getAll({ shop: user.shop, page_size: 500 }).then(res => setProducts(res.results ?? []));
   }, [user?.shop]);
 
   useEffect(() => {

@@ -208,12 +208,13 @@ interface DataTableProps<T> {
   onSearch?:  (v: string) => void;
   searchPlaceholder?: string;
   actions?:  React.ReactNode;
+  rowStyle?: (row: T) => React.CSSProperties;
 }
 
 export function DataTable<T extends { id: number | string }>({
   columns, data, loading, emptyText = "Aucun résultat",
   onRowClick, searchValue, onSearch, searchPlaceholder = "Rechercher...",
-  actions,
+  actions, rowStyle,
 }: DataTableProps<T>) {
   return (
     <div style={{
@@ -309,7 +310,10 @@ export function DataTable<T extends { id: number | string }>({
                 </td>
               </tr>
             ) : (
-              data.map((row, idx) => (
+              data.map((row, idx) => {
+                const extraStyle = rowStyle?.(row) ?? {};
+                const baseBg = (extraStyle.background ?? extraStyle.backgroundColor ?? "transparent") as string;
+                return (
                 <tr
                   key={row.id}
                   onClick={() => onRowClick?.(row)}
@@ -317,12 +321,15 @@ export function DataTable<T extends { id: number | string }>({
                     borderBottom: idx < data.length - 1 ? "1px solid #F1F5F9" : "none",
                     cursor: onRowClick ? "pointer" : "default",
                     transition: "background 0.1s",
+                    ...extraStyle,
                   }}
                   onMouseEnter={e => {
-                    if (onRowClick) e.currentTarget.style.background = "#F8FAFC";
+                    e.currentTarget.style.background = baseBg !== "transparent"
+                      ? baseBg
+                      : (onRowClick ? "#F8FAFC" : "transparent");
                   }}
                   onMouseLeave={e => {
-                    e.currentTarget.style.background = "transparent";
+                    e.currentTarget.style.background = baseBg;
                   }}
                 >
                   {columns.map(col => (
@@ -333,7 +340,8 @@ export function DataTable<T extends { id: number | string }>({
                     </td>
                   ))}
                 </tr>
-              ))
+                );
+              })
             )}
           </tbody>
         </table>

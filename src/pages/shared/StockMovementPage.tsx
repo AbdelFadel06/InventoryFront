@@ -61,7 +61,7 @@ export default function StockMovementPage({ mode }: Props) {
   const set = (k: keyof typeof form) => (v: string) => setForm(f => ({ ...f, [k]: v }));
 
   useEffect(() => {
-    Promise.all([productService.getAll(), shopService.getAll()])
+    Promise.all([productService.getAll({ page_size: 500 }), shopService.getAll()])
       .then(([pRes, sRes]) => {
         setProducts(pRes.results ?? []);
         setShops(sRes.results ?? sRes);

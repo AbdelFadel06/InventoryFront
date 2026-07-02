@@ -76,7 +76,7 @@ export default function WarehouseTransferPage() {
 
   useEffect(() => {
     loadTransfers();
-    if (user?.shop) productService.getAll({ shop: user.shop }).then(res => setProducts(res.results ?? []));
+    if (user?.shop) productService.getAll({ shop: user.shop, page_size: 500 }).then(res => setProducts(res.results ?? []));
   }, [user?.shop]);
 
   useEffect(() => {

@@ -65,7 +65,7 @@ export default function CreateTransferPage() {
   });
 
   useEffect(() => {
-    Promise.all([shopService.getAll(), productService.getAll()])
+    Promise.all([shopService.getAll(), productService.getAll({ page_size: 500 })])
       .then(([shopsRes, productsRes]) => {
         setShops(shopsRes.results ?? shopsRes);
         setProducts(productsRes.results ?? []);

@@ -1,5 +1,5 @@
 // src/pages/employee/EmployeeProductListPage.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate }         from "react-router-dom";
 import { productService }      from "../../services/productService";
 import { PageHeader, DataTable, Badge, Icon } from "../../components/ui";
@@ -14,17 +14,28 @@ export default function EmployeeProductListPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading]   = useState(true);
   const [search, setSearch]     = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount]   = useState(0);
+  const PAGE_SIZE = 10;
 
-  useEffect(() => {
-    productService.getAll()
-      .then(res => setProducts(res.results ?? []))
+  const fetchProducts = (page = 1, q = "") => {
+    setLoading(true);
+    const params: Record<string, unknown> = { page };
+    if (q) params.search = q;
+    productService.getAll(params)
+      .then(res => { setProducts(res.results ?? []); setTotalCount(res.count ?? 0); })
       .finally(() => setLoading(false));
-  }, []);
+  };
 
-  const filtered = products.filter(p => {
-    const q = search.toLowerCase();
-    return p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q) || (p.category_name ?? "").toLowerCase().includes(q);
-  });
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleSearch = (val: string) => {
+    setSearch(val);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => { setCurrentPage(1); fetchProducts(1, val); }, 300);
+  };
+
+  useEffect(() => { fetchProducts(currentPage, search); }, [currentPage]);
+  useEffect(() => { fetchProducts(1, ""); }, []);
 
   const columns = [
     {
@@ -75,18 +86,35 @@ export default function EmployeeProductListPage() {
     },
   ];
 
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+
   return (
     <div>
       <PageHeader title="Produits" subtitle="Catalogue de votre boutique" />
       <DataTable
         columns={columns as any}
-        data={filtered}
+        data={products}
         loading={loading}
         emptyText="Aucun produit trouvé"
         searchValue={search}
-        onSearch={setSearch}
+        onSearch={handleSearch}
         searchPlaceholder="Nom, SKU, catégorie..."
       />
+      {totalCount > PAGE_SIZE && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, marginTop: 20 }}>
+          <button disabled={currentPage <= 1} onClick={() => setCurrentPage(p => p - 1)}
+            style={{ padding: "7px 18px", borderRadius: 8, fontSize: 13.5, fontWeight: 500, border: "none", cursor: currentPage <= 1 ? "not-allowed" : "pointer", fontFamily: "inherit",
+              background: currentPage <= 1 ? "#F1F5F9" : "#0F172A", color: currentPage <= 1 ? "#94A3B8" : "#fff" }}>
+            ← Précédent
+          </button>
+          <span style={{ fontSize: 13.5, color: "#64748B" }}>Page {currentPage} / {totalPages}</span>
+          <button disabled={currentPage >= totalPages} onClick={() => setCurrentPage(p => p + 1)}
+            style={{ padding: "7px 18px", borderRadius: 8, fontSize: 13.5, fontWeight: 500, border: "none", cursor: currentPage >= totalPages ? "not-allowed" : "pointer", fontFamily: "inherit",
+              background: currentPage >= totalPages ? "#F1F5F9" : "#0F172A", color: currentPage >= totalPages ? "#94A3B8" : "#fff" }}>
+            Suivant →
+          </button>
+        </div>
+      )}
     </div>
   );
 }
