@@ -5,8 +5,8 @@ import type { User, UserCreate, UserUpdate, ChangePassword } from "../types/user
 import type { PaginatedResponse } from "../types/common";
 
 export const userService = {
-  getAll: async (): Promise<PaginatedResponse<User>> => {
-    const { data } = await api.get(ENDPOINTS.users.list);
+  getAll: async (params?: Record<string, any>): Promise<PaginatedResponse<User>> => {
+    const { data } = await api.get(ENDPOINTS.users.list, { params });
     return data;
   },
 

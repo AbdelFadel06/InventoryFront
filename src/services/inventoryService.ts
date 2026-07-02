@@ -10,8 +10,8 @@ import type {
 import type { PaginatedResponse } from "../types/common";
 
 export const inventoryService = {
-  getAll: async (): Promise<PaginatedResponse<Inventory>> => {
-    const { data } = await api.get(ENDPOINTS.inventories.list);
+  getAll: async (params?: Record<string, any>): Promise<PaginatedResponse<Inventory>> => {
+    const { data } = await api.get(ENDPOINTS.inventories.list, { params });
     return data;
   },
 

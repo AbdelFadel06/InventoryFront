@@ -1,7 +1,7 @@
 // src/pages/employee/EmployeeMovementsPage.tsx
-import { useEffect, useState }     from "react";
+import { useEffect, useRef, useState } from "react";
 import { stockMovementService }    from "../../services/stockService";
-import { PageHeader, Badge, DataTable } from "../../components/ui";
+import { PageHeader, Badge, DataTable, PaginationBar } from "../../components/ui";
 import { formatDateTime }          from "../../utils/format";
 import type { StockMovement }      from "../../types/stock";
 
@@ -20,21 +20,25 @@ export default function EmployeeMovementsPage() {
   const [movements, setMovements] = useState<StockMovement[]>([]);
   const [loading, setLoading]     = useState(true);
   const [search, setSearch]       = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount]   = useState(0);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    stockMovementService.getAll()
-      .then(res => setMovements(res.results ?? []))
+  const fetchMovements = (page = 1, q = "") => {
+    setLoading(true);
+    stockMovementService.getAll({ page, ...(q ? { search: q } : {}) })
+      .then(res => { setMovements(res.results ?? []); setTotalCount(res.count ?? 0); })
       .finally(() => setLoading(false));
-  }, []);
+  };
 
-  const filtered = movements.filter(m => {
-    const q = search.toLowerCase();
-    return (
-      (m.product_name ?? "").toLowerCase().includes(q) ||
-      (m.reason       ?? "").toLowerCase().includes(q) ||
-      (m.reference    ?? "").toLowerCase().includes(q)
-    );
-  });
+  useEffect(() => { fetchMovements(currentPage, search); }, [currentPage]);
+  useEffect(() => { fetchMovements(1, ""); }, []);
+
+  const handleSearch = (val: string) => {
+    setSearch(val);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => { setCurrentPage(1); fetchMovements(1, val); }, 300);
+  };
 
   const columns = [
     {
@@ -94,13 +98,14 @@ export default function EmployeeMovementsPage() {
       <PageHeader title="Mouvements de stock" subtitle="Historique des entrées et sorties" />
       <DataTable
         columns={columns as any}
-        data={filtered}
+        data={movements}
         loading={loading}
         emptyText="Aucun mouvement trouvé"
         searchValue={search}
-        onSearch={setSearch}
+        onSearch={handleSearch}
         searchPlaceholder="Produit, motif, référence..."
       />
+      <PaginationBar currentPage={currentPage} totalCount={totalCount} onPage={setCurrentPage} />
     </div>
   );
 }

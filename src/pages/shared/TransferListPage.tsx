@@ -1,9 +1,9 @@
 // src/pages/shared/TransferListPage.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { transferService } from "../../services/transferService";
 import { useAuth } from "../../context/AuthContext";
-import { PageHeader, Btn, Badge, DataTable } from "../../components/ui";
+import { PageHeader, Btn, Badge, DataTable, PaginationBar } from "../../components/ui";
 import { formatDateTime } from "../../utils/format";
 import type { StockTransfer, TransferStatus } from "../../types/transfer";
 
@@ -25,12 +25,19 @@ export default function TransferListPage() {
   const [filterStatus, setFilterStatus] = useState<TransferStatus | "all">("all");
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [error, setError]         = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount]   = useState(0);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetchTransfers = async () => {
+  const fetchTransfers = async (page = 1, q = "", status = filterStatus) => {
     setLoading(true);
+    const params: Record<string, any> = { page };
+    if (q) params.search = q;
+    if (status !== "all") params.status = status;
     try {
-      const res = await transferService.getAll();
+      const res = await transferService.getAll(params);
       setTransfers(res.results ?? []);
+      setTotalCount(res.count ?? 0);
     } catch {
       setError("Erreur lors du chargement des transferts.");
     } finally {
@@ -38,7 +45,20 @@ export default function TransferListPage() {
     }
   };
 
-  useEffect(() => { fetchTransfers(); }, []);
+  useEffect(() => { fetchTransfers(currentPage, search, filterStatus); }, [currentPage]);
+  useEffect(() => { fetchTransfers(1, "", "all"); }, []);
+
+  const handleSearch = (val: string) => {
+    setSearch(val);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => { setCurrentPage(1); fetchTransfers(1, val, filterStatus); }, 300);
+  };
+
+  const handleFilterStatus = (status: typeof filterStatus) => {
+    setFilterStatus(status);
+    setCurrentPage(1);
+    fetchTransfers(1, search, status);
+  };
 
   const handleAction = async (id: number, action: "send" | "receive" | "cancel") => {
     setActionLoading(id);
@@ -47,7 +67,7 @@ export default function TransferListPage() {
       if (action === "send")    await transferService.send(id);
       if (action === "receive") await transferService.receive(id);
       if (action === "cancel")  await transferService.cancel(id);
-      await fetchTransfers();
+      await fetchTransfers(currentPage, search, filterStatus);
     } catch (e: any) {
       setError(e?.response?.data?.error ?? "Une erreur est survenue.");
     } finally {
@@ -55,18 +75,7 @@ export default function TransferListPage() {
     }
   };
 
-  const filtered = transfers.filter(t => {
-    const q = search.toLowerCase();
-    const matchSearch =
-      t.reference.toLowerCase().includes(q)      ||
-      t.product_name.toLowerCase().includes(q)   ||
-      t.from_shop_name.toLowerCase().includes(q) ||
-      t.to_shop_name.toLowerCase().includes(q);
-    const matchStatus = filterStatus === "all" || t.status === filterStatus;
-    return matchSearch && matchStatus;
-  });
-
-  // Stats rapides
+  // Stats rapides (current page)
   const pending   = transfers.filter(t => t.status === "pending").length;
   const inTransit = transfers.filter(t => t.status === "in_transit").length;
   const received  = transfers.filter(t => t.status === "received").length;
@@ -217,7 +226,7 @@ export default function TransferListPage() {
         {(["all", "pending", "in_transit", "received", "cancelled"] as const).map(s => (
           <button
             key={s}
-            onClick={() => setFilterStatus(s)}
+            onClick={() => handleFilterStatus(s)}
             style={{
               padding: "6px 14px", borderRadius: 20, fontSize: 12.5,
               fontWeight: filterStatus === s ? 600 : 400,
@@ -237,13 +246,14 @@ export default function TransferListPage() {
 
       <DataTable
         columns={columns as any}
-        data={filtered}
+        data={transfers}
         loading={loading}
         emptyText="Aucun transfert trouvé"
         searchValue={search}
-        onSearch={setSearch}
+        onSearch={handleSearch}
         searchPlaceholder="Référence, produit, boutique..."
       />
+      <PaginationBar currentPage={currentPage} totalCount={totalCount} onPage={setCurrentPage} />
     </div>
   );
 }

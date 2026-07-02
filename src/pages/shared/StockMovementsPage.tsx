@@ -1,9 +1,9 @@
 // src/pages/shared/StockMovementsPage.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { stockMovementService } from "../../services/stockService";
 import { useAuth } from "../../context/AuthContext";
-import { PageHeader, Badge, DataTable } from "../../components/ui";
+import { PageHeader, Badge, DataTable, PaginationBar } from "../../components/ui";
 import { formatDateTime } from "../../utils/format";
 import type { StockMovement } from "../../types/stock";
 
@@ -41,29 +41,38 @@ export default function StockMovementsPage() {
   const [loading, setLoading]     = useState(true);
   const [search, setSearch]       = useState("");
   const [filterType, setFilterType] = useState<MovementType | "all">("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount]   = useState(0);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    stockMovementService.getAll()
-      .then(res => setMovements(res.results ?? []))
+  const fetchMovements = (page = 1, q = "", type = filterType) => {
+    setLoading(true);
+    const params: Record<string, any> = { page };
+    if (q) params.search = q;
+    if (type !== "all") params.movement_type = type;
+    stockMovementService.getAll(params)
+      .then(res => { setMovements(res.results ?? []); setTotalCount(res.count ?? 0); })
       .finally(() => setLoading(false));
-  }, []);
+  };
 
-  const filtered = movements.filter(m => {
-    const q = search.toLowerCase();
-    const matchSearch =
-      (m.product_name ?? "").toLowerCase().includes(q) ||
-      (m.product_sku  ?? "").toLowerCase().includes(q) ||
-      (m.shop_name    ?? "").toLowerCase().includes(q) ||
-      (m.reference    ?? "").toLowerCase().includes(q) ||
-      (m.reason       ?? "").toLowerCase().includes(q);
-    const matchType = filterType === "all" || m.movement_type === filterType;
-    return matchSearch && matchType;
-  });
+  useEffect(() => { fetchMovements(currentPage, search, filterType); }, [currentPage]);
+  useEffect(() => { fetchMovements(1, "", "all"); }, []);
 
-  // Stats
-  const totalEntries  = movements.filter(m => ["entry", "transfer_in", "return"].includes(m.movement_type)).length;
-  const totalExits    = movements.filter(m => ["exit",  "transfer_out", "damage"].includes(m.movement_type)).length;
-  const totalAdjusts  = movements.filter(m => ["adjustment", "inventory"].includes(m.movement_type)).length;
+  const handleSearch = (val: string) => {
+    setSearch(val);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => { setCurrentPage(1); fetchMovements(1, val, filterType); }, 300);
+  };
+
+  const handleFilterType = (type: typeof filterType) => {
+    setFilterType(type);
+    setCurrentPage(1);
+    fetchMovements(1, search, type);
+  };
+
+  const totalEntries = movements.filter(m => ["entry", "transfer_in", "return"].includes(m.movement_type)).length;
+  const totalExits   = movements.filter(m => ["exit", "transfer_out", "damage"].includes(m.movement_type)).length;
+  const totalAdjusts = movements.filter(m => ["adjustment", "inventory"].includes(m.movement_type)).length;
 
   const columns = [
     {
@@ -191,7 +200,7 @@ export default function StockMovementsPage() {
         {FILTER_TYPES.map(f => (
           <button
             key={f.key}
-            onClick={() => setFilterType(f.key)}
+            onClick={() => handleFilterType(f.key)}
             style={{
               padding: "6px 14px", borderRadius: 20, fontSize: 12.5,
               fontWeight: filterType === f.key ? 600 : 400,
@@ -216,13 +225,14 @@ export default function StockMovementsPage() {
 
       <DataTable
         columns={columns as any}
-        data={filtered}
+        data={movements}
         loading={loading}
         emptyText="Aucun mouvement trouvé"
         searchValue={search}
-        onSearch={setSearch}
+        onSearch={handleSearch}
         searchPlaceholder="Produit, boutique, référence, motif..."
       />
+      <PaginationBar currentPage={currentPage} totalCount={totalCount} onPage={setCurrentPage} />
     </div>
   );
 }

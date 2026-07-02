@@ -349,3 +349,44 @@ export function DataTable<T extends { id: number | string }>({
     </div>
   );
 }
+
+// PaginationBar
+// ─────────────────────────────────────────────────────────────────
+export function PaginationBar({
+  currentPage,
+  totalCount,
+  pageSize = 10,
+  onPage,
+}: {
+  currentPage: number;
+  totalCount:  number;
+  pageSize?:   number;
+  onPage:      (page: number) => void;
+}) {
+  const totalPages = Math.ceil(totalCount / pageSize);
+  if (totalCount <= pageSize) return null;
+
+  const btnStyle = (disabled: boolean): React.CSSProperties => ({
+    padding: "7px 18px", borderRadius: 8, fontSize: 13.5, fontWeight: 500,
+    border: "none", fontFamily: "inherit",
+    cursor: disabled ? "not-allowed" : "pointer",
+    background: disabled ? "#F1F5F9" : "#0F172A",
+    color: disabled ? "#94A3B8" : "#fff",
+    transition: "background 0.15s",
+  });
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, marginTop: 20 }}>
+      <button style={btnStyle(currentPage <= 1)} disabled={currentPage <= 1} onClick={() => onPage(currentPage - 1)}>
+        ← Précédent
+      </button>
+      <span style={{ fontSize: 13.5, color: "#64748B", fontWeight: 500 }}>
+        Page {currentPage} / {totalPages}
+        <span style={{ color: "#94A3B8", fontWeight: 400, marginLeft: 6 }}>({totalCount})</span>
+      </span>
+      <button style={btnStyle(currentPage >= totalPages)} disabled={currentPage >= totalPages} onClick={() => onPage(currentPage + 1)}>
+        Suivant →
+      </button>
+    </div>
+  );
+}

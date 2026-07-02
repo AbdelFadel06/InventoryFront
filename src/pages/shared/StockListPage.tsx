@@ -1,9 +1,9 @@
 // src/pages/shared/StockListPage.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { stockService } from "../../services/stockService";
 import { useAuth } from "../../context/AuthContext";
-import { PageHeader, Btn, Badge, DataTable, StatCard, Icon } from "../../components/ui";
+import { PageHeader, Btn, Badge, DataTable, StatCard, Icon, PaginationBar } from "../../components/ui";
 import { formatPrice } from "../../utils/format";
 import type { Stock } from "../../types/stock";
 
@@ -26,28 +26,42 @@ export default function StockListPage() {
   const [search, setSearch]     = useState("");
   const [filterStatus,   setFilterStatus]   = useState<StockStatus | "all">("all");
   const [filterLocation, setFilterLocation] = useState<"BOUTIQUE" | "MAGASIN" | "all">("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount]   = useState(0);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    stockService.getAll()
-      .then(res => setStocks(res.results ?? []))
+  const fetchStocks = (page = 1, q = "", location = filterLocation) => {
+    setLoading(true);
+    const params: Record<string, any> = { page };
+    if (q) params.search = q;
+    if (location !== "all") params.location = location;
+    stockService.getAll(params)
+      .then(res => { setStocks(res.results ?? []); setTotalCount(res.count ?? 0); })
       .finally(() => setLoading(false));
-  }, []);
+  };
+
+  useEffect(() => { fetchStocks(currentPage, search, filterLocation); }, [currentPage]);
+  useEffect(() => { fetchStocks(1, "", "all"); }, []);
+
+  const handleSearch = (val: string) => {
+    setSearch(val);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => { setCurrentPage(1); fetchStocks(1, val, filterLocation); }, 300);
+  };
+
+  const handleLocation = (loc: typeof filterLocation) => {
+    setFilterLocation(loc);
+    setCurrentPage(1);
+    fetchStocks(1, search, loc);
+  };
+
+  // stock_status is a computed field — filter client-side on current page
+  const displayed = filterStatus === "all" ? stocks : stocks.filter(s => s.stock_status === filterStatus);
 
   const outOfStock = stocks.filter(s => s.stock_status === "out_of_stock").length;
   const critical   = stocks.filter(s => s.stock_status === "critical").length;
   const low        = stocks.filter(s => s.stock_status === "low").length;
   const ok         = stocks.filter(s => s.stock_status === "ok").length;
-
-  const filtered = stocks.filter(s => {
-    const q = search.toLowerCase();
-    const matchSearch =
-      (s.product_name ?? "").toLowerCase().includes(q) ||
-      (s.product_sku  ?? "").toLowerCase().includes(q) ||
-      (s.shop_name    ?? "").toLowerCase().includes(q);
-    const matchStatus   = filterStatus   === "all" || s.stock_status === filterStatus;
-    const matchLocation = filterLocation === "all" || s.location === filterLocation;
-    return matchSearch && matchStatus && matchLocation;
-  });
 
   const columns = [
     {
@@ -193,7 +207,7 @@ export default function StockListPage() {
           { key: "BOUTIQUE", label: "Boutique"          },
           { key: "MAGASIN",  label: "Magasin"           },
         ] as const).map(f => (
-          <button key={f.key} onClick={() => setFilterLocation(f.key)}
+          <button key={f.key} onClick={() => handleLocation(f.key)}
             style={{
               padding: "6px 14px", borderRadius: 20, fontSize: 12.5,
               fontWeight: filterLocation === f.key ? 600 : 400,
@@ -232,13 +246,14 @@ export default function StockListPage() {
 
       <DataTable
         columns={columns as any}
-        data={filtered}
+        data={displayed}
         loading={loading}
         emptyText="Aucun stock trouvé"
         searchValue={search}
-        onSearch={setSearch}
+        onSearch={handleSearch}
         searchPlaceholder="Produit, SKU, boutique..."
       />
+      <PaginationBar currentPage={currentPage} totalCount={totalCount} onPage={setCurrentPage} />
     </div>
   );
 }

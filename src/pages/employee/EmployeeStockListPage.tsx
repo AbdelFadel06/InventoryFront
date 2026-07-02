@@ -1,24 +1,32 @@
 // src/pages/employee/EmployeeStockListPage.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { stockService }        from "../../services/stockService";
-import { PageHeader, Badge, DataTable, Icon } from "../../components/ui";
+import { PageHeader, Badge, DataTable, Icon, PaginationBar } from "../../components/ui";
 import type { Stock }          from "../../types/stock";
 
 export default function EmployeeStockListPage() {
   const [stocks, setStocks]   = useState<Stock[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch]   = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount]   = useState(0);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    stockService.getAll()
-      .then(res => setStocks(res.results ?? []))
+  const fetchStocks = (page = 1, q = "") => {
+    setLoading(true);
+    stockService.getAll({ page, ...(q ? { search: q } : {}) })
+      .then(res => { setStocks(res.results ?? []); setTotalCount(res.count ?? 0); })
       .finally(() => setLoading(false));
-  }, []);
+  };
 
-  const filtered = stocks.filter(s =>
-    (s.product_name ?? "").toLowerCase().includes(search.toLowerCase()) ||
-    (s.product_sku  ?? "").toLowerCase().includes(search.toLowerCase())
-  );
+  useEffect(() => { fetchStocks(currentPage, search); }, [currentPage]);
+  useEffect(() => { fetchStocks(1, ""); }, []);
+
+  const handleSearch = (val: string) => {
+    setSearch(val);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => { setCurrentPage(1); fetchStocks(1, val); }, 300);
+  };
 
   const outOfStock = stocks.filter(s => s.stock_status === "out_of_stock").length;
   const critical   = stocks.filter(s => s.stock_status === "critical").length;
@@ -112,13 +120,14 @@ export default function EmployeeStockListPage() {
 
       <DataTable
         columns={columns as any}
-        data={filtered}
+        data={stocks}
         loading={loading}
         emptyText="Aucun stock trouvé"
         searchValue={search}
-        onSearch={setSearch}
+        onSearch={handleSearch}
         searchPlaceholder="Produit, SKU..."
       />
+      <PaginationBar currentPage={currentPage} totalCount={totalCount} onPage={setCurrentPage} />
     </div>
   );
 }

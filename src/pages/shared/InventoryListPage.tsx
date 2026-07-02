@@ -1,9 +1,9 @@
 // src/pages/shared/InventoryListPage.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { inventoryService } from "../../services/inventoryService";
 import { useAuth } from "../../context/AuthContext";
-import { PageHeader, Btn, Badge, DataTable, StatCard, Icon } from "../../components/ui";
+import { PageHeader, Btn, Badge, DataTable, StatCard, Icon, PaginationBar } from "../../components/ui";
 import { formatDate } from "../../utils/format";
 import type { Inventory } from "../../types/inventory";
 
@@ -26,26 +26,39 @@ export default function InventoryListPage() {
   const [loading, setLoading]         = useState(true);
   const [search, setSearch]           = useState("");
   const [filterStatus, setFilterStatus] = useState<InventoryStatus | "all">("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount]   = useState(0);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    inventoryService.getAll()
-      .then(res => setInventories(res.results ?? []))
+  const fetchInventories = (page = 1, q = "", status = filterStatus) => {
+    setLoading(true);
+    const params: Record<string, any> = { page };
+    if (q) params.search = q;
+    if (status !== "all") params.status = status;
+    inventoryService.getAll(params)
+      .then(res => { setInventories(res.results ?? []); setTotalCount(res.count ?? 0); })
       .finally(() => setLoading(false));
-  }, []);
+  };
+
+  useEffect(() => { fetchInventories(currentPage, search, filterStatus); }, [currentPage]);
+  useEffect(() => { fetchInventories(1, "", "all"); }, []);
+
+  const handleSearch = (val: string) => {
+    setSearch(val);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => { setCurrentPage(1); fetchInventories(1, val, filterStatus); }, 300);
+  };
+
+  const handleFilterStatus = (status: typeof filterStatus) => {
+    setFilterStatus(status);
+    setCurrentPage(1);
+    fetchInventories(1, search, status);
+  };
 
   const draft      = inventories.filter(i => i.status === "draft").length;
   const inProgress = inventories.filter(i => i.status === "in_progress").length;
   const completed  = inventories.filter(i => i.status === "completed").length;
   const validated  = inventories.filter(i => i.status === "validated").length;
-
-  const filtered = inventories.filter(inv => {
-    const q = search.toLowerCase();
-    const matchSearch =
-      inv.reference.toLowerCase().includes(q) ||
-      (inv.shop_name ?? "").toLowerCase().includes(q);
-    const matchStatus = filterStatus === "all" || inv.status === filterStatus;
-    return matchSearch && matchStatus;
-  });
 
   const columns = [
     {
@@ -155,7 +168,7 @@ export default function InventoryListPage() {
           { key: "validated",   label: "Validés"   },
           { key: "cancelled",   label: "Annulés"   },
         ].map(f => (
-          <button key={f.key} onClick={() => setFilterStatus(f.key as any)}
+          <button key={f.key} onClick={() => handleFilterStatus(f.key as any)}
             style={{
               padding: "6px 14px", borderRadius: 20, fontSize: 12.5,
               fontWeight: filterStatus === f.key ? 600 : 400,
@@ -171,14 +184,15 @@ export default function InventoryListPage() {
 
       <DataTable
         columns={columns as any}
-        data={filtered}
+        data={inventories}
         loading={loading}
         emptyText="Aucun inventaire trouvé"
         searchValue={search}
-        onSearch={setSearch}
+        onSearch={handleSearch}
         searchPlaceholder="Référence, boutique..."
         onRowClick={(row: any) => navigate(`${basePath}/inventories/${row.id}`)}
       />
+      <PaginationBar currentPage={currentPage} totalCount={totalCount} onPage={setCurrentPage} />
     </div>
   );
 }

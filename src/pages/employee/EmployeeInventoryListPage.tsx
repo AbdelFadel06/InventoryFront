@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate }         from "react-router-dom";
 import { inventoryService }    from "../../services/inventoryService";
-import { PageHeader, Badge, DataTable } from "../../components/ui";
+import { PageHeader, Badge, DataTable, PaginationBar } from "../../components/ui";
 import { formatDate }          from "../../utils/format";
 import type { Inventory }      from "../../types/inventory";
 
@@ -20,12 +20,18 @@ export default function EmployeeInventoryListPage() {
   const navigate = useNavigate();
   const [inventories, setInventories] = useState<Inventory[]>([]);
   const [loading, setLoading]         = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount]   = useState(0);
 
-  useEffect(() => {
-    inventoryService.getAll()
-      .then(res => setInventories(res.results ?? []))
+  const fetchInv = (page = 1) => {
+    setLoading(true);
+    inventoryService.getAll({ page })
+      .then(res => { setInventories(res.results ?? []); setTotalCount(res.count ?? 0); })
       .finally(() => setLoading(false));
-  }, []);
+  };
+
+  useEffect(() => { fetchInv(currentPage); }, [currentPage]);
+  useEffect(() => { fetchInv(1); }, []);
 
   const columns = [
     {
@@ -93,6 +99,7 @@ export default function EmployeeInventoryListPage() {
         emptyText="Aucun inventaire en cours"
         onRowClick={(row: any) => navigate(`/employee/inventories/${row.id}`)}
       />
+      <PaginationBar currentPage={currentPage} totalCount={totalCount} onPage={setCurrentPage} />
     </div>
   );
 }
