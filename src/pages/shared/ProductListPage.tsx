@@ -211,6 +211,7 @@ export default function ProductListPage() {
     const matchSearch =
       p.name.toLowerCase().includes(q) ||
       p.sku.toLowerCase().includes(q)  ||
+      (p.barcode ?? "").toLowerCase().includes(q) ||
       (p.category_name ?? "").toLowerCase().includes(q);
     const matchStatus =
       filterStatus === "all"        ? true :
