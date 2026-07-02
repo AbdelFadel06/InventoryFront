@@ -156,7 +156,8 @@ export default function ProductListPage() {
   const [shops, setShops]           = useState<Shop[]>([]);
   const [loading, setLoading]       = useState(true);
   const [search, setSearch]         = useState("");
-  const [filterStatus, setFilterStatus] = useState<"all"|"active"|"inactive"|"low"|"out"|"no_barcode">("all");
+  const [filterStatus, setFilterStatus] = useState<"all"|"active"|"inactive"|"low"|"out"|"no_barcode"|"duplicates">("all");
+  const [duplicateCount, setDuplicateCount] = useState(0);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -219,6 +220,12 @@ export default function ProductListPage() {
         const list = q ? outStockProds.filter(p => matchesSearch(p, q)) : outStockProds;
         setProducts(list);
         setTotalCount(0);
+      } else if (status === "duplicates") {
+        const res = await productService.findDuplicates();
+        const list = q ? res.results.filter(p => matchesSearch(p, q)) : res.results;
+        setProducts(list);
+        setDuplicateCount(res.count);
+        setTotalCount(0);
       } else {
         const params: Record<string, unknown> = { page };
         if (q)                   params.search     = q;
@@ -241,11 +248,13 @@ export default function ProductListPage() {
       productService.getLowStock(),
       productService.getOutOfStock(),
       productService.getAll({ has_barcode: false }),
-    ]).then(([s, l, o, nb]) => {
+      productService.findDuplicates(),
+    ]).then(([s, l, o, nb, dup]) => {
       setStatsData({ total: s.total_products, active: s.active_products, inactive: s.inactive_products });
       setLowStockProds(l.products);
       setOutStockProds(o.products);
       setNoBarcodeCount(nb.count ?? 0);
+      setDuplicateCount(dup.count);
     });
     categoryService.getAll().then(res => setCategories(res.results ?? res));
     if (isAdmin) shopService.getAll().then(res => setShops(res.results ?? res));
@@ -347,6 +356,8 @@ export default function ProductListPage() {
       await productService.delete(deleteModal.id);
       setDeleteModal(null);
       await fetchProducts();
+      // Refresh duplicate count
+      productService.findDuplicates().then(r => setDuplicateCount(r.count));
     } catch {
       setModalError("Impossible de supprimer ce produit. Il est peut-être lié à des stocks ou mouvements.");
     } finally {
@@ -570,20 +581,19 @@ export default function ProductListPage() {
 
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
         {[
-          { key: "all",        label: "Tous"            },
-          { key: "active",     label: "Actifs"          },
-          { key: "inactive",   label: "Inactifs"        },
-          { key: "low",        label: "Stock bas"       },
-          { key: "out",        label: "Ruptures"        },
-          { key: "no_barcode", label: `Sans code-barres${noBarcode > 0 ? ` (${noBarcode})` : ""}` },
+          { key: "all",        label: "Tous",            color: "#0F172A" },
+          { key: "active",     label: "Actifs",          color: "#0F172A" },
+          { key: "inactive",   label: "Inactifs",        color: "#0F172A" },
+          { key: "low",        label: "Stock bas",       color: "#0F172A" },
+          { key: "out",        label: "Ruptures",        color: "#0F172A" },
+          { key: "no_barcode", label: `Sans code-barres${noBarcode > 0 ? ` (${noBarcode})` : ""}`, color: "#7C3AED" },
+          { key: "duplicates", label: `Doublons${duplicateCount > 0 ? ` (${duplicateCount})` : ""}`, color: "#DC2626" },
         ].map(f => (
           <button key={f.key} onClick={() => handleFilterStatus(f.key as any)}
             style={{
               padding: "6px 14px", borderRadius: 20, fontSize: 12.5,
               fontWeight: filterStatus === f.key ? 600 : 400,
-              background: filterStatus === f.key
-                ? (f.key === "no_barcode" ? "#7C3AED" : "#0F172A")
-                : "#fff",
+              background: filterStatus === f.key ? f.color : "#fff",
               color:  filterStatus === f.key ? "#fff" : "#64748B",
               border: filterStatus === f.key ? "none" : "1px solid #E2E8F0",
               cursor: "pointer", transition: "all 0.15s", fontFamily: "inherit",

@@ -100,4 +100,9 @@ export const productService = {
     const { data } = await api.get(ENDPOINTS.products.byBarcode, { params: { code } });
     return data;
   },
+
+  findDuplicates: async (): Promise<{ count: number; results: Product[] }> => {
+    const { data } = await api.get(`${ENDPOINTS.products.list}find_duplicates/`);
+    return data;
+  },
 };
