@@ -169,6 +169,7 @@ export default function ProductListPage() {
   const [lowStockProds, setLowStockProds] = useState<Product[]>([]);
   const [outStockProds, setOutStockProds] = useState<Product[]>([]);
   const [noBarcodeCount, setNoBarcodeCount] = useState(0);
+  const [legacyBarcodeCount, setLegacyBarcodeCount] = useState(0);
 
   // Search debounce
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -231,7 +232,8 @@ export default function ProductListPage() {
         if (q)                   params.search     = q;
         if (status === "active") params.is_active  = true;
         if (status === "inactive") params.is_active = false;
-        if (status === "no_barcode") params.has_barcode = false;
+        if (status === "no_barcode")     params.has_barcode        = false;
+        if (status === "legacy_barcode") params.has_legacy_barcode = true;
         const res = await productService.getAll(params);
         setProducts(res.results ?? []);
         setTotalCount(res.count ?? 0);
@@ -247,14 +249,16 @@ export default function ProductListPage() {
       productService.getStatistics(),
       productService.getLowStock(),
       productService.getOutOfStock(),
-      productService.getAll({ has_barcode: false }),
+      productService.getAll({ has_barcode: false, page_size: 1 }),
       productService.findDuplicates(),
-    ]).then(([s, l, o, nb, dup]) => {
+      productService.getAll({ has_legacy_barcode: true, page_size: 1 }),
+    ]).then(([s, l, o, nb, dup, legacy]) => {
       setStatsData({ total: s.total_products, active: s.active_products, inactive: s.inactive_products });
       setLowStockProds(l.products);
       setOutStockProds(o.products);
       setNoBarcodeCount(nb.count ?? 0);
       setDuplicateCount(dup.count);
+      setLegacyBarcodeCount(legacy.count ?? 0);
     });
     categoryService.getAll().then(res => setCategories(res.results ?? res));
     if (isAdmin) shopService.getAll().then(res => setShops(res.results ?? res));
@@ -382,6 +386,7 @@ export default function ProductListPage() {
       setProducts(prev => prev.map(p => map[p.id] ? { ...p, barcode: map[p.id] } : p));
       setPrintSelection(new Set(barcodes.map(b => b.id)));
       setNoBarcodeCount(0);
+      setLegacyBarcodeCount(0);
     } catch { /* ignore */ } finally {
       setGeneratingAll(false);
     }
@@ -586,8 +591,9 @@ export default function ProductListPage() {
           { key: "inactive",   label: "Inactifs",        color: "#0F172A" },
           { key: "low",        label: "Stock bas",       color: "#0F172A" },
           { key: "out",        label: "Ruptures",        color: "#0F172A" },
-          { key: "no_barcode", label: `Sans code-barres${noBarcode > 0 ? ` (${noBarcode})` : ""}`, color: "#7C3AED" },
-          { key: "duplicates", label: `Doublons${duplicateCount > 0 ? ` (${duplicateCount})` : ""}`, color: "#DC2626" },
+          { key: "no_barcode",     label: `Sans code-barres${noBarcodeCount > 0 ? ` (${noBarcodeCount})` : ""}`,         color: "#7C3AED" },
+          { key: "legacy_barcode", label: `Format SHM${legacyBarcodeCount > 0 ? ` (${legacyBarcodeCount})` : ""}`,       color: "#D97706" },
+          { key: "duplicates",     label: `Doublons${duplicateCount > 0 ? ` (${duplicateCount})` : ""}`,                  color: "#DC2626" },
         ].map(f => (
           <button key={f.key} onClick={() => handleFilterStatus(f.key as any)}
             style={{
@@ -604,7 +610,7 @@ export default function ProductListPage() {
 
         {/* Actions barcode — visibles quelle que soit la vue */}
         <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-          {filterStatus === "no_barcode" && noBarcode > 0 && (
+          {(filterStatus === "no_barcode" || filterStatus === "legacy_barcode") && (
             <button
               onClick={handleGenerateAll}
               disabled={generatingAll}
@@ -614,7 +620,11 @@ export default function ProductListPage() {
                 border: "none", cursor: generatingAll ? "not-allowed" : "pointer",
                 fontFamily: "inherit", transition: "background 0.2s",
               }}>
-              {generatingAll ? "Génération…" : `Générer tous (${noBarcode})`}
+              {generatingAll
+                ? "Génération…"
+                : filterStatus === "legacy_barcode"
+                  ? `Migrer vers EAN-13 (${legacyBarcodeCount})`
+                  : `Générer EAN-13 (${noBarcodeCount})`}
             </button>
           )}
           {printSelection.size > 0 && (
