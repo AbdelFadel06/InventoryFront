@@ -720,6 +720,22 @@ export default function CashierPOSPage() {
 
   // Scan code-barres (entrées clavier rapides)
   useEffect(() => {
+    // Extrait le caractère réel depuis e.code (indépendant de la disposition clavier)
+    // Résout le problème AZERTY où "1" devient "&", "2" devient "é", etc.
+    const getScannedChar = (e: KeyboardEvent): string | null => {
+      // Chiffres physiques (Digit0–Digit9) → toujours "0"–"9" quelle que soit la disposition
+      if (/^Digit(\d)$/.test(e.code)) return e.code.slice(5);
+      // Pavé numérique
+      if (/^Numpad(\d)$/.test(e.code)) return e.code.slice(6);
+      // Lettres : e.code = "KeyA"–"KeyZ" → position physique QWERTY
+      // Pour les barcodes alphanumériques (Code-39, etc.), on lit la position physique
+      if (/^Key([A-Z])$/.test(e.code)) {
+        const letter = e.code.slice(3); // "KeyA" → "A"
+        return e.shiftKey ? letter : letter.toLowerCase();
+      }
+      return null;
+    };
+
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ignorer si focus sur un champ de saisie normal
       const tag = (e.target as HTMLElement).tagName;
@@ -745,8 +761,9 @@ export default function CashierPOSPage() {
         return;
       }
 
-      if (e.key.length === 1) {
-        barcodeBuffer.current += e.key;
+      const char = getScannedChar(e);
+      if (char !== null) {
+        barcodeBuffer.current += char;
         clearTimeout(barcodeTimer.current);
         barcodeTimer.current = setTimeout(() => {
           barcodeBuffer.current = "";
