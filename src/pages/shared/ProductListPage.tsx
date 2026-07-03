@@ -376,7 +376,7 @@ export default function ProductListPage() {
   const handleGenerateAll = async () => {
     setGeneratingAll(true);
     try {
-      const { barcodes } = await productService.generateAllBarcodes();
+      const { barcodes } = await productService.generateAllBarcodes(true);
       const map: Record<number, string> = {};
       barcodes.forEach(b => { map[b.id] = b.barcode; });
       setProducts(prev => prev.map(p => map[p.id] ? { ...p, barcode: map[p.id] } : p));
@@ -389,7 +389,7 @@ export default function ProductListPage() {
 
   const handleGenerateBarcodeSingle = async (p: Product) => {
     try {
-      const { barcode } = await productService.generateBarcode(p.id);
+      const { barcode } = await productService.generateBarcode(p.id, true);
       setProducts(prev => prev.map(x => x.id === p.id ? { ...x, barcode } : x));
       setPrintSelection(prev => new Set([...prev, p.id]));
       setNoBarcodeCount(prev => Math.max(0, prev - 1));

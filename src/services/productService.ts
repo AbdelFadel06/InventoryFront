@@ -86,13 +86,17 @@ export const productService = {
     await api.delete(ENDPOINTS.products.removeImage(productId, imageId));
   },
 
-  generateBarcode: async (id: number): Promise<{ barcode: string }> => {
-    const { data } = await api.post(ENDPOINTS.products.generateBarcode(id));
+  generateBarcode: async (id: number, force = false): Promise<{ barcode: string }> => {
+    const { data } = await api.post(ENDPOINTS.products.generateBarcode(id), null, {
+      params: force ? { force: 'true' } : undefined,
+    });
     return data;
   },
 
-  generateAllBarcodes: async (): Promise<{ generated: number; barcodes: { id: number; name: string; barcode: string }[] }> => {
-    const { data } = await api.post(ENDPOINTS.products.generateAllBarcodes);
+  generateAllBarcodes: async (force = false): Promise<{ generated: number; barcodes: { id: number; name: string; barcode: string }[] }> => {
+    const { data } = await api.post(ENDPOINTS.products.generateAllBarcodes, null, {
+      params: force ? { force: 'true' } : undefined,
+    });
     return data;
   },
 

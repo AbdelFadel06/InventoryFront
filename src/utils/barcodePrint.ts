@@ -22,13 +22,13 @@ const PAGE_H = 297;
 function generateBarcodeImage(code: string): string {
   const canvas = document.createElement("canvas");
   JsBarcode(canvas, code, {
-    format: "CODE128",
+    format: "EAN13",
     width: 2,
-    height: 40,
+    height: 50,
     displayValue: true,
-    fontSize: 10,
+    fontSize: 11,
     textMargin: 2,
-    margin: 3,
+    margin: 4,
     background: "#ffffff",
     lineColor: "#000000",
   });
