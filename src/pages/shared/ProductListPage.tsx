@@ -9,7 +9,6 @@ import { useAuth }              from "../../context/AuthContext";
 import { PageHeader, Btn, Badge, DataTable, StatCard, Icon } from "../../components/ui";
 import { uploadToCloudinary }   from "../../utils/cloudinary";
 import { printBarcodeLabels, printAllBarcodeLabels } from "../../utils/barcodePrint";
-import { printStockReport } from "../../utils/stockPrint";
 import type { Product, ProductImage }  from "../../types/product";
 import type { Category } from "../../types/category";
 import type { Shop }     from "../../types/shop";
@@ -175,13 +174,11 @@ export default function ProductListPage() {
   // Search debounce
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [generatingAll, setGeneratingAll] = useState(false);
-  // Unified selection state — stores IDs; cache stores full Product objects
-  const [selection, setSelection] = useState<Set<number>>(new Set());
-  const selectionCache = useRef<Map<number, Product>>(new Map());
-  const [copies, setCopies] = useState(1);
-  const [selectingAll, setSelectingAll] = useState(false);
+  const [selection, setSelection]         = useState<Set<number>>(new Set());
+  const selectionCache                    = useRef<Map<number, Product>>(new Map());
+  const [copies, setCopies]               = useState(1);
+  const [selectingAll, setSelectingAll]   = useState(false);
   const [printingLabels, setPrintingLabels] = useState(false);
-  const [printingStock, setPrintingStock] = useState(false);
 
   const [editModal, setEditModal]     = useState<Product | null>(null);
   const [deleteModal, setDeleteModal] = useState<Product | null>(null);
@@ -367,10 +364,10 @@ export default function ProductListPage() {
       await productService.delete(deleteModal.id);
       setDeleteModal(null);
       await fetchProducts();
-      // Refresh duplicate count
       productService.findDuplicates().then(r => setDuplicateCount(r.count));
-    } catch {
-      setModalError("Impossible de supprimer ce produit. Il est peut-être lié à des stocks ou mouvements.");
+    } catch (e: any) {
+      const msg = e?.response?.data?.error;
+      setModalError(msg ?? "Impossible de supprimer ce produit. Il est peut-être lié à des stocks ou mouvements.");
     } finally {
       setModalLoading(false);
     }
@@ -487,25 +484,6 @@ export default function ProductListPage() {
     }
   };
 
-  // ── Stock printing ────────────────────────────────────────────────
-  const handlePrintStock = () => {
-    const toPrint = Array.from(selection)
-      .map(id => selectionCache.current.get(id))
-      .filter((p): p is Product => !!p);
-    if (!toPrint.length) return;
-    printStockReport(toPrint, user?.shop_name ?? "");
-  };
-
-  const handlePrintAllStock = async () => {
-    setPrintingStock(true);
-    try {
-      const res = await productService.getAll({ page_size: 500 });
-      const all = res.results ?? [];
-      if (all.length) printStockReport(all, user?.shop_name ?? "");
-    } catch { /* ignore */ } finally {
-      setPrintingStock(false);
-    }
-  };
 
   const openStock = (p: Product) => {
     setStockForm({ shop: isAdmin ? "" : String(user?.shop ?? ""), quantity: "", reason: "", location: "BOUTIQUE" });
@@ -701,115 +679,62 @@ export default function ProductListPage() {
         )}
       </div>
 
-      {/* ── Panneau d'impression ──────────────────────────────────── */}
+      {/* ── Panneau étiquettes ───────────────────────────────────── */}
       <div style={{
+        display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
         background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 10,
-        padding: "12px 16px", marginBottom: 16,
+        padding: "10px 14px", marginBottom: 14,
       }}>
-        {/* Ligne 1 : contrôles de sélection */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 13, fontWeight: 600, color: "#475569", minWidth: 130 }}>
-            {selection.size > 0
-              ? `${selection.size} sélectionné${selection.size > 1 ? "s" : ""}`
-              : "Aucune sélection"}
-          </span>
-          <button
-            onClick={toggleSelectPage}
-            style={{
+        <button
+          onClick={handleSelectAllFromDB}
+          disabled={selectingAll}
+          style={{
+            padding: "5px 14px", borderRadius: 16, fontSize: 12.5, fontWeight: 600,
+            background: "#fff", color: "#0F172A", border: "1px solid #CBD5E1",
+            cursor: selectingAll ? "not-allowed" : "pointer", fontFamily: "inherit",
+          }}>
+          {selectingAll ? "Chargement…" : "Sélectionner tout"}
+        </button>
+
+        {selection.size > 0 && (
+          <>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>
+              {selection.size} sélectionné{selection.size > 1 ? "s" : ""}
+            </span>
+            <button onClick={clearSelection} style={{
               padding: "5px 12px", borderRadius: 16, fontSize: 12, fontWeight: 500,
-              background: allPageSelected ? "#E2E8F0" : "#fff",
-              color: "#475569", border: "1px solid #CBD5E1",
+              background: "#FEF2F2", color: "#DC2626", border: "1px solid #FECACA",
+              cursor: "pointer", fontFamily: "inherit",
+            }}>Effacer</button>
+          </>
+        )}
+
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 12, color: "#64748B" }}>Copies :</span>
+          <input
+            type="number" min={1} max={99} value={copies}
+            onChange={e => setCopies(Math.max(1, parseInt(e.target.value) || 1))}
+            style={{
+              width: 54, padding: "3px 7px", borderRadius: 6, fontSize: 13, textAlign: "center",
+              border: "1px solid #CBD5E1", fontFamily: "inherit",
+            }}
+          />
+          {selLabelCount > 0 && (
+            <button onClick={handlePrintLabels} style={{
+              padding: "5px 14px", borderRadius: 16, fontSize: 12.5, fontWeight: 600,
+              background: "#1D4ED8", color: "#fff", border: "none",
               cursor: "pointer", fontFamily: "inherit",
             }}>
-            {allPageSelected ? "Désél. page" : `Sél. page (${products.length})`}
-          </button>
-          <button
-            onClick={handleSelectAllFromDB}
-            disabled={selectingAll}
-            style={{
-              padding: "5px 12px", borderRadius: 16, fontSize: 12, fontWeight: 500,
-              background: "#fff", color: "#475569", border: "1px solid #CBD5E1",
-              cursor: selectingAll ? "not-allowed" : "pointer", fontFamily: "inherit",
-            }}>
-            {selectingAll ? "Chargement…" : "Tout sél. (BD)"}
-          </button>
-          {selection.size > 0 && (
-            <button
-              onClick={clearSelection}
-              style={{
-                padding: "5px 12px", borderRadius: 16, fontSize: 12, fontWeight: 500,
-                background: "#FEF2F2", color: "#DC2626", border: "1px solid #FECACA",
-                cursor: "pointer", fontFamily: "inherit",
-              }}>
-              Effacer ({selection.size})
+              Imprimer étiquettes ({selLabelCount})
             </button>
           )}
-        </div>
-
-        {/* Ligne 2 : actions d'impression */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          {/* Étiquettes */}
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 12, color: "#64748B", fontWeight: 600 }}>Étiquettes</span>
-            <span style={{ fontSize: 12, color: "#94A3B8" }}>Copies :</span>
-            <input
-              type="number" min={1} max={99} value={copies}
-              onChange={e => setCopies(Math.max(1, parseInt(e.target.value) || 1))}
-              style={{
-                width: 54, padding: "3px 7px", borderRadius: 6, fontSize: 13,
-                border: "1px solid #CBD5E1", fontFamily: "inherit", textAlign: "center",
-              }}
-            />
-          </div>
-          {selLabelCount > 0 && (
-            <button
-              onClick={handlePrintLabels}
-              style={{
-                padding: "5px 13px", borderRadius: 16, fontSize: 12.5, fontWeight: 600,
-                background: "#1D4ED8", color: "#fff", border: "none",
-                cursor: "pointer", fontFamily: "inherit",
-              }}>
-              Imprimer sél. ({selLabelCount})
-            </button>
-          )}
-          <button
-            onClick={handlePrintAllLabels}
-            disabled={printingLabels}
-            style={{
-              padding: "5px 13px", borderRadius: 16, fontSize: 12.5, fontWeight: 600,
-              background: printingLabels ? "#93C5FD" : "#DBEAFE", color: "#1D4ED8",
-              border: "1px solid #BFDBFE", cursor: printingLabels ? "not-allowed" : "pointer",
-              fontFamily: "inherit",
-            }}>
-            {printingLabels ? "Chargement…" : "Tout imprimer étiq."}
-          </button>
-
-          {/* Séparateur */}
-          <div style={{ width: 1, height: 22, background: "#E2E8F0", margin: "0 4px" }} />
-
-          {/* Stock */}
-          <span style={{ fontSize: 12, color: "#64748B", fontWeight: 600 }}>Stock</span>
-          {selection.size > 0 && (
-            <button
-              onClick={handlePrintStock}
-              style={{
-                padding: "5px 13px", borderRadius: 16, fontSize: 12.5, fontWeight: 600,
-                background: "#15803D", color: "#fff", border: "none",
-                cursor: "pointer", fontFamily: "inherit",
-              }}>
-              Imprimer sél. ({selection.size})
-            </button>
-          )}
-          <button
-            onClick={handlePrintAllStock}
-            disabled={printingStock}
-            style={{
-              padding: "5px 13px", borderRadius: 16, fontSize: 12.5, fontWeight: 600,
-              background: printingStock ? "#86EFAC" : "#DCFCE7", color: "#15803D",
-              border: "1px solid #BBF7D0", cursor: printingStock ? "not-allowed" : "pointer",
-              fontFamily: "inherit",
-            }}>
-            {printingStock ? "Chargement…" : "Tout imprimer stock"}
+          <button onClick={handlePrintAllLabels} disabled={printingLabels} style={{
+            padding: "5px 14px", borderRadius: 16, fontSize: 12.5, fontWeight: 600,
+            background: printingLabels ? "#93C5FD" : "#DBEAFE", color: "#1D4ED8",
+            border: "1px solid #BFDBFE", cursor: printingLabels ? "not-allowed" : "pointer",
+            fontFamily: "inherit",
+          }}>
+            {printingLabels ? "Chargement…" : "Tout imprimer"}
           </button>
         </div>
       </div>
@@ -1060,11 +985,17 @@ export default function ProductListPage() {
             </div>
           )}
           <div style={{ background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 10, padding: "14px 16px", marginBottom: 20 }}>
-            <div style={{ fontWeight: 600, color: "#DC2626", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}><Icon name="warning" size={14} color="#DC2626" /> Action irréversible</div>
-            <div style={{ fontSize: 13.5, color: "#374151" }}>
-              Vous allez supprimer <strong>{deleteModal.name}</strong> ({deleteModal.sku}).
-              Cette action échouera si le produit a des stocks ou mouvements associés.
+            <div style={{ fontWeight: 600, color: "#DC2626", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
+              <Icon name="warning" size={14} color="#DC2626" /> Action irréversible
             </div>
+            <div style={{ fontSize: 13.5, color: "#374151", marginBottom: 6 }}>
+              Vous allez supprimer <strong>{deleteModal.name}</strong> ({deleteModal.sku}).
+            </div>
+            {(deleteModal.current_stock ?? 0) > 0 && (
+              <div style={{ fontSize: 13, color: "#92400E", background: "#FEF9C3", border: "1px solid #FDE68A", borderRadius: 7, padding: "8px 12px", marginTop: 8 }}>
+                ⚠️ Ce produit a encore <strong>{deleteModal.current_stock} unité(s)</strong> en stock. Retirez le stock avant de le supprimer.
+              </div>
+            )}
           </div>
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
             <Btn variant="secondary" onClick={() => setDeleteModal(null)}>Annuler</Btn>

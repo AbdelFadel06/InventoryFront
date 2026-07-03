@@ -5,6 +5,7 @@ import { stockService } from "../../services/stockService";
 import { useAuth } from "../../context/AuthContext";
 import { PageHeader, Btn, Badge, DataTable, StatCard, Icon, PaginationBar } from "../../components/ui";
 import { formatPrice } from "../../utils/format";
+import { printStockReport } from "../../utils/stockPrint";
 import type { Stock } from "../../types/stock";
 
 type StockStatus = "ok" | "low" | "critical" | "out_of_stock";
@@ -29,6 +30,12 @@ export default function StockListPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount]   = useState(0);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── Sélection pour impression ─────────────────────────────────
+  const [selection, setSelection]       = useState<Set<number>>(new Set());
+  const selectionCache                  = useRef<Map<number, Stock>>(new Map());
+  const [selectingAll, setSelectingAll] = useState(false);
+  const [printing, setPrinting]         = useState(false);
 
   const fetchStocks = (page = 1, q = "", location = filterLocation) => {
     setLoading(true);
@@ -58,12 +65,76 @@ export default function StockListPage() {
   // stock_status is a computed field — filter client-side on current page
   const displayed = filterStatus === "all" ? stocks : stocks.filter(s => s.stock_status === filterStatus);
 
+  // ── Sélection ────────────────────────────────────────────────
+  const toggleSelect = (s: Stock) => {
+    setSelection(prev => {
+      const next = new Set(prev);
+      if (next.has(s.id)) { next.delete(s.id); selectionCache.current.delete(s.id); }
+      else { next.add(s.id); selectionCache.current.set(s.id, s); }
+      return next;
+    });
+  };
+
+  const allPageSelected = displayed.length > 0 && displayed.every(s => selection.has(s.id));
+
+  const toggleSelectPage = () => {
+    if (allPageSelected) {
+      setSelection(prev => {
+        const next = new Set(prev);
+        displayed.forEach(s => { next.delete(s.id); selectionCache.current.delete(s.id); });
+        return next;
+      });
+    } else {
+      displayed.forEach(s => selectionCache.current.set(s.id, s));
+      setSelection(prev => new Set([...prev, ...displayed.map(s => s.id)]));
+    }
+  };
+
+  const handleSelectAll = async () => {
+    setSelectingAll(true);
+    try {
+      const res = await stockService.getAll({ page_size: 500 });
+      const all = res.results ?? [];
+      all.forEach(s => selectionCache.current.set(s.id, s));
+      setSelection(new Set(all.map(s => s.id)));
+    } catch { /* ignore */ } finally { setSelectingAll(false); }
+  };
+
+  const clearSelection = () => { setSelection(new Set()); selectionCache.current.clear(); };
+
+  // ── Impression ───────────────────────────────────────────────
+  const handlePrintSelection = () => {
+    const toPrint = Array.from(selection)
+      .map(id => selectionCache.current.get(id))
+      .filter((s): s is Stock => !!s);
+    if (toPrint.length) printStockReport(toPrint, user?.shop_name ?? "");
+  };
+
+  const handlePrintAll = async () => {
+    setPrinting(true);
+    try {
+      const res = await stockService.getAll({ page_size: 500 });
+      if (res.results?.length) printStockReport(res.results, user?.shop_name ?? "");
+    } catch { /* ignore */ } finally { setPrinting(false); }
+  };
+
   const outOfStock = stocks.filter(s => s.stock_status === "out_of_stock").length;
   const critical   = stocks.filter(s => s.stock_status === "critical").length;
   const low        = stocks.filter(s => s.stock_status === "low").length;
   const ok         = stocks.filter(s => s.stock_status === "ok").length;
 
   const columns = [
+    {
+      key: "sel", label: (
+        <input type="checkbox" checked={allPageSelected} onChange={toggleSelectPage}
+          title={allPageSelected ? "Désélectionner la page" : "Sélectionner la page"}
+          style={{ cursor: "pointer", width: 15, height: 15 }} />
+      ) as any,
+      render: (row: Stock) => (
+        <input type="checkbox" checked={selection.has(row.id)} onChange={() => toggleSelect(row)}
+          style={{ cursor: "pointer", width: 15, height: 15 }} />
+      ),
+    },
     {
       key: "product_name", label: "Produit",
       render: (row: Stock) => (
@@ -242,6 +313,64 @@ export default function StockListPage() {
             {f.label}
           </button>
         ))}
+      </div>
+
+      {/* ── Panneau impression rapport stock ──────────────────── */}
+      <div style={{
+        display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
+        background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 10,
+        padding: "10px 14px", marginBottom: 14,
+      }}>
+        <button
+          onClick={handleSelectAll}
+          disabled={selectingAll}
+          style={{
+            padding: "5px 14px", borderRadius: 16, fontSize: 12.5, fontWeight: 600,
+            background: "#fff", color: "#0F172A", border: "1px solid #CBD5E1",
+            cursor: selectingAll ? "not-allowed" : "pointer", fontFamily: "inherit",
+          }}>
+          {selectingAll ? "Chargement…" : "Sélectionner tout"}
+        </button>
+
+        {selection.size > 0 && (
+          <>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>
+              {selection.size} sélectionné{selection.size > 1 ? "s" : ""}
+            </span>
+            <button
+              onClick={clearSelection}
+              style={{
+                padding: "5px 12px", borderRadius: 16, fontSize: 12, fontWeight: 500,
+                background: "#FEF2F2", color: "#DC2626", border: "1px solid #FECACA",
+                cursor: "pointer", fontFamily: "inherit",
+              }}>
+              Effacer
+            </button>
+            <button
+              onClick={handlePrintSelection}
+              style={{
+                padding: "5px 14px", borderRadius: 16, fontSize: 12.5, fontWeight: 600,
+                background: "#15803D", color: "#fff", border: "none",
+                cursor: "pointer", fontFamily: "inherit",
+              }}>
+              Imprimer rapport ({selection.size})
+            </button>
+          </>
+        )}
+
+        <div style={{ marginLeft: "auto" }}>
+          <button
+            onClick={handlePrintAll}
+            disabled={printing}
+            style={{
+              padding: "5px 14px", borderRadius: 16, fontSize: 12.5, fontWeight: 600,
+              background: printing ? "#86EFAC" : "#DCFCE7", color: "#15803D",
+              border: "1px solid #BBF7D0", cursor: printing ? "not-allowed" : "pointer",
+              fontFamily: "inherit",
+            }}>
+            {printing ? "Chargement…" : "Tout imprimer"}
+          </button>
+        </div>
       </div>
 
       <DataTable

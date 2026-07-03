@@ -18,6 +18,7 @@ export interface Stock {
   product_name?: string;
   product_sku?: string;
   product_image?: string | null;
+  product_selling_price?: string;
   shop: number;
   shop_name?: string;
   location: StockLocation;

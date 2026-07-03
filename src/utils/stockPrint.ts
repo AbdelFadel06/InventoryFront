@@ -1,30 +1,23 @@
-import type { Product } from "../types/product";
+import type { Stock } from "../types/stock";
 
-const UNIT_LABELS: Record<string, string> = {
-  piece: "Pièce", kg: "Kg", g: "Gramme", l: "Litre",
-  ml: "ml", m: "Mètre", cm: "cm", box: "Boîte", pack: "Pack", other: "Autre",
-};
+const fmt = (n: number | string) => Number(n).toLocaleString("fr-FR") + " F";
 
-function stockStatus(p: Product): { label: string; color: string } {
-  if ((p.current_stock ?? 0) === 0) return { label: "Rupture", color: "#DC2626" };
-  if (p.is_low_stock) return { label: "Stock bas", color: "#D97706" };
-  return { label: "OK", color: "#16A34A" };
-}
-
-export function printStockReport(products: Product[], shopName = ""): void {
+export function printStockReport(stocks: Stock[], shopName = ""): void {
   const date = new Date().toLocaleDateString("fr-FR", {
-    year: "numeric", month: "long", day: "numeric",
+    weekday: "long", year: "numeric", month: "long", day: "numeric",
   });
 
-  const rows = products.map(p => {
-    const { label, color } = stockStatus(p);
-    return `<tr>
-      <td>${p.name.replace(/</g, "&lt;")}</td>
-      <td style="font-family:monospace;font-size:11px">${p.sku}</td>
-      <td style="text-align:center;font-weight:700;font-size:13px">${p.current_stock ?? 0}</td>
-      <td style="text-align:center;color:#64748B">${p.minimum_stock}</td>
-      <td style="text-align:center;color:#64748B">${UNIT_LABELS[p.unit] ?? p.unit}</td>
-      <td style="text-align:center;font-weight:700;color:${color}">${label}</td>
+  const thStyle = `text-align:left;padding:9px 12px;background:#F1F5F9;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid #E2E8F0`;
+
+  const locationLabel = (loc: string) => loc === "MAGASIN" ? "Magasin" : "Boutique";
+
+  const rows = stocks.map(s => {
+    const price = s.product_selling_price ? fmt(s.product_selling_price) : "—";
+    return `<tr style="border-bottom:1px solid #E2E8F0;page-break-inside:avoid">
+      <td style="padding:9px 12px;font-weight:600;color:#0F172A">${(s.product_name ?? "").replace(/</g, "&lt;")}</td>
+      <td style="padding:9px 12px;color:#64748B">${price}</td>
+      <td style="padding:9px 12px;font-weight:700;color:#0F172A">${s.quantity}</td>
+      <td style="padding:9px 12px;color:#64748B">${locationLabel(s.location)}</td>
     </tr>`;
   }).join("");
 
@@ -32,47 +25,54 @@ export function printStockReport(products: Product[], shopName = ""): void {
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Rapport de Stock</title>
+<title></title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Arial, Helvetica, sans-serif; font-size: 11pt; color: #0F172A; padding: 16mm 18mm; }
-  h1 { font-size: 20pt; font-weight: 700; margin-bottom: 3px; }
-  .meta { color: #64748B; font-size: 10pt; margin-bottom: 18px; border-bottom: 2px solid #1D4ED8; padding-bottom: 10px; }
-  table { width: 100%; border-collapse: collapse; }
-  thead th {
-    background: #1D4ED8; color: #fff; padding: 9px 11px;
-    text-align: left; font-size: 10pt; font-weight: 600;
-  }
-  tbody td { padding: 8px 11px; border-bottom: 1px solid #E2E8F0; font-size: 10pt; }
-  tbody tr:nth-child(even) td { background: #F8FAFC; }
-  tfoot td { padding: 10px 11px; font-size: 10pt; color: #64748B; border-top: 2px solid #E2E8F0; }
-  @media print {
-    @page { margin: 12mm 15mm; size: A4 portrait; }
-    body { padding: 0; }
-  }
+  body { font-family: 'Segoe UI', Arial, sans-serif; color: #0F172A; font-size: 13px; background: #fff; padding: 1.8cm 1.5cm; }
+  @page { size: A4; margin: 0; }
+  tr { page-break-inside: avoid; }
+  thead { display: table-header-group; }
+  tfoot { display: table-footer-group; }
+  table { page-break-inside: auto; width: 100%; border-collapse: collapse; font-size: 13px; }
 </style>
 </head>
 <body>
-<h1>Rapport de Stock</h1>
-<p class="meta">${shopName ? `<strong>${shopName}</strong> &nbsp;·&nbsp;` : ""}${date} &nbsp;·&nbsp; ${products.length} produit${products.length > 1 ? "s" : ""}</p>
+
+<!-- En-tête -->
+<div style="border-bottom:2px solid #1D4ED8;padding-bottom:14px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:flex-end">
+  <div>
+    <div style="font-size:20px;font-weight:800;color:#1D4ED8;letter-spacing:-.5px">ShopM</div>
+    <div style="font-size:11px;color:#64748B;margin-top:2px">Gestion commerciale</div>
+  </div>
+  <div style="text-align:right">
+    <div style="font-size:15px;font-weight:700;color:#0F172A">Rapport de stock</div>
+    <div style="font-size:12px;color:#64748B;margin-top:2px">${shopName}</div>
+    <div style="font-size:11px;color:#94A3B8;margin-top:1px">${date}</div>
+  </div>
+</div>
+
+<!-- Tableau stock -->
 <table>
   <thead>
     <tr>
-      <th>Produit</th>
-      <th>SKU</th>
-      <th style="text-align:center">Stock actuel</th>
-      <th style="text-align:center">Stock min.</th>
-      <th style="text-align:center">Unité</th>
-      <th style="text-align:center">Statut</th>
+      <th style="${thStyle}">Produit</th>
+      <th style="${thStyle}">Prix unitaire</th>
+      <th style="${thStyle}">Quantité</th>
+      <th style="${thStyle}">Emplacement</th>
     </tr>
   </thead>
-  <tbody>${rows}</tbody>
+  <tbody>
+    ${rows}
+  </tbody>
   <tfoot>
     <tr>
-      <td colspan="6">Généré le ${date}${shopName ? ` — ${shopName}` : ""} — ${products.length} produit${products.length > 1 ? "s" : ""}</td>
+      <td colspan="4" style="padding:10px 12px;font-size:11px;color:#94A3B8;border-top:2px solid #E2E8F0">
+        ${stocks.length} article${stocks.length > 1 ? "s" : ""} — Généré le ${date}
+      </td>
     </tr>
   </tfoot>
 </table>
+
 </body>
 </html>`;
 
