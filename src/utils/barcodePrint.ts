@@ -8,7 +8,6 @@ interface LabelProduct {
 }
 
 const COLS = 3;
-const REPEATS = 6; // exemplaires par produit
 const MARGIN_X = 10;
 const MARGIN_Y = 12;
 const GAP_X = 5;
@@ -35,36 +34,27 @@ function generateBarcodeImage(code: string): string {
   return canvas.toDataURL("image/png");
 }
 
-/**
- * Impression d'une seule fiche produit (6 exemplaires, format ancien).
- * Conservé pour le bouton individuel.
- */
-export function printBarcodeLabels(product: LabelProduct): void {
-  printAllBarcodeLabels([product]);
+export function printBarcodeLabels(product: LabelProduct, copies = 1): void {
+  printAllBarcodeLabels([product], copies);
 }
 
-/**
- * Génère un PDF pour plusieurs produits.
- * Format : grand titre (nom du produit) + 6 codes-barres en 3×2
- * sans répéter le nom sur chaque code-barres.
- */
-export function printAllBarcodeLabels(products: LabelProduct[]): void {
+export function printAllBarcodeLabels(products: LabelProduct[], copies = 1): void {
+  const repeats = Math.max(1, copies);
+  const rows = Math.ceil(repeats / COLS);
   const doc = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
 
   let cursorY = MARGIN_Y;
   let firstProduct = true;
 
   for (const product of products) {
-    const sectionH = SECTION_TITLE_H + 4 + 2 * (LABEL_H + GAP_Y) - GAP_Y;
+    const sectionH = SECTION_TITLE_H + 4 + rows * (LABEL_H + GAP_Y) - GAP_Y;
 
-    // Nouvelle page si plus assez de place
     if (!firstProduct && cursorY + sectionH > PAGE_H - MARGIN_Y) {
       doc.addPage();
       cursorY = MARGIN_Y;
     }
     firstProduct = false;
 
-    // ── Titre produit ───────────────────────────────────────────────
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
     doc.setTextColor(15, 23, 42);
@@ -74,7 +64,6 @@ export function printAllBarcodeLabels(products: LabelProduct[]): void {
       : product.name;
     doc.text(title, MARGIN_X, cursorY + 6);
 
-    // Ligne de séparation sous le titre
     doc.setDrawColor(29, 78, 216);
     doc.setLineWidth(0.4);
     doc.line(MARGIN_X, cursorY + 8, 210 - MARGIN_X, cursorY + 8);
@@ -83,25 +72,22 @@ export function printAllBarcodeLabels(products: LabelProduct[]): void {
 
     cursorY += SECTION_TITLE_H + 3;
 
-    // ── 6 codes-barres en 3×2 ──────────────────────────────────────
     const imgData = generateBarcodeImage(product.barcode);
 
-    for (let i = 0; i < REPEATS; i++) {
+    for (let i = 0; i < repeats; i++) {
       const col = i % COLS;
       const row = Math.floor(i / COLS);
       const x = MARGIN_X + col * (LABEL_W + GAP_X);
       const y = cursorY + row * (LABEL_H + GAP_Y);
 
-      // Bordure pointillée (guide de découpe)
       doc.setLineDashPattern([1.5, 1.5], 0);
       doc.rect(x, y, LABEL_W, LABEL_H, "S");
       doc.setLineDashPattern([], 0);
 
-      // Code-barres centré dans la cellule
       doc.addImage(imgData, "PNG", x + 2, y + 1, LABEL_W - 4, LABEL_H - 2);
     }
 
-    cursorY += 2 * (LABEL_H + GAP_Y) - GAP_Y + SECTION_GAP;
+    cursorY += rows * (LABEL_H + GAP_Y) - GAP_Y + SECTION_GAP;
   }
 
   const filename = products.length === 1

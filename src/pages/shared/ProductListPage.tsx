@@ -9,6 +9,7 @@ import { useAuth }              from "../../context/AuthContext";
 import { PageHeader, Btn, Badge, DataTable, StatCard, Icon } from "../../components/ui";
 import { uploadToCloudinary }   from "../../utils/cloudinary";
 import { printBarcodeLabels, printAllBarcodeLabels } from "../../utils/barcodePrint";
+import { printStockReport } from "../../utils/stockPrint";
 import type { Product, ProductImage }  from "../../types/product";
 import type { Category } from "../../types/category";
 import type { Shop }     from "../../types/shop";
@@ -174,7 +175,13 @@ export default function ProductListPage() {
   // Search debounce
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [generatingAll, setGeneratingAll] = useState(false);
-  const [printSelection, setPrintSelection] = useState<Set<number>>(new Set());
+  // Unified selection state — stores IDs; cache stores full Product objects
+  const [selection, setSelection] = useState<Set<number>>(new Set());
+  const selectionCache = useRef<Map<number, Product>>(new Map());
+  const [copies, setCopies] = useState(1);
+  const [selectingAll, setSelectingAll] = useState(false);
+  const [printingLabels, setPrintingLabels] = useState(false);
+  const [printingStock, setPrintingStock] = useState(false);
 
   const [editModal, setEditModal]     = useState<Product | null>(null);
   const [deleteModal, setDeleteModal] = useState<Product | null>(null);
@@ -383,8 +390,13 @@ export default function ProductListPage() {
       const { barcodes } = await productService.generateAllBarcodes(true);
       const map: Record<number, string> = {};
       barcodes.forEach(b => { map[b.id] = b.barcode; });
-      setProducts(prev => prev.map(p => map[p.id] ? { ...p, barcode: map[p.id] } : p));
-      setPrintSelection(new Set(barcodes.map(b => b.id)));
+      setProducts(prev => {
+        const updated = prev.map(p => map[p.id] ? { ...p, barcode: map[p.id] } : p);
+        // Cache updated products so they can be printed immediately
+        updated.forEach(p => { if (map[p.id]) selectionCache.current.set(p.id, p); });
+        return updated;
+      });
+      setSelection(new Set(barcodes.map(b => b.id)));
       setNoBarcodeCount(0);
       setLegacyBarcodeCount(0);
     } catch { /* ignore */ } finally {
@@ -395,40 +407,103 @@ export default function ProductListPage() {
   const handleGenerateBarcodeSingle = async (p: Product) => {
     try {
       const { barcode } = await productService.generateBarcode(p.id, true);
-      setProducts(prev => prev.map(x => x.id === p.id ? { ...x, barcode } : x));
-      setPrintSelection(prev => new Set([...prev, p.id]));
+      const updated = { ...p, barcode };
+      setProducts(prev => prev.map(x => x.id === p.id ? updated : x));
+      selectionCache.current.set(p.id, updated);
+      setSelection(prev => new Set([...prev, p.id]));
       setNoBarcodeCount(prev => Math.max(0, prev - 1));
     } catch { /* ignore */ }
   };
 
-  const handlePrintSelected = () => {
-    const toPrint = products.filter(p => p.barcode && printSelection.has(p.id));
-    if (!toPrint.length) return;
-    printAllBarcodeLabels(toPrint.map(p => ({ id: p.id, name: p.name, barcode: p.barcode! })));
-    setPrintSelection(new Set());
-  };
-
-  const togglePrint = (id: number) => {
-    setPrintSelection(prev => {
+  // ── Selection helpers ─────────────────────────────────────────────
+  const toggleSelect = (p: Product) => {
+    setSelection(prev => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(p.id)) {
+        next.delete(p.id);
+        selectionCache.current.delete(p.id);
+      } else {
+        next.add(p.id);
+        selectionCache.current.set(p.id, p);
+      }
       return next;
     });
   };
 
-  const productsWithBarcode = products.filter(p => p.barcode);
-  const allFilteredSelected = productsWithBarcode.length > 0 &&
-    productsWithBarcode.every(p => printSelection.has(p.id));
+  const allPageSelected = products.length > 0 && products.every(p => selection.has(p.id));
 
-  const toggleSelectAll = () => {
-    if (allFilteredSelected) {
-      setPrintSelection(prev => {
+  const toggleSelectPage = () => {
+    if (allPageSelected) {
+      setSelection(prev => {
         const next = new Set(prev);
-        productsWithBarcode.forEach(p => next.delete(p.id));
+        products.forEach(p => { next.delete(p.id); selectionCache.current.delete(p.id); });
         return next;
       });
     } else {
-      setPrintSelection(prev => new Set([...prev, ...productsWithBarcode.map(p => p.id)]));
+      products.forEach(p => selectionCache.current.set(p.id, p));
+      setSelection(prev => new Set([...prev, ...products.map(p => p.id)]));
+    }
+  };
+
+  const clearSelection = () => {
+    setSelection(new Set());
+    selectionCache.current.clear();
+  };
+
+  const handleSelectAllFromDB = async () => {
+    setSelectingAll(true);
+    try {
+      const res = await productService.getAll({ page_size: 500 });
+      const all = res.results ?? [];
+      all.forEach(p => selectionCache.current.set(p.id, p));
+      setSelection(new Set(all.map(p => p.id)));
+    } catch { /* ignore */ } finally {
+      setSelectingAll(false);
+    }
+  };
+
+  // ── Label printing ────────────────────────────────────────────────
+  const selLabelCount = Array.from(selection).filter(id => selectionCache.current.get(id)?.barcode).length;
+
+  const handlePrintLabels = () => {
+    const toPrint = Array.from(selection)
+      .map(id => selectionCache.current.get(id))
+      .filter((p): p is Product => !!p && !!p.barcode)
+      .map(p => ({ id: p.id, name: p.name, barcode: p.barcode! }));
+    if (!toPrint.length) return;
+    printAllBarcodeLabels(toPrint, copies);
+  };
+
+  const handlePrintAllLabels = async () => {
+    setPrintingLabels(true);
+    try {
+      const res = await productService.getAll({ has_barcode: true, page_size: 500 });
+      const toPrint = (res.results ?? []).filter(p => p.barcode);
+      if (toPrint.length) {
+        printAllBarcodeLabels(toPrint.map(p => ({ id: p.id, name: p.name, barcode: p.barcode! })), copies);
+      }
+    } catch { /* ignore */ } finally {
+      setPrintingLabels(false);
+    }
+  };
+
+  // ── Stock printing ────────────────────────────────────────────────
+  const handlePrintStock = () => {
+    const toPrint = Array.from(selection)
+      .map(id => selectionCache.current.get(id))
+      .filter((p): p is Product => !!p);
+    if (!toPrint.length) return;
+    printStockReport(toPrint, user?.shop_name ?? "");
+  };
+
+  const handlePrintAllStock = async () => {
+    setPrintingStock(true);
+    try {
+      const res = await productService.getAll({ page_size: 500 });
+      const all = res.results ?? [];
+      if (all.length) printStockReport(all, user?.shop_name ?? "");
+    } catch { /* ignore */ } finally {
+      setPrintingStock(false);
     }
   };
 
@@ -470,21 +545,19 @@ export default function ProductListPage() {
       key: "print_select", label: (
         <input
           type="checkbox"
-          checked={allFilteredSelected}
-          onChange={toggleSelectAll}
-          title={allFilteredSelected ? "Tout désélectionner" : "Tout sélectionner pour impression"}
+          checked={allPageSelected}
+          onChange={toggleSelectPage}
+          title={allPageSelected ? "Désélectionner la page" : "Sélectionner toute la page"}
           style={{ cursor: "pointer", width: 15, height: 15 }}
         />
       ) as any,
-      render: (row: Product) => row.barcode ? (
+      render: (row: Product) => (
         <input
           type="checkbox"
-          checked={printSelection.has(row.id)}
-          onChange={() => togglePrint(row.id)}
+          checked={selection.has(row.id)}
+          onChange={() => toggleSelect(row)}
           style={{ cursor: "pointer", width: 15, height: 15 }}
         />
-      ) : (
-        <span style={{ color: "#CBD5E1", fontSize: 12 }}>—</span>
       ),
     },
     {
@@ -556,7 +629,7 @@ export default function ProductListPage() {
           { icon: <Icon name="package" size={15} color="#374151" />, label: "Ajouter du stock",  onClick: () => openStock(row)                                      },
           row.barcode
             ? { icon: <Icon name="target" size={15} color="#1D4ED8" />, label: "Imprimer étiquettes",
-                onClick: () => printBarcodeLabels({ id: row.id, name: row.name, barcode: row.barcode! }) }
+                onClick: () => printBarcodeLabels({ id: row.id, name: row.name, barcode: row.barcode! }, copies) }
             : { icon: <Icon name="plus"   size={15} color="#7C3AED" />, label: "Générer code-barres",
                 onClick: () => handleGenerateBarcodeSingle(row) },
           { icon: <Icon name={row.is_active ? "xCircle" : "checkCircle"} size={15} color="#374151" />,
@@ -608,36 +681,136 @@ export default function ProductListPage() {
           </button>
         ))}
 
-        {/* Actions barcode — visibles quelle que soit la vue */}
-        <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-          {(filterStatus === "no_barcode" || filterStatus === "legacy_barcode") && (
+        {/* Générer codes-barres — visible sur les filtres sans/legacy barcode */}
+        {(filterStatus === "no_barcode" || filterStatus === "legacy_barcode") && (
+          <button
+            onClick={handleGenerateAll}
+            disabled={generatingAll}
+            style={{
+              marginLeft: "auto", padding: "6px 14px", borderRadius: 20, fontSize: 12.5, fontWeight: 600,
+              background: generatingAll ? "#C4B5FD" : "#7C3AED", color: "#fff",
+              border: "none", cursor: generatingAll ? "not-allowed" : "pointer",
+              fontFamily: "inherit", transition: "background 0.2s",
+            }}>
+            {generatingAll
+              ? "Génération…"
+              : filterStatus === "legacy_barcode"
+                ? `Migrer vers EAN-13 (${legacyBarcodeCount})`
+                : `Générer EAN-13 (${noBarcodeCount})`}
+          </button>
+        )}
+      </div>
+
+      {/* ── Panneau d'impression ──────────────────────────────────── */}
+      <div style={{
+        background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 10,
+        padding: "12px 16px", marginBottom: 16,
+      }}>
+        {/* Ligne 1 : contrôles de sélection */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: "#475569", minWidth: 130 }}>
+            {selection.size > 0
+              ? `${selection.size} sélectionné${selection.size > 1 ? "s" : ""}`
+              : "Aucune sélection"}
+          </span>
+          <button
+            onClick={toggleSelectPage}
+            style={{
+              padding: "5px 12px", borderRadius: 16, fontSize: 12, fontWeight: 500,
+              background: allPageSelected ? "#E2E8F0" : "#fff",
+              color: "#475569", border: "1px solid #CBD5E1",
+              cursor: "pointer", fontFamily: "inherit",
+            }}>
+            {allPageSelected ? "Désél. page" : `Sél. page (${products.length})`}
+          </button>
+          <button
+            onClick={handleSelectAllFromDB}
+            disabled={selectingAll}
+            style={{
+              padding: "5px 12px", borderRadius: 16, fontSize: 12, fontWeight: 500,
+              background: "#fff", color: "#475569", border: "1px solid #CBD5E1",
+              cursor: selectingAll ? "not-allowed" : "pointer", fontFamily: "inherit",
+            }}>
+            {selectingAll ? "Chargement…" : "Tout sél. (BD)"}
+          </button>
+          {selection.size > 0 && (
             <button
-              onClick={handleGenerateAll}
-              disabled={generatingAll}
+              onClick={clearSelection}
               style={{
-                padding: "6px 14px", borderRadius: 20, fontSize: 12.5, fontWeight: 600,
-                background: generatingAll ? "#C4B5FD" : "#7C3AED", color: "#fff",
-                border: "none", cursor: generatingAll ? "not-allowed" : "pointer",
-                fontFamily: "inherit", transition: "background 0.2s",
+                padding: "5px 12px", borderRadius: 16, fontSize: 12, fontWeight: 500,
+                background: "#FEF2F2", color: "#DC2626", border: "1px solid #FECACA",
+                cursor: "pointer", fontFamily: "inherit",
               }}>
-              {generatingAll
-                ? "Génération…"
-                : filterStatus === "legacy_barcode"
-                  ? `Migrer vers EAN-13 (${legacyBarcodeCount})`
-                  : `Générer EAN-13 (${noBarcodeCount})`}
+              Effacer ({selection.size})
             </button>
           )}
-          {printSelection.size > 0 && (
-            <button
-              onClick={handlePrintSelected}
+        </div>
+
+        {/* Ligne 2 : actions d'impression */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          {/* Étiquettes */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 12, color: "#64748B", fontWeight: 600 }}>Étiquettes</span>
+            <span style={{ fontSize: 12, color: "#94A3B8" }}>Copies :</span>
+            <input
+              type="number" min={1} max={99} value={copies}
+              onChange={e => setCopies(Math.max(1, parseInt(e.target.value) || 1))}
               style={{
-                padding: "6px 14px", borderRadius: 20, fontSize: 12.5, fontWeight: 600,
-                background: "#1D4ED8", color: "#fff",
-                border: "none", cursor: "pointer", fontFamily: "inherit",
+                width: 54, padding: "3px 7px", borderRadius: 6, fontSize: 13,
+                border: "1px solid #CBD5E1", fontFamily: "inherit", textAlign: "center",
+              }}
+            />
+          </div>
+          {selLabelCount > 0 && (
+            <button
+              onClick={handlePrintLabels}
+              style={{
+                padding: "5px 13px", borderRadius: 16, fontSize: 12.5, fontWeight: 600,
+                background: "#1D4ED8", color: "#fff", border: "none",
+                cursor: "pointer", fontFamily: "inherit",
               }}>
-              Imprimer la sélection ({printSelection.size})
+              Imprimer sél. ({selLabelCount})
             </button>
           )}
+          <button
+            onClick={handlePrintAllLabels}
+            disabled={printingLabels}
+            style={{
+              padding: "5px 13px", borderRadius: 16, fontSize: 12.5, fontWeight: 600,
+              background: printingLabels ? "#93C5FD" : "#DBEAFE", color: "#1D4ED8",
+              border: "1px solid #BFDBFE", cursor: printingLabels ? "not-allowed" : "pointer",
+              fontFamily: "inherit",
+            }}>
+            {printingLabels ? "Chargement…" : "Tout imprimer étiq."}
+          </button>
+
+          {/* Séparateur */}
+          <div style={{ width: 1, height: 22, background: "#E2E8F0", margin: "0 4px" }} />
+
+          {/* Stock */}
+          <span style={{ fontSize: 12, color: "#64748B", fontWeight: 600 }}>Stock</span>
+          {selection.size > 0 && (
+            <button
+              onClick={handlePrintStock}
+              style={{
+                padding: "5px 13px", borderRadius: 16, fontSize: 12.5, fontWeight: 600,
+                background: "#15803D", color: "#fff", border: "none",
+                cursor: "pointer", fontFamily: "inherit",
+              }}>
+              Imprimer sél. ({selection.size})
+            </button>
+          )}
+          <button
+            onClick={handlePrintAllStock}
+            disabled={printingStock}
+            style={{
+              padding: "5px 13px", borderRadius: 16, fontSize: 12.5, fontWeight: 600,
+              background: printingStock ? "#86EFAC" : "#DCFCE7", color: "#15803D",
+              border: "1px solid #BBF7D0", cursor: printingStock ? "not-allowed" : "pointer",
+              fontFamily: "inherit",
+            }}>
+            {printingStock ? "Chargement…" : "Tout imprimer stock"}
+          </button>
         </div>
       </div>
 
