@@ -1,8 +1,8 @@
 // src/pages/shared/SalesListPage.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { PageHeader, Badge, DataTable, StatCard, Icon, DateInput } from "../../components/ui";
+import { PageHeader, Badge, DataTable, StatCard, Icon, DateInput, PaginationBar } from "../../components/ui";
 import { formatDateTime } from "../../utils/format";
 import axiosInstance from "../../api/axiosInstance";
 
@@ -246,12 +246,20 @@ export default function SalesListPage() {
   const [filterType, setFilterType] = useState<"all" | "direct" | "delivery">("all");
   const [selectedDate, setSelectedDate] = useState(searchParams.get("date") ?? today);
   const [detailSale, setDetailSale] = useState<number | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount]   = useState(0);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetchSales = async () => {
+  const fetchSales = async (page = 1, q = "", status = filterStatus, type = filterType, date = selectedDate) => {
     setLoading(true);
+    const params: Record<string, any> = { page, date };
+    if (q) params.search = q;
+    if (status !== "all") params.status = status;
+    if (type !== "all") params.sale_type = type;
     try {
-      const res = await axiosInstance.get(`/sales/?date=${selectedDate}`);
+      const res = await axiosInstance.get("/sales/", { params });
       setSales(res.data.results ?? res.data);
+      setTotalCount(res.data.count ?? 0);
     } catch (e) {
       console.error(e);
     } finally {
@@ -259,23 +267,31 @@ export default function SalesListPage() {
     }
   };
 
-  useEffect(() => { fetchSales(); }, [selectedDate]);
+  useEffect(() => { setCurrentPage(1); fetchSales(1, search, filterStatus, filterType, selectedDate); }, [selectedDate]);
+  useEffect(() => { fetchSales(currentPage, search, filterStatus, filterType); }, [currentPage]);
+
+  const handleSearch = (val: string) => {
+    setSearch(val);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => { setCurrentPage(1); fetchSales(1, val, filterStatus, filterType); }, 300);
+  };
+
+  const handleFilterStatus = (status: typeof filterStatus) => {
+    setFilterStatus(status);
+    setCurrentPage(1);
+    fetchSales(1, search, status, filterType);
+  };
+
+  const handleFilterType = (type: typeof filterType) => {
+    setFilterType(type);
+    setCurrentPage(1);
+    fetchSales(1, search, filterStatus, type);
+  };
 
   const completed = sales.filter(s => s.status === "completed");
   const cancelled = sales.filter(s => s.status === "cancelled");
   const totalCA = completed.reduce((sum, s) => sum + Number(s.total_amount), 0);
   const pending = sales.filter(s => s.payment_status === "pending").length;
-
-  const filtered = sales.filter(s => {
-    const q = search.toLowerCase();
-    const matchSearch =
-      s.reference.toLowerCase().includes(q) ||
-      (s.cashier_name ?? "").toLowerCase().includes(q) ||
-      (s.livreur_name ?? "").toLowerCase().includes(q);
-    const matchStatus = filterStatus === "all" || s.status === filterStatus;
-    const matchType = filterType === "all" || s.sale_type === filterType;
-    return matchSearch && matchStatus && matchType;
-  });
 
   const columns = [
     {
@@ -380,7 +396,7 @@ export default function SalesListPage() {
           { key: "completed", label: "Complétées", group: "status" },
           { key: "cancelled", label: "Annulées", group: "status" },
         ].map(f => (
-          <button key={f.key} onClick={() => setFilterStatus(f.key as any)}
+          <button key={f.key} onClick={() => handleFilterStatus(f.key as any)}
             style={{
               padding: "6px 14px", borderRadius: 20, fontSize: 12.5,
               fontWeight: filterStatus === f.key ? 600 : 400,
@@ -398,7 +414,7 @@ export default function SalesListPage() {
           { key: "direct", label: "Direct" },
           { key: "delivery", label: "Livraison" },
         ].map(f => (
-          <button key={f.key} onClick={() => setFilterType(f.key as any)}
+          <button key={f.key} onClick={() => handleFilterType(f.key as any)}
             style={{
               padding: "6px 14px", borderRadius: 20, fontSize: 12.5,
               fontWeight: filterType === f.key ? 600 : 400,
@@ -414,14 +430,15 @@ export default function SalesListPage() {
 
       <DataTable
         columns={columns as any}
-        data={filtered}
+        data={sales}
         loading={loading}
         emptyText="Aucune vente pour cette date"
         searchValue={search}
-        onSearch={setSearch}
+        onSearch={handleSearch}
         searchPlaceholder="Référence, caissier, livreur..."
         onRowClick={(row: any) => setDetailSale(row.id)}
       />
+      <PaginationBar currentPage={currentPage} totalCount={totalCount} onPage={setCurrentPage} />
 
       {detailSale !== null && (
         <SaleDetailModal

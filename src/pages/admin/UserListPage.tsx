@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate }   from "react-router-dom";
 import { userService }   from "../../services/userService";
 import { shopService }   from "../../services/shopService";
-import { PageHeader, Btn, Badge, DataTable, StatCard, Icon } from "../../components/ui";
+import { PageHeader, Btn, Badge, DataTable, StatCard, Icon, PaginationBar } from "../../components/ui";
 import { formatDate }    from "../../utils/format";
 import type { User, UserRole } from "../../types/user";
 import type { Shop } from "../../types/shop";
@@ -316,39 +316,47 @@ export default function UserListPage() {
   const [filterRole, setFilterRole] = useState<UserRole | "all">("all");
   const [infoModal, setInfoModal] = useState<User | null>(null);
   const [editModal, setEditModal] = useState<User | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount]   = useState(0);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetchUsers = async () => {
+  const fetchUsers = (page = 1, q = "", role = filterRole) => {
     setLoading(true);
-    try {
-      const res = await userService.getAll();
-      setUsers(res.results ?? res);
-    } finally { setLoading(false); }
+    const params: Record<string, any> = { page };
+    if (q) params.search = q;
+    if (role !== "all") params.role = role;
+    userService.getAll(params)
+      .then(res => { setUsers(res.results ?? []); setTotalCount(res.count ?? 0); })
+      .finally(() => setLoading(false));
   };
 
+  useEffect(() => { fetchUsers(currentPage, search, filterRole); }, [currentPage]);
   useEffect(() => {
-    fetchUsers();
+    fetchUsers(1, "", "all");
     shopService.getAll().then(res => setShops(res.results ?? res));
   }, []);
 
+  const handleSearch = (val: string) => {
+    setSearch(val);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => { setCurrentPage(1); fetchUsers(1, val, filterRole); }, 300);
+  };
+
+  const handleFilterRole = (role: typeof filterRole) => {
+    setFilterRole(role);
+    setCurrentPage(1);
+    fetchUsers(1, search, role);
+  };
+
   const handleToggle = async (user: User) => {
     await userService.toggleActive(user.id);
-    await fetchUsers();
+    fetchUsers(currentPage, search, filterRole);
   };
 
   const admins    = users.filter(u => u.role === "SUPER_ADMIN").length;
   const managers  = users.filter(u => u.role === "SHOP_MANAGER").length;
   const employees = users.filter(u => u.role === "EMPLOYEE").length;
   const inactive  = users.filter(u => !u.is_active).length;
-
-  const filtered = users.filter(u => {
-    const q = search.toLowerCase();
-    const matchSearch =
-      (u.first_name ?? "").toLowerCase().includes(q) ||
-      (u.last_name  ?? "").toLowerCase().includes(q) ||
-      u.email.toLowerCase().includes(q) ||
-      (u.shop_name  ?? "").toLowerCase().includes(q);
-    return matchSearch && (filterRole === "all" || u.role === filterRole);
-  });
 
   const columns = [
     {
@@ -388,7 +396,7 @@ export default function UserListPage() {
 
   return (
     <div>
-      <PageHeader title="Utilisateurs" subtitle={`${users.length} utilisateurs au total`}
+      <PageHeader title="Utilisateurs" subtitle={`${totalCount} utilisateurs au total`}
         action={<Btn onClick={() => navigate("/admin/users/create")}>+ Nouvel utilisateur</Btn>} />
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 14, marginBottom: 24 }}>
@@ -400,15 +408,16 @@ export default function UserListPage() {
 
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
         {[{ key: "all", label: "Tous" }, { key: "SUPER_ADMIN", label: "Super Admins" }, { key: "SHOP_MANAGER", label: "Managers" }, { key: "EMPLOYEE", label: "Employés" }].map(f => (
-          <button key={f.key} onClick={() => setFilterRole(f.key as any)}
+          <button key={f.key} onClick={() => handleFilterRole(f.key as any)}
             style={{ padding: "6px 14px", borderRadius: 20, fontSize: 12.5, fontWeight: filterRole === f.key ? 600 : 400, background: filterRole === f.key ? "#0F172A" : "#fff", color: filterRole === f.key ? "#fff" : "#64748B", border: filterRole === f.key ? "none" : "1px solid #E2E8F0", cursor: "pointer", transition: "all 0.15s", fontFamily: "inherit" }}>
             {f.label}
           </button>
         ))}
       </div>
 
-      <DataTable columns={columns as any} data={filtered} loading={loading} emptyText="Aucun utilisateur trouvé"
-        searchValue={search} onSearch={setSearch} searchPlaceholder="Nom, email, boutique..." />
+      <DataTable columns={columns as any} data={users} loading={loading} emptyText="Aucun utilisateur trouvé"
+        searchValue={search} onSearch={handleSearch} searchPlaceholder="Nom, email, boutique..." />
+      <PaginationBar currentPage={currentPage} totalCount={totalCount} onPage={setCurrentPage} />
 
       {infoModal && (
         <UserInfoModal

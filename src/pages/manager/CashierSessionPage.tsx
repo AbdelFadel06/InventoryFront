@@ -1,7 +1,7 @@
 // src/pages/manager/CashierSessionPage.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
-import { PageHeader, Btn, Badge, DataTable, StatCard, Icon } from "../../components/ui";
+import { PageHeader, Btn, Badge, DataTable, StatCard, Icon, PaginationBar } from "../../components/ui";
 import { formatDate, formatDateTime } from "../../utils/format";
 import { userService } from "../../services/userService";
 import axiosInstance from "../../api/axiosInstance";
@@ -369,32 +369,52 @@ export default function CashierSessionPage() {
   const [detailSession, setDetailSession] = useState<CashierSession | null>(null);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | "active" | "closed">("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount]   = useState(0);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetchData = async () => {
-    setLoading(true);
-
-    // Employés affectés à la boutique active uniquement
+  const fetchEmployees = async () => {
     try {
       const empRes = await userService.getEmployees(activeShop ? { shopId: activeShop.id } : undefined);
-      // Seuls les EMPLOYEE peuvent être caissiers (pas LIVREUR ni MAGASINIER)
       setEmployees((empRes as User[]).filter(e => e.is_active && e.role === "EMPLOYEE"));
     } catch (e) {
       console.error("Erreur chargement employés :", e);
     }
-
-    // Sessions
-    try {
-      const sessRes = await axiosInstance.get("/cashier-sessions/");
-      const sessData = sessRes.data;
-      setSessions(sessData.results ?? sessData);
-    } catch (e) {
-      console.error("Erreur chargement sessions :", e);
-    }
-
-    setLoading(false);
   };
 
-  useEffect(() => { fetchData(); }, [activeShop?.id]);
+  const fetchSessions = async (page = 1, q = "", status = filterStatus) => {
+    setLoading(true);
+    const params: Record<string, any> = { page };
+    if (q) params.search = q;
+    if (status !== "all") params.status = status;
+    try {
+      const sessRes = await axiosInstance.get("/cashier-sessions/", { params });
+      setSessions(sessRes.data.results ?? sessRes.data);
+      setTotalCount(sessRes.data.count ?? 0);
+    } catch (e) {
+      console.error("Erreur chargement sessions :", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchSessions(currentPage, search, filterStatus); }, [currentPage]);
+  useEffect(() => {
+    fetchEmployees();
+    fetchSessions(1, "", "all");
+  }, [activeShop?.id]);
+
+  const handleSearch = (val: string) => {
+    setSearch(val);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => { setCurrentPage(1); fetchSessions(1, val, filterStatus); }, 300);
+  };
+
+  const handleFilterStatus = (status: typeof filterStatus) => {
+    setFilterStatus(status);
+    setCurrentPage(1);
+    fetchSessions(1, search, status);
+  };
 
   const active   = sessions.filter(s => s.status === "active").length;
   const closed   = sessions.filter(s => s.status === "closed").length;
@@ -406,18 +426,6 @@ export default function CashierSessionPage() {
   const activeSession = sessions.find(s =>
     s.status === "active" && s.start_date <= today && s.end_date >= today
   );
-
-  const filtered = sessions.filter(s => {
-    const q = search.toLowerCase();
-    const matchSearch =
-      s.cashier_name.toLowerCase().includes(q) ||
-      (s.shop_name ?? "").toLowerCase().includes(q);
-    const matchStatus =
-      filterStatus === "all" ? true :
-      filterStatus === "active" ? s.status === "active" :
-      s.status === "closed";
-    return matchSearch && matchStatus;
-  });
 
   const columns = [
     {
@@ -562,7 +570,7 @@ export default function CashierSessionPage() {
       {/* Filtres */}
       <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
         {(["all", "active", "closed"] as const).map(f => (
-          <button key={f} onClick={() => setFilterStatus(f)}
+          <button key={f} onClick={() => handleFilterStatus(f)}
             style={{
               padding: "6px 14px", borderRadius: 20, fontSize: 12.5,
               fontWeight: filterStatus === f ? 600 : 400,
@@ -578,21 +586,22 @@ export default function CashierSessionPage() {
 
       <DataTable
         columns={columns as any}
-        data={filtered}
+        data={sessions}
         loading={loading}
         emptyText="Aucune session trouvée"
         searchValue={search}
-        onSearch={setSearch}
+        onSearch={handleSearch}
         searchPlaceholder="Rechercher un caissier..."
         onRowClick={(row: any) => setDetailSession(row)}
       />
+      <PaginationBar currentPage={currentPage} totalCount={totalCount} onPage={setCurrentPage} />
 
       {showCreate && (
         <CreateSessionModal
           employees={employees}
           shopId={activeShop?.id ?? user?.shop ?? 0}
           onClose={() => setShowCreate(false)}
-          onCreated={fetchData}
+          onCreated={() => fetchSessions(currentPage, search, filterStatus)}
         />
       )}
 
@@ -600,7 +609,7 @@ export default function CashierSessionPage() {
         <SessionDetailModal
           session={detailSession}
           onClose={() => setDetailSession(null)}
-          onRefresh={fetchData}
+          onRefresh={() => fetchSessions(currentPage, search, filterStatus)}
         />
       )}
     </div>
