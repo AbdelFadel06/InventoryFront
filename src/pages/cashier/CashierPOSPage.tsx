@@ -664,6 +664,7 @@ export default function CashierPOSPage() {
   const barcodeBuffer = useRef("");
   const barcodeTimer = useRef<any>(null);
   const barcodeJustFired = useRef(false);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Charger session active
   useEffect(() => {
@@ -701,18 +702,21 @@ export default function CashierPOSPage() {
     } catch { }
   };
 
-  // Recherche produit
+  // Recherche produit — serveur (tous les produits, pas seulement les 500 chargés)
   useEffect(() => {
     if (!search.trim()) { setSearchResults([]); setShowResults(false); return; }
-    const q = search.toLowerCase();
-    const results = products.filter(p =>
-      p.name.toLowerCase().includes(q) ||
-      p.sku.toLowerCase().includes(q) ||
-      (p.barcode ?? "").toLowerCase().includes(q)
-    ).slice(0, 8);
-    setSearchResults(results);
-    setShowResults(results.length > 0);
-  }, [search, products]);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(async () => {
+      try {
+        const res = await axiosInstance.get("/products/", {
+          params: { search: search.trim(), is_active: true, page_size: 10 },
+        });
+        const results: Product[] = res.data.results ?? [];
+        setSearchResults(results);
+        setShowResults(results.length > 0);
+      } catch {}
+    }, 200);
+  }, [search]);
 
   // Scan code-barres (entrées clavier rapides)
   useEffect(() => {
