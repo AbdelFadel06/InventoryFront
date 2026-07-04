@@ -656,7 +656,7 @@ export default function CashierPOSPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [search, setSearch] = useState("");
   const [searchResults, setSearchResults] = useState<Product[]>([]);
-  const [showResults, setShowResults] = useState(false);
+  const [showResults] = useState(false); // kept for compatibility, unused
 
   const [showPayment, setShowPayment] = useState(false);
   const [showExpense, setShowExpense] = useState(false);
@@ -721,7 +721,7 @@ export default function CashierPOSPage() {
   useEffect(() => {
     // Ne pas chercher si c'est un message de confirmation de scan
     if (!search.trim() || search.startsWith("✓") || search.startsWith("✗") || search === "Recherche...") {
-      setSearchResults([]); setShowResults(false); return;
+      setSearchResults([]); return;
     }
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     searchTimerRef.current = setTimeout(async () => {
@@ -731,7 +731,7 @@ export default function CashierPOSPage() {
         });
         const results: Product[] = res.data.results ?? [];
         setSearchResults(results);
-        setShowResults(results.length > 0);
+        setShowResults(results.length > 0); // update searchResults state
       } catch {}
     }, 200);
   }, [search]);
@@ -749,7 +749,6 @@ export default function CashierPOSPage() {
         discount_value: 0,
       })];
     });
-    setShowResults(false);
     searchRef.current?.focus();
   }, []);
 
@@ -965,8 +964,6 @@ export default function CashierPOSPage() {
                   if (scanClearTimer.current) clearTimeout(scanClearTimer.current);
                   setSearch(e.target.value);
                 }}
-                onFocus={() => search && setShowResults(true)}
-                onBlur={() => setTimeout(() => setShowResults(false), 200)}
                 placeholder="Rechercher ou scanner un produit..."
                 style={{
                   width: "100%", padding: "11px 14px 11px 38px",
@@ -986,129 +983,101 @@ export default function CashierPOSPage() {
                             : search.startsWith("✗") ? "#FEF2F2"
                             : "#fff",
                 }}
-                onKeyDown={e => {
-                  if (e.key === "Enter" && searchResults.length > 0) {
-                    if (barcodeJustFired.current) return;
-                    addToCart(searchResults[0]);
-                  }
-                }}
               />
             </div>
 
-            {/* Résultats dropdown */}
-            {showResults && searchResults.length > 0 && (
-              <div style={{
-                position: "absolute", left: 16, right: 16, zIndex: 100,
-                background: "#fff", border: "1px solid #E2E8F0", borderRadius: 10,
-                boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
-                marginTop: 4, overflow: "hidden",
-              }}>
-                {searchResults.map((p, i) => (
-                  <button key={p.id}
-                    onMouseDown={() => addToCart(p)}
-                    style={{
-                      width: "100%", padding: "8px 12px",
-                      display: "flex", alignItems: "center", gap: 10,
-                      background: "none", border: "none", cursor: "pointer",
-                      borderBottom: i < searchResults.length - 1 ? "1px solid #F8FAFC" : "none",
-                      textAlign: "left",
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.background = "#F8FAFC")}
-                    onMouseLeave={e => (e.currentTarget.style.background = "none")}
-                  >
-                    {/* Miniature */}
-                    <div style={{
-                      width: 40, height: 40, borderRadius: 8, flexShrink: 0, overflow: "hidden",
-                      background: p.primary_image ? "#F8FAFC" : "linear-gradient(135deg, #EFF6FF, #DBEAFE)",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                    }}>
-                      {p.primary_image ? (
-                        <img src={p.primary_image} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                      ) : (
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#93C5FD" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                          <rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/>
-                        </svg>
-                      )}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13.5, fontWeight: 600, color: "#0F172A", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
-                      <div style={{ fontSize: 11.5, color: "#94A3B8", fontFamily: "monospace" }}>{p.sku}</div>
-                    </div>
-                    <div style={{ textAlign: "right", flexShrink: 0 }}>
-                      <div style={{ fontSize: 13.5, fontWeight: 700, color: "#1D4ED8" }}>
-                        {fmtPrice(parseFloat(p.selling_price))}
-                      </div>
-                      <div style={{ fontSize: 11, color: p.current_stock === 0 ? "#DC2626" : "#64748B" }}>
-                        Stock: {p.current_stock}
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
 
-          {/* Grille rapide produits récents */}
-          <div style={{ flex: 1, padding: "12px", overflowY: "auto", background: "#F8FAFC" }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>
-              Produits disponibles
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 8 }}>
-              {products.filter(p => p.current_stock > 0).slice(0, 24).map(p => (
-                <button key={p.id}
-                  onClick={() => addToCart(p)}
-                  style={{
-                    padding: 0, borderRadius: 10,
-                    border: "1px solid #E2E8F0", background: "#fff",
-                    cursor: "pointer", fontFamily: "inherit", textAlign: "left",
-                    transition: "all 0.15s", overflow: "hidden",
-                  }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.borderColor = "#3B82F6";
-                    e.currentTarget.style.boxShadow = "0 2px 8px rgba(59,130,246,0.15)";
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.borderColor = "#E2E8F0";
-                    e.currentTarget.style.boxShadow = "none";
-                  }}
-                >
-                  {/* Image */}
+          {/* Grille produits — filtrée par la recherche */}
+          {(() => {
+            const isSearching = search.trim() !== "" &&
+              !search.startsWith("✓") && !search.startsWith("✗") && search !== "Recherche...";
+            const displayedProducts = isSearching ? searchResults : products.filter(p => p.current_stock > 0).slice(0, 36);
+
+            return (
+              <div style={{ flex: 1, padding: "12px", overflowY: "auto", background: "#F8FAFC" }}>
+                <div style={{
+                  fontSize: 11, fontWeight: 700, color: "#94A3B8",
+                  textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10,
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                }}>
+                  <span>{isSearching ? `Résultats pour "${search.trim()}"` : "Produits disponibles"}</span>
+                  {isSearching && (
+                    <span style={{ fontSize: 11, color: "#CBD5E1", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>
+                      {searchResults.length} résultat{searchResults.length !== 1 ? "s" : ""}
+                    </span>
+                  )}
+                </div>
+
+                {isSearching && searchResults.length === 0 ? (
                   <div style={{
-                    width: "100%", height: 90,
-                    background: p.primary_image ? "#F8FAFC" : "linear-gradient(135deg, #EFF6FF, #DBEAFE)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    overflow: "hidden",
+                    display: "flex", flexDirection: "column", alignItems: "center",
+                    justifyContent: "center", padding: "48px 24px", gap: 10,
                   }}>
-                    {p.primary_image ? (
-                      <img
-                        src={p.primary_image}
-                        alt={p.name}
-                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                      />
-                    ) : (
-                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#93C5FD" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="3" y="3" width="18" height="18" rx="3"/>
-                        <circle cx="8.5" cy="8.5" r="1.5"/>
-                        <path d="m21 15-5-5L5 21"/>
-                      </svg>
-                    )}
-                  </div>
-                  {/* Infos */}
-                  <div style={{ padding: "8px 10px" }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: "#0F172A", marginBottom: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {p.name}
-                    </div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "#1D4ED8" }}>
-                      {fmtPrice(parseFloat(p.selling_price))}
-                    </div>
-                    <div style={{ fontSize: 10.5, color: "#94A3B8", marginTop: 2 }}>
-                      Stock: {p.current_stock}
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#CBD5E1" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                      <line x1="8" y1="11" x2="14" y2="11"/>
+                    </svg>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: "#94A3B8" }}>Aucun produit correspondant</div>
+                    <div style={{ fontSize: 12.5, color: "#CBD5E1", textAlign: "center" }}>
+                      Aucun résultat pour « {search.trim()} »
                     </div>
                   </div>
-                </button>
-              ))}
-            </div>
-          </div>
+                ) : (
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 8 }}>
+                    {displayedProducts.map(p => (
+                      <button key={p.id}
+                        onClick={() => addToCart(p)}
+                        style={{
+                          padding: 0, borderRadius: 10,
+                          border: "1px solid #E2E8F0", background: "#fff",
+                          cursor: "pointer", fontFamily: "inherit", textAlign: "left",
+                          transition: "all 0.15s", overflow: "hidden",
+                        }}
+                        onMouseEnter={e => {
+                          e.currentTarget.style.borderColor = "#3B82F6";
+                          e.currentTarget.style.boxShadow = "0 2px 8px rgba(59,130,246,0.15)";
+                        }}
+                        onMouseLeave={e => {
+                          e.currentTarget.style.borderColor = "#E2E8F0";
+                          e.currentTarget.style.boxShadow = "none";
+                        }}
+                      >
+                        <div style={{
+                          width: "100%", height: 90,
+                          background: p.primary_image ? "#F8FAFC" : "linear-gradient(135deg, #EFF6FF, #DBEAFE)",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          overflow: "hidden",
+                        }}>
+                          {p.primary_image ? (
+                            <img src={p.primary_image} alt={p.name}
+                              style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          ) : (
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#93C5FD" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                              <rect x="3" y="3" width="18" height="18" rx="3"/>
+                              <circle cx="8.5" cy="8.5" r="1.5"/>
+                              <path d="m21 15-5-5L5 21"/>
+                            </svg>
+                          )}
+                        </div>
+                        <div style={{ padding: "8px 10px" }}>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: "#0F172A", marginBottom: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {p.name}
+                          </div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: "#1D4ED8" }}>
+                            {fmtPrice(parseFloat(p.selling_price))}
+                          </div>
+                          <div style={{ fontSize: 10.5, color: p.current_stock === 0 ? "#DC2626" : "#94A3B8", marginTop: 2 }}>
+                            Stock: {p.current_stock}
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
 
         {/* ── Droite : panier ────────────────────────────────────── */}
