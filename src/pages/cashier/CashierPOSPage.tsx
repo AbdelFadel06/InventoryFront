@@ -736,7 +736,47 @@ export default function CashierPOSPage() {
     }, 200);
   }, [search]);
 
-  // Scan code-barres (entrées clavier rapides)
+  // 1. addToCart — pas de dépendances sur les autres callbacks
+  const addToCart = useCallback((product: Product) => {
+    setCart(prev => {
+      const existing = prev.findIndex(i => i.product.id === product.id);
+      if (existing >= 0) return prev;
+      return [...prev, calcItem({
+        product,
+        quantity: 1,
+        unit_price: parseFloat(product.selling_price),
+        discount_type: null,
+        discount_value: 0,
+      })];
+    });
+    setShowResults(false);
+    searchRef.current?.focus();
+  }, []);
+
+  // 2. handleScan — partagé entre mode clavier et mode HID POS
+  const handleScan = useCallback((code: string) => {
+    const clearInputDelayed = () => {
+      if (scanClearTimer.current) clearTimeout(scanClearTimer.current);
+      scanClearTimer.current = setTimeout(() => setSearch(""), 1400);
+    };
+    const local = productsRef.current.find(p => p.barcode === code || p.sku === code);
+    if (local) {
+      addToCart(local);
+      setSearch(`✓ ${local.name}`);
+      clearInputDelayed();
+    } else {
+      setSearch("Recherche...");
+      axiosInstance.get(`/products/by_barcode/?code=${encodeURIComponent(code)}`)
+        .then(r => { addToCart(r.data); setSearch(`✓ ${r.data.name}`); clearInputDelayed(); })
+        .catch(() => { setSearch(`✗ Code introuvable : ${code}`); clearInputDelayed(); });
+    }
+  }, [addToCart]);
+
+  // 3. Hook HID POS — actif uniquement si le navigateur supporte Web HID
+  const { status: hidStatus, connect: hidConnect, disconnect: hidDisconnect } =
+    useHIDScanner({ onBarcode: handleScan, minLength: 4 });
+
+  // 4. Scan code-barres mode clavier (buffer rapide, AZERTY-safe)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName;
@@ -758,66 +798,19 @@ export default function CashierPOSPage() {
 
       const char = getScannedChar(e);
       if (char !== null) {
-        // À partir du 2e caractère : on est en mode scan
-        // → bloquer le char AZERTY brut et afficher le buffer correct à la place
         if (isOnBarcodeInput && barcodeBuffer.current.length > 0) {
           e.preventDefault();
           setSearch(barcodeBuffer.current + char);
         }
         barcodeBuffer.current += char;
         clearTimeout(barcodeTimer.current);
-        barcodeTimer.current = setTimeout(() => {
-          barcodeBuffer.current = "";
-        }, 300);
+        barcodeTimer.current = setTimeout(() => { barcodeBuffer.current = ""; }, 300);
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleScan]);
-
-  // ── Gestion commune du barcode scanné (clavier ET HID POS) ────────
-  const handleScan = useCallback((code: string) => {
-    const clearInputDelayed = () => {
-      if (scanClearTimer.current) clearTimeout(scanClearTimer.current);
-      scanClearTimer.current = setTimeout(() => setSearch(""), 1400);
-    };
-    const local = productsRef.current.find(p => p.barcode === code || p.sku === code);
-    if (local) {
-      addToCart(local);
-      setSearch(`✓ ${local.name}`);
-      clearInputDelayed();
-    } else {
-      setSearch("Recherche...");
-      axiosInstance.get(`/products/by_barcode/?code=${encodeURIComponent(code)}`)
-        .then(r => { addToCart(r.data); setSearch(`✓ ${r.data.name}`); clearInputDelayed(); })
-        .catch(() => { setSearch(`✗ Code introuvable : ${code}`); clearInputDelayed(); });
-    }
-  }, [addToCart]);
-
-  // Hook HID POS — actif uniquement si le navigateur supporte Web HID
-  const { status: hidStatus, connect: hidConnect, disconnect: hidDisconnect } =
-    useHIDScanner({ onBarcode: handleScan, minLength: 4 });
-
-  const addToCart = useCallback((product: Product) => {
-    setCart(prev => {
-      const existing = prev.findIndex(i => i.product.id === product.id);
-      if (existing >= 0) {
-        // Produit déjà dans le panier — le caissier ajuste la quantité manuellement
-        return prev;
-      }
-      return [...prev, calcItem({
-        product,
-        quantity: 1,
-        unit_price: parseFloat(product.selling_price),
-        discount_type: null,
-        discount_value: 0,
-      })];
-    });
-    setSearch("");
-    setShowResults(false);
-    searchRef.current?.focus();
-  }, []);
 
   const updateQty = (idx: number, qty: number) => {
     if (qty <= 0) {
