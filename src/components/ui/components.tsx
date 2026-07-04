@@ -1,5 +1,7 @@
 // src/components/ui/components.tsx
+import { useRef } from "react";
 import { Icon } from "./Icon";
+import { getScannedChar } from "../../utils/barcodeInput";
 interface StatCardProps {
   label:    string;
   value:    string | number;
@@ -216,6 +218,37 @@ export function DataTable<T extends { id: number | string }>({
   onRowClick, searchValue, onSearch, searchPlaceholder = "Rechercher...",
   actions, rowStyle,
 }: DataTableProps<T>) {
+  // Scanner buffer — même logique que CashierPOS mais pour tous les inputs de recherche
+  const scanBuffer = useRef("");
+  const scanTimer  = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!onSearch) return;
+    if (e.key === "Enter") {
+      if (scanBuffer.current.length > 3) {
+        const code = scanBuffer.current;
+        scanBuffer.current = "";
+        onSearch(code);
+        e.preventDefault();
+      }
+      return;
+    }
+    const char = getScannedChar(e.nativeEvent as KeyboardEvent);
+    if (char !== null && scanBuffer.current.length > 0) {
+      // On est en mode scan (buffer non vide) : bloquer le char AZERTY brut
+      e.preventDefault();
+      scanBuffer.current += char;
+      onSearch(scanBuffer.current);
+      if (scanTimer.current) clearTimeout(scanTimer.current);
+      scanTimer.current = setTimeout(() => { scanBuffer.current = ""; }, 300);
+    } else if (char !== null) {
+      // Premier caractère : laisser le navigateur insérer, mais démarrer le buffer
+      scanBuffer.current = char;
+      if (scanTimer.current) clearTimeout(scanTimer.current);
+      scanTimer.current = setTimeout(() => { scanBuffer.current = ""; }, 300);
+    }
+  };
+
   return (
     <div style={{
       background: "#fff",
@@ -242,7 +275,8 @@ export function DataTable<T extends { id: number | string }>({
               }}><Icon size={14} name="search" /></span>
               <input
                 value={searchValue ?? ""}
-                onChange={e => onSearch(e.target.value)}
+                onChange={e => onSearch!(e.target.value)}
+                onKeyDown={handleSearchKeyDown}
                 placeholder={searchPlaceholder}
                 style={{
                   width: "100%", padding: "8px 12px 8px 34px",
