@@ -668,6 +668,7 @@ export default function CashierPOSPage() {
   const barcodeTimer = useRef<any>(null);
   const barcodeJustFired = useRef(false);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scanClearTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Charger session active
   useEffect(() => {
@@ -713,7 +714,10 @@ export default function CashierPOSPage() {
 
   // Recherche produit — serveur (tous les produits, pas seulement les 500 chargés)
   useEffect(() => {
-    if (!search.trim()) { setSearchResults([]); setShowResults(false); return; }
+    // Ne pas chercher si c'est un message de confirmation de scan
+    if (!search.trim() || search.startsWith("✓") || search.startsWith("✗") || search === "Recherche...") {
+      setSearchResults([]); setShowResults(false); return;
+    }
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     searchTimerRef.current = setTimeout(async () => {
       try {
@@ -740,18 +744,32 @@ export default function CashierPOSPage() {
         if (barcodeBuffer.current.length > 3) {
           const code = barcodeBuffer.current;
           barcodeBuffer.current = "";
-          // Vider le champ de recherche après le scan
-          if (isOnBarcodeInput) setSearch("");
+
+          const clearInputDelayed = () => {
+            if (scanClearTimer.current) clearTimeout(scanClearTimer.current);
+            scanClearTimer.current = setTimeout(() => setSearch(""), 1400);
+          };
+
           const local = products.find(p => p.barcode === code || p.sku === code);
           if (local) {
             addToCart(local);
-            showScanToast(`✓ ${local.name}`, true);
+            // Afficher "✓ Nom du produit" dans l'input pendant 1,4s
+            setSearch(`✓ ${local.name}`);
+            clearInputDelayed();
             barcodeJustFired.current = true;
             setTimeout(() => { barcodeJustFired.current = false; }, 50);
           } else {
+            setSearch("Recherche...");
             axiosInstance.get(`/products/by_barcode/?code=${encodeURIComponent(code)}`)
-              .then(r => { addToCart(r.data); showScanToast(`✓ ${r.data.name}`, true); })
-              .catch(() => { showScanToast(`Code introuvable : ${code}`, false); });
+              .then(r => {
+                addToCart(r.data);
+                setSearch(`✓ ${r.data.name}`);
+                clearInputDelayed();
+              })
+              .catch(() => {
+                setSearch(`✗ Code introuvable : ${code}`);
+                clearInputDelayed();
+              });
           }
         }
         return;
@@ -910,16 +928,31 @@ export default function CashierPOSPage() {
                 ref={searchRef}
                 autoFocus
                 value={search}
-                onChange={e => setSearch(e.target.value)}
+                onChange={e => {
+                  // Si l'utilisateur reprend la main pendant un message de confirmation, on repart en mode recherche
+                  if (scanClearTimer.current) clearTimeout(scanClearTimer.current);
+                  setSearch(e.target.value);
+                }}
                 onFocus={() => search && setShowResults(true)}
                 onBlur={() => setTimeout(() => setShowResults(false), 200)}
                 placeholder="Rechercher ou scanner un produit..."
                 style={{
                   width: "100%", padding: "11px 14px 11px 38px",
-                  border: "2px solid #E2E8F0", borderRadius: 10,
-                  fontSize: 14, color: "#0F172A", outline: "none",
+                  border: search.startsWith("✓") ? "2px solid #16A34A"
+                       : search.startsWith("✗") ? "2px solid #DC2626"
+                       : "2px solid #E2E8F0",
+                  borderRadius: 10,
+                  fontSize: search.startsWith("✓") || search.startsWith("✗") ? 13 : 14,
+                  color: search.startsWith("✓") ? "#15803D"
+                       : search.startsWith("✗") ? "#DC2626"
+                       : "#0F172A",
+                  fontWeight: search.startsWith("✓") || search.startsWith("✗") ? 600 : 400,
+                  outline: "none",
                   fontFamily: "inherit", boxSizing: "border-box",
-                  transition: "border-color 0.15s",
+                  transition: "border-color 0.15s, color 0.15s",
+                  background: search.startsWith("✓") ? "#F0FDF4"
+                            : search.startsWith("✗") ? "#FEF2F2"
+                            : "#fff",
                 }}
                 onKeyDown={e => {
                   if (e.key === "Enter" && searchResults.length > 0) {
