@@ -276,9 +276,10 @@ export default function StockListPage() {
           value={filterLocation}
           onChange={e => handleLocation(e.target.value as typeof filterLocation)}
           style={{
-            padding: "7px 12px", borderRadius: 8, border: "1px solid #E2E8F0",
-            background: "#fff", fontSize: 13, color: "#0F172A",
+            padding: "9px 14px", borderRadius: 10, border: "1px solid #E2E8F0",
+            background: "#fff", fontSize: 13, color: "#374151",
             fontFamily: "inherit", cursor: "pointer", outline: "none",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
           }}
         >
           <option value="all">Tous les emplacements</option>
@@ -290,9 +291,10 @@ export default function StockListPage() {
           value={filterStatus}
           onChange={e => setFilterStatus(e.target.value as StockStatus | "all")}
           style={{
-            padding: "7px 12px", borderRadius: 8, border: "1px solid #E2E8F0",
-            background: "#fff", fontSize: 13, color: "#0F172A",
+            padding: "9px 14px", borderRadius: 10, border: "1px solid #E2E8F0",
+            background: "#fff", fontSize: 13, color: "#374151",
             fontFamily: "inherit", cursor: "pointer", outline: "none",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
           }}
         >
           <option value="all">Tous les statuts</option>

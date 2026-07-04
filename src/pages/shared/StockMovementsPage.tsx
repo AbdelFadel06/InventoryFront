@@ -201,9 +201,10 @@ export default function StockMovementsPage() {
           value={filterType}
           onChange={e => handleFilterType(e.target.value as typeof filterType)}
           style={{
-            padding: "7px 12px", borderRadius: 8, border: "1px solid #E2E8F0",
-            background: "#fff", fontSize: 13, color: "#0F172A",
+            padding: "9px 14px", borderRadius: 10, border: "1px solid #E2E8F0",
+            background: "#fff", fontSize: 13, color: "#374151",
             fontFamily: "inherit", cursor: "pointer", outline: "none",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
           }}
         >
           {FILTER_TYPES.map(f => (
