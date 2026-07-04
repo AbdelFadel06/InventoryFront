@@ -4,6 +4,8 @@ import { useAuth } from "../../context/AuthContext";
 import { Badge, Icon } from "../../components/ui";
 import axiosInstance from "../../api/axiosInstance";
 import { userService } from "../../services/userService";
+import { getScannedChar } from "../../utils/barcodeInput";
+import { useHIDScanner } from "../../hooks/useHIDScanner";
 
 // ── Types ────────────────────────────────────────────────────────
 interface CashierSession {
@@ -646,11 +648,15 @@ export default function CashierPOSPage() {
   const [sessionLoading, setSessionLoading] = useState(true);
   const [products, setProducts] = useState<Product[]>([]);
   const [livreurs, setLivreurs] = useState<User[]>([]);
+  const [scanToast, setScanToast] = useState<{ msg: string; ok: boolean } | null>(null);
+  const scanToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Ref always pointing to latest products — avoids stale closure in callbacks
+  const productsRef = useRef<Product[]>([]);
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [search, setSearch] = useState("");
   const [searchResults, setSearchResults] = useState<Product[]>([]);
-  const [showResults, setShowResults] = useState(false);
+  const [showResults] = useState(false); // kept for compatibility, unused
 
   const [showPayment, setShowPayment] = useState(false);
   const [showExpense, setShowExpense] = useState(false);
@@ -665,6 +671,7 @@ export default function CashierPOSPage() {
   const barcodeTimer = useRef<any>(null);
   const barcodeJustFired = useRef(false);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scanClearTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Charger session active
   useEffect(() => {
@@ -679,7 +686,9 @@ export default function CashierPOSPage() {
           axiosInstance.get("/products/?page_size=500"),
           userService.getLivreurs().catch(() => []),
         ]);
-        setProducts(prods.data.results ?? prods.data);
+        const loaded = prods.data.results ?? prods.data;
+        setProducts(loaded);
+        productsRef.current = loaded;
         setLivreurs(livs as User[]);
       } catch (e) {
         console.error(e);
@@ -690,6 +699,12 @@ export default function CashierPOSPage() {
     load();
     loadTodayStats();
   }, []);
+
+  const showScanToast = (msg: string, ok: boolean) => {
+    if (scanToastTimer.current) clearTimeout(scanToastTimer.current);
+    setScanToast({ msg, ok });
+    scanToastTimer.current = setTimeout(() => setScanToast(null), 2500);
+  };
 
   const loadTodayStats = async () => {
     try {
@@ -704,7 +719,10 @@ export default function CashierPOSPage() {
 
   // Recherche produit — serveur (tous les produits, pas seulement les 500 chargés)
   useEffect(() => {
-    if (!search.trim()) { setSearchResults([]); setShowResults(false); return; }
+    // Ne pas chercher si c'est un message de confirmation de scan
+    if (!search.trim() || search.startsWith("✓") || search.startsWith("✗") || search === "Recherche...") {
+      setSearchResults([]); return;
+    }
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     searchTimerRef.current = setTimeout(async () => {
       try {
@@ -713,75 +731,16 @@ export default function CashierPOSPage() {
         });
         const results: Product[] = res.data.results ?? [];
         setSearchResults(results);
-        setShowResults(results.length > 0);
+        setShowResults(results.length > 0); // update searchResults state
       } catch {}
     }, 200);
   }, [search]);
 
-  // Scan code-barres (entrées clavier rapides)
-  useEffect(() => {
-    // Extrait le caractère réel depuis e.code (indépendant de la disposition clavier)
-    // Résout le problème AZERTY où "1" devient "&", "2" devient "é", etc.
-    const getScannedChar = (e: KeyboardEvent): string | null => {
-      // Chiffres physiques (Digit0–Digit9) → toujours "0"–"9" quelle que soit la disposition
-      if (/^Digit(\d)$/.test(e.code)) return e.code.slice(5);
-      // Pavé numérique
-      if (/^Numpad(\d)$/.test(e.code)) return e.code.slice(6);
-      // Lettres : e.code = "KeyA"–"KeyZ" → position physique QWERTY
-      // Pour les barcodes alphanumériques (Code-39, etc.), on lit la position physique
-      if (/^Key([A-Z])$/.test(e.code)) {
-        const letter = e.code.slice(3); // "KeyA" → "A"
-        return e.shiftKey ? letter : letter.toLowerCase();
-      }
-      return null;
-    };
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignorer si focus sur un champ de saisie normal
-      const tag = (e.target as HTMLElement).tagName;
-      if (tag === "INPUT" && (e.target as HTMLInputElement).id !== "barcode-search") return;
-      if (tag === "TEXTAREA") return;
-
-      if (e.key === "Enter") {
-        if (barcodeBuffer.current.length > 3) {
-          const code = barcodeBuffer.current;
-          barcodeBuffer.current = "";
-          const local = products.find(p => p.barcode === code || p.sku === code);
-          if (local) {
-            addToCart(local);
-            barcodeJustFired.current = true;
-            setTimeout(() => { barcodeJustFired.current = false; }, 50);
-          } else {
-            // Lookup backend si non trouvé localement
-            axiosInstance.get(`/products/by_barcode/?code=${encodeURIComponent(code)}`)
-              .then(r => { addToCart(r.data); })
-              .catch(() => { /* produit introuvable */ });
-          }
-        }
-        return;
-      }
-
-      const char = getScannedChar(e);
-      if (char !== null) {
-        barcodeBuffer.current += char;
-        clearTimeout(barcodeTimer.current);
-        barcodeTimer.current = setTimeout(() => {
-          barcodeBuffer.current = "";
-        }, 300);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [products]);
-
+  // 1. addToCart — pas de dépendances sur les autres callbacks
   const addToCart = useCallback((product: Product) => {
     setCart(prev => {
       const existing = prev.findIndex(i => i.product.id === product.id);
-      if (existing >= 0) {
-        // Produit déjà dans le panier — le caissier ajuste la quantité manuellement
-        return prev;
-      }
+      if (existing >= 0) return prev;
       return [...prev, calcItem({
         product,
         quantity: 1,
@@ -790,10 +749,67 @@ export default function CashierPOSPage() {
         discount_value: 0,
       })];
     });
-    setSearch("");
-    setShowResults(false);
     searchRef.current?.focus();
   }, []);
+
+  // 2. handleScan — partagé entre mode clavier et mode HID POS
+  const handleScan = useCallback((code: string) => {
+    const clearInputDelayed = () => {
+      if (scanClearTimer.current) clearTimeout(scanClearTimer.current);
+      scanClearTimer.current = setTimeout(() => setSearch(""), 1400);
+    };
+    const local = productsRef.current.find(p => p.barcode === code || p.sku === code);
+    if (local) {
+      addToCart(local);
+      setSearch(`✓ ${local.name}`);
+      clearInputDelayed();
+    } else {
+      setSearch("Recherche...");
+      axiosInstance.get(`/products/by_barcode/?code=${encodeURIComponent(code)}`)
+        .then(r => { addToCart(r.data); setSearch(`✓ ${r.data.name}`); clearInputDelayed(); })
+        .catch(() => { setSearch(`✗ Code introuvable : ${code}`); clearInputDelayed(); });
+    }
+  }, [addToCart]);
+
+  // 3. Hook HID POS — actif uniquement si le navigateur supporte Web HID
+  const { status: hidStatus, connect: hidConnect, disconnect: hidDisconnect } =
+    useHIDScanner({ onBarcode: handleScan, minLength: 4 });
+
+  // 4. Scan code-barres mode clavier (buffer rapide, AZERTY-safe)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName;
+      const isOnBarcodeInput = tag === "INPUT" &&
+        (e.target as HTMLInputElement).id === "barcode-search";
+      if (tag === "INPUT" && !isOnBarcodeInput) return;
+      if (tag === "TEXTAREA") return;
+
+      if (e.key === "Enter") {
+        if (barcodeBuffer.current.length > 3) {
+          const code = barcodeBuffer.current;
+          barcodeBuffer.current = "";
+          handleScan(code);
+          barcodeJustFired.current = true;
+          setTimeout(() => { barcodeJustFired.current = false; }, 50);
+        }
+        return;
+      }
+
+      const char = getScannedChar(e);
+      if (char !== null) {
+        if (isOnBarcodeInput && barcodeBuffer.current.length > 0) {
+          e.preventDefault();
+          setSearch(barcodeBuffer.current + char);
+        }
+        barcodeBuffer.current += char;
+        clearTimeout(barcodeTimer.current);
+        barcodeTimer.current = setTimeout(() => { barcodeBuffer.current = ""; }, 300);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleScan]);
 
   const updateQty = (idx: number, qty: number) => {
     if (qty <= 0) {
@@ -898,6 +914,41 @@ export default function CashierPOSPage() {
         }}>
           {/* Barre de recherche / scan */}
           <div style={{ padding: "14px 16px", borderBottom: "1px solid #F1F5F9", background: "#fff" }}>
+
+            {/* Bouton connexion scanner HID POS */}
+            {hidStatus !== "unsupported" && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                <button
+                  onClick={hidStatus === "connected" ? hidDisconnect : hidConnect}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 6,
+                    padding: "5px 12px", borderRadius: 8, fontSize: 12.5, fontWeight: 600,
+                    border: "1px solid",
+                    borderColor: hidStatus === "connected" ? "#BBF7D0" : hidStatus === "connecting" ? "#FDE68A" : "#E2E8F0",
+                    background: hidStatus === "connected" ? "#F0FDF4" : hidStatus === "connecting" ? "#FFFBEB" : "#F8FAFC",
+                    color: hidStatus === "connected" ? "#15803D" : hidStatus === "connecting" ? "#92400E" : "#64748B",
+                    cursor: hidStatus === "connecting" ? "default" : "pointer",
+                    fontFamily: "inherit",
+                  }}
+                  disabled={hidStatus === "connecting"}
+                >
+                  <span style={{ fontSize: 14 }}>
+                    {hidStatus === "connected" ? "🟢" : hidStatus === "connecting" ? "🟡" : "⚫"}
+                  </span>
+                  {hidStatus === "connected"
+                    ? "Scanner HID connecté — Déconnecter"
+                    : hidStatus === "connecting"
+                    ? "Connexion..."
+                    : "Connecter scanner HID POS"}
+                </button>
+                {hidStatus === "disconnected" && (
+                  <span style={{ fontSize: 11.5, color: "#94A3B8" }}>
+                    Mode clavier actif (AZERTY/QWERTY supporté)
+                  </span>
+                )}
+              </div>
+            )}
+
             <div style={{ position: "relative" }}>
               <span style={{
                 position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)",
@@ -908,140 +959,125 @@ export default function CashierPOSPage() {
                 ref={searchRef}
                 autoFocus
                 value={search}
-                onChange={e => setSearch(e.target.value)}
-                onFocus={() => search && setShowResults(true)}
-                onBlur={() => setTimeout(() => setShowResults(false), 200)}
+                onChange={e => {
+                  // Si l'utilisateur reprend la main pendant un message de confirmation, on repart en mode recherche
+                  if (scanClearTimer.current) clearTimeout(scanClearTimer.current);
+                  setSearch(e.target.value);
+                }}
                 placeholder="Rechercher ou scanner un produit..."
                 style={{
                   width: "100%", padding: "11px 14px 11px 38px",
-                  border: "2px solid #E2E8F0", borderRadius: 10,
-                  fontSize: 14, color: "#0F172A", outline: "none",
+                  border: search.startsWith("✓") ? "2px solid #16A34A"
+                       : search.startsWith("✗") ? "2px solid #DC2626"
+                       : "2px solid #E2E8F0",
+                  borderRadius: 10,
+                  fontSize: search.startsWith("✓") || search.startsWith("✗") ? 13 : 14,
+                  color: search.startsWith("✓") ? "#15803D"
+                       : search.startsWith("✗") ? "#DC2626"
+                       : "#0F172A",
+                  fontWeight: search.startsWith("✓") || search.startsWith("✗") ? 600 : 400,
+                  outline: "none",
                   fontFamily: "inherit", boxSizing: "border-box",
-                  transition: "border-color 0.15s",
-                }}
-                onKeyDown={e => {
-                  if (e.key === "Enter" && searchResults.length > 0) {
-                    if (barcodeJustFired.current) return;
-                    addToCart(searchResults[0]);
-                  }
+                  transition: "border-color 0.15s, color 0.15s",
+                  background: search.startsWith("✓") ? "#F0FDF4"
+                            : search.startsWith("✗") ? "#FEF2F2"
+                            : "#fff",
                 }}
               />
             </div>
 
-            {/* Résultats dropdown */}
-            {showResults && searchResults.length > 0 && (
-              <div style={{
-                position: "absolute", left: 16, right: 16, zIndex: 100,
-                background: "#fff", border: "1px solid #E2E8F0", borderRadius: 10,
-                boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
-                marginTop: 4, overflow: "hidden",
-              }}>
-                {searchResults.map((p, i) => (
-                  <button key={p.id}
-                    onMouseDown={() => addToCart(p)}
-                    style={{
-                      width: "100%", padding: "8px 12px",
-                      display: "flex", alignItems: "center", gap: 10,
-                      background: "none", border: "none", cursor: "pointer",
-                      borderBottom: i < searchResults.length - 1 ? "1px solid #F8FAFC" : "none",
-                      textAlign: "left",
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.background = "#F8FAFC")}
-                    onMouseLeave={e => (e.currentTarget.style.background = "none")}
-                  >
-                    {/* Miniature */}
-                    <div style={{
-                      width: 40, height: 40, borderRadius: 8, flexShrink: 0, overflow: "hidden",
-                      background: p.primary_image ? "#F8FAFC" : "linear-gradient(135deg, #EFF6FF, #DBEAFE)",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                    }}>
-                      {p.primary_image ? (
-                        <img src={p.primary_image} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                      ) : (
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#93C5FD" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                          <rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/>
-                        </svg>
-                      )}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13.5, fontWeight: 600, color: "#0F172A", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
-                      <div style={{ fontSize: 11.5, color: "#94A3B8", fontFamily: "monospace" }}>{p.sku}</div>
-                    </div>
-                    <div style={{ textAlign: "right", flexShrink: 0 }}>
-                      <div style={{ fontSize: 13.5, fontWeight: 700, color: "#1D4ED8" }}>
-                        {fmtPrice(parseFloat(p.selling_price))}
-                      </div>
-                      <div style={{ fontSize: 11, color: p.current_stock === 0 ? "#DC2626" : "#64748B" }}>
-                        Stock: {p.current_stock}
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
 
-          {/* Grille rapide produits récents */}
-          <div style={{ flex: 1, padding: "12px", overflowY: "auto", background: "#F8FAFC" }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>
-              Produits disponibles
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 8 }}>
-              {products.filter(p => p.current_stock > 0).slice(0, 24).map(p => (
-                <button key={p.id}
-                  onClick={() => addToCart(p)}
-                  style={{
-                    padding: 0, borderRadius: 10,
-                    border: "1px solid #E2E8F0", background: "#fff",
-                    cursor: "pointer", fontFamily: "inherit", textAlign: "left",
-                    transition: "all 0.15s", overflow: "hidden",
-                  }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.borderColor = "#3B82F6";
-                    e.currentTarget.style.boxShadow = "0 2px 8px rgba(59,130,246,0.15)";
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.borderColor = "#E2E8F0";
-                    e.currentTarget.style.boxShadow = "none";
-                  }}
-                >
-                  {/* Image */}
+          {/* Grille produits — filtrée par la recherche */}
+          {(() => {
+            const isSearching = search.trim() !== "" &&
+              !search.startsWith("✓") && !search.startsWith("✗") && search !== "Recherche...";
+            const displayedProducts = isSearching ? searchResults : products.filter(p => p.current_stock > 0).slice(0, 36);
+
+            return (
+              <div style={{ flex: 1, padding: "12px", overflowY: "auto", background: "#F8FAFC" }}>
+                <div style={{
+                  fontSize: 11, fontWeight: 700, color: "#94A3B8",
+                  textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10,
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                }}>
+                  <span>{isSearching ? `Résultats pour "${search.trim()}"` : "Produits disponibles"}</span>
+                  {isSearching && (
+                    <span style={{ fontSize: 11, color: "#CBD5E1", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>
+                      {searchResults.length} résultat{searchResults.length !== 1 ? "s" : ""}
+                    </span>
+                  )}
+                </div>
+
+                {isSearching && searchResults.length === 0 ? (
                   <div style={{
-                    width: "100%", height: 90,
-                    background: p.primary_image ? "#F8FAFC" : "linear-gradient(135deg, #EFF6FF, #DBEAFE)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    overflow: "hidden",
+                    display: "flex", flexDirection: "column", alignItems: "center",
+                    justifyContent: "center", padding: "48px 24px", gap: 10,
                   }}>
-                    {p.primary_image ? (
-                      <img
-                        src={p.primary_image}
-                        alt={p.name}
-                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                      />
-                    ) : (
-                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#93C5FD" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="3" y="3" width="18" height="18" rx="3"/>
-                        <circle cx="8.5" cy="8.5" r="1.5"/>
-                        <path d="m21 15-5-5L5 21"/>
-                      </svg>
-                    )}
-                  </div>
-                  {/* Infos */}
-                  <div style={{ padding: "8px 10px" }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: "#0F172A", marginBottom: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {p.name}
-                    </div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "#1D4ED8" }}>
-                      {fmtPrice(parseFloat(p.selling_price))}
-                    </div>
-                    <div style={{ fontSize: 10.5, color: "#94A3B8", marginTop: 2 }}>
-                      Stock: {p.current_stock}
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#CBD5E1" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                      <line x1="8" y1="11" x2="14" y2="11"/>
+                    </svg>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: "#94A3B8" }}>Aucun produit correspondant</div>
+                    <div style={{ fontSize: 12.5, color: "#CBD5E1", textAlign: "center" }}>
+                      Aucun résultat pour « {search.trim()} »
                     </div>
                   </div>
-                </button>
-              ))}
-            </div>
-          </div>
+                ) : (
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 8 }}>
+                    {displayedProducts.map(p => (
+                      <button key={p.id}
+                        onClick={() => addToCart(p)}
+                        style={{
+                          padding: 0, borderRadius: 10,
+                          border: "1px solid #E2E8F0", background: "#fff",
+                          cursor: "pointer", fontFamily: "inherit", textAlign: "left",
+                          transition: "all 0.15s", overflow: "hidden",
+                        }}
+                        onMouseEnter={e => {
+                          e.currentTarget.style.borderColor = "#3B82F6";
+                          e.currentTarget.style.boxShadow = "0 2px 8px rgba(59,130,246,0.15)";
+                        }}
+                        onMouseLeave={e => {
+                          e.currentTarget.style.borderColor = "#E2E8F0";
+                          e.currentTarget.style.boxShadow = "none";
+                        }}
+                      >
+                        <div style={{
+                          width: "100%", height: 90,
+                          background: p.primary_image ? "#F8FAFC" : "linear-gradient(135deg, #EFF6FF, #DBEAFE)",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          overflow: "hidden",
+                        }}>
+                          {p.primary_image ? (
+                            <img src={p.primary_image} alt={p.name}
+                              style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          ) : (
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#93C5FD" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                              <rect x="3" y="3" width="18" height="18" rx="3"/>
+                              <circle cx="8.5" cy="8.5" r="1.5"/>
+                              <path d="m21 15-5-5L5 21"/>
+                            </svg>
+                          )}
+                        </div>
+                        <div style={{ padding: "8px 10px" }}>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: "#0F172A", marginBottom: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {p.name}
+                          </div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: "#1D4ED8" }}>
+                            {fmtPrice(parseFloat(p.selling_price))}
+                          </div>
+                          <div style={{ fontSize: 10.5, color: p.current_stock === 0 ? "#DC2626" : "#94A3B8", marginTop: 2 }}>
+                            Stock: {p.current_stock}
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
 
         {/* ── Droite : panier ────────────────────────────────────── */}
@@ -1165,6 +1201,21 @@ export default function CashierPOSPage() {
           onApply={(type, value) => applyDiscount(discountItem, type, value)}
           onClose={() => setDiscountItem(null)}
         />
+      )}
+
+      {/* Toast scan code-barres */}
+      {scanToast && (
+        <div style={{
+          position: "fixed", bottom: 28, left: "50%", transform: "translateX(-50%)",
+          zIndex: 2000, pointerEvents: "none",
+          background: scanToast.ok ? "#15803D" : "#DC2626",
+          color: "#fff", padding: "11px 22px", borderRadius: 12,
+          fontSize: 14, fontWeight: 600,
+          boxShadow: "0 8px 28px rgba(0,0,0,0.22)",
+          whiteSpace: "nowrap",
+        }}>
+          {scanToast.msg}
+        </div>
       )}
     </div>
   );
