@@ -60,7 +60,6 @@ function CreateSessionModal({
 
   const [form, setForm] = useState({
     cashier: "",
-    period_type: "daily" as "daily" | "weekly",
     start_date: today,
     end_date: today,
     notes: "",
@@ -71,27 +70,9 @@ function CreateSessionModal({
   const set = (k: keyof typeof form) => (v: string) =>
     setForm(f => ({ ...f, [k]: v }));
 
-  const handlePeriodChange = (type: "daily" | "weekly") => {
-    const start = new Date(form.start_date);
-    const end = new Date(start);
-    if (type === "weekly") end.setDate(end.getDate() + 6);
-    setForm(f => ({
-      ...f,
-      period_type: type,
-      end_date: end.toISOString().split("T")[0],
-    }));
-  };
-
-  const handleStartChange = (val: string) => {
-    const start = new Date(val);
-    const end = new Date(start);
-    if (form.period_type === "weekly") end.setDate(end.getDate() + 6);
-    setForm(f => ({
-      ...f,
-      start_date: val,
-      end_date: end.toISOString().split("T")[0],
-    }));
-  };
+  const sessionDays = Math.max(1, Math.round(
+    (new Date(form.end_date).getTime() - new Date(form.start_date).getTime()) / 86_400_000
+  ) + 1);
 
   const handleSubmit = async () => {
     setError(null);
@@ -101,7 +82,6 @@ function CreateSessionModal({
       await axiosInstance.post("/cashier-sessions/", {
         shop: shopId,
         cashier: Number(form.cashier),
-        period_type: form.period_type,
         start_date: form.start_date,
         end_date: form.end_date,
         notes: form.notes || undefined,
@@ -176,34 +156,17 @@ function CreateSessionModal({
           )}
         </Field>
 
-        <Field label="Type de période" required>
-          <div style={{ display: "flex", gap: 10 }}>
-            {[
-              { key: "daily", label: "Journalière", desc: "1 jour" },
-              { key: "weekly", label: "Hebdomadaire", desc: "7 jours" },
-            ].map(opt => (
-              <button key={opt.key}
-                type="button"
-                onClick={() => handlePeriodChange(opt.key as "daily" | "weekly")}
-                style={{
-                  flex: 1, padding: "10px 14px", borderRadius: 9,
-                  border: form.period_type === opt.key ? "2px solid #3B82F6" : "1px solid #E2E8F0",
-                  background: form.period_type === opt.key ? "#EFF6FF" : "#fff",
-                  cursor: "pointer", fontFamily: "inherit", textAlign: "center",
-                }}>
-                <div style={{ fontSize: 13.5, fontWeight: 600, color: form.period_type === opt.key ? "#1D4ED8" : "#374151" }}>
-                  {opt.label}
-                </div>
-                <div style={{ fontSize: 11.5, color: "#94A3B8" }}>{opt.desc}</div>
-              </button>
-            ))}
-          </div>
-        </Field>
-
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
           <Field label="Date de début" required>
             <input type="date" value={form.start_date}
-              onChange={e => handleStartChange(e.target.value)}
+              onChange={e => {
+                const val = e.target.value;
+                setForm(f => ({
+                  ...f,
+                  start_date: val,
+                  end_date: f.end_date < val ? val : f.end_date,
+                }));
+              }}
               style={inputStyle}
               onFocus={e => (e.target.style.borderColor = "#3B82F6")}
               onBlur={e => (e.target.style.borderColor = "#E2E8F0")} />
@@ -216,6 +179,23 @@ function CreateSessionModal({
               onFocus={e => (e.target.style.borderColor = "#3B82F6")}
               onBlur={e => (e.target.style.borderColor = "#E2E8F0")} />
           </Field>
+        </div>
+
+        {/* Durée calculée */}
+        <div style={{
+          background: "#F8FAFC", border: "1px solid #E2E8F0",
+          borderRadius: 9, padding: "10px 14px", marginBottom: 18,
+          display: "flex", alignItems: "center", gap: 8,
+          fontSize: 13, color: "#374151",
+        }}>
+          <span style={{ fontSize: 16 }}>📅</span>
+          <span>
+            Session de{" "}
+            <strong style={{ color: "#1D4ED8" }}>
+              {sessionDays} jour{sessionDays > 1 ? "s" : ""}
+            </strong>
+            {" "}· 00h00 → 23h59 chaque jour
+          </span>
         </div>
 
         <Field label="Notes (optionnel)">
@@ -308,7 +288,12 @@ function SessionDetailModal({ session, onClose, onRefresh }: {
                 {session.cashier_name}
               </div>
               <div style={{ fontSize: 13, color: "rgba(255,255,255,0.75)", marginTop: 2 }}>
-                {session.period_type === "daily" ? "Journalière" : "Hebdomadaire"}
+                {(() => {
+                  const days = Math.max(1, Math.round(
+                    (new Date(session.end_date).getTime() - new Date(session.start_date).getTime()) / 86_400_000
+                  ) + 1);
+                  return `Session de ${days} jour${days > 1 ? "s" : ""}`;
+                })()}
                 {" · "}{formatDate(session.start_date)} → {formatDate(session.end_date)}
               </div>
             </div>
@@ -330,7 +315,11 @@ function SessionDetailModal({ session, onClose, onRefresh }: {
               {error}
             </div>
           )}
-          <Row label="Statut" value={session.is_active ? "Active" : "Clôturée"} highlight />
+          <Row label="Statut" value={
+            session.is_active ? "Active" :
+            session.start_date > new Date().toISOString().split("T")[0] ? "À venir" :
+            "Clôturée"
+          } highlight />
           <Row label="Ventes effectuées" value={`${session.sales_count} vente(s)`} />
           <Row label="Chiffre d'affaires" value={`${Number(session.total_sales).toLocaleString("fr-FR")} F`} highlight />
           <Row label="Créée par" value={session.created_by_name ?? "—"} />
@@ -368,7 +357,7 @@ export default function CashierSessionPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [detailSession, setDetailSession] = useState<CashierSession | null>(null);
   const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState<"all" | "active" | "closed">("all");
+  const [filterStatus, setFilterStatus] = useState<"all" | "active" | "closed" | "upcoming">("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount]   = useState(0);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -386,7 +375,8 @@ export default function CashierSessionPage() {
     setLoading(true);
     const params: Record<string, any> = { page };
     if (q) params.search = q;
-    if (status !== "all") params.status = status;
+    // "upcoming" is a frontend-only concept; backend uses "active"/"closed"
+    if (status !== "all" && status !== "upcoming") params.status = status;
     try {
       const sessRes = await axiosInstance.get("/cashier-sessions/", { params });
       setSessions(sessRes.data.results ?? sessRes.data);
@@ -416,41 +406,63 @@ export default function CashierSessionPage() {
     fetchSessions(1, search, status);
   };
 
-  const active   = sessions.filter(s => s.status === "active").length;
-  const closed   = sessions.filter(s => s.status === "closed").length;
+  const today = new Date().toISOString().split("T")[0];
+
+  const active   = sessions.filter(s => s.is_active).length;
+  const closed   = sessions.filter(s => !s.is_active && s.start_date <= today).length;
   const totalCA  = sessions
     .filter(s => s.status === "active")
     .reduce((sum, s) => sum + Number(s.total_sales), 0);
 
-  const today = new Date().toISOString().split("T")[0];
   const activeSession = sessions.find(s =>
     s.status === "active" && s.start_date <= today && s.end_date >= today
   );
+
+  const displayedSessions = filterStatus === "upcoming"
+    ? sessions.filter(s => !s.is_active && s.start_date > today)
+    : sessions;
+
+  const sessionState = (row: CashierSession): "active" | "upcoming" | "closed" => {
+    if (row.is_active) return "active";
+    if (row.start_date > today) return "upcoming";
+    return "closed";
+  };
 
   const columns = [
     {
       key: "cashier_name",
       label: "Caissier",
-      render: (row: CashierSession) => (
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{
-            width: 34, height: 34, borderRadius: "50%", flexShrink: 0,
-            background: row.is_active
-              ? "linear-gradient(135deg, #10B981, #059669)"
-              : "#E2E8F0",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            color: row.is_active ? "#fff" : "#94A3B8", fontSize: 12, fontWeight: 700,
-          }}>
-            {row.cashier_name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
-          </div>
-          <div>
-            <div style={{ fontWeight: 600, color: "#0F172A", fontSize: 13.5 }}>{row.cashier_name}</div>
-            <div style={{ fontSize: 11.5, color: "#94A3B8" }}>
-              {row.period_type === "daily" ? "Journalière" : "Hebdomadaire"}
+      render: (row: CashierSession) => {
+        const state = sessionState(row);
+        const avatarBg =
+          state === "active"   ? "linear-gradient(135deg, #10B981, #059669)" :
+          state === "upcoming" ? "linear-gradient(135deg, #3B82F6, #1D4ED8)" :
+          "#E2E8F0";
+        const avatarColor = state === "closed" ? "#94A3B8" : "#fff";
+        return (
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{
+              width: 34, height: 34, borderRadius: "50%", flexShrink: 0,
+              background: avatarBg,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              color: avatarColor, fontSize: 12, fontWeight: 700,
+            }}>
+              {row.cashier_name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+            </div>
+            <div>
+              <div style={{ fontWeight: 600, color: "#0F172A", fontSize: 13.5 }}>{row.cashier_name}</div>
+              <div style={{ fontSize: 11.5, color: "#94A3B8" }}>
+                {(() => {
+                  const days = Math.max(1, Math.round(
+                    (new Date(row.end_date).getTime() - new Date(row.start_date).getTime()) / 86_400_000
+                  ) + 1);
+                  return `${days} jour${days > 1 ? "s" : ""}`;
+                })()}
+              </div>
             </div>
           </div>
-        </div>
-      ),
+        );
+      },
     },
     {
       key: "dates",
@@ -487,11 +499,12 @@ export default function CashierSessionPage() {
     {
       key: "status",
       label: "Statut",
-      render: (row: CashierSession) => (
-        row.is_active
-          ? <Badge label="Active" color="green" />
-          : <Badge label="Clôturée" color="orange" />
-      ),
+      render: (row: CashierSession) => {
+        const state = sessionState(row);
+        if (state === "active")   return <Badge label="Active"    color="green"  />;
+        if (state === "upcoming") return <Badge label="À venir"   color="blue"   />;
+        return <Badge label="Clôturée" color="orange" />;
+      },
     },
     {
       key: "actions",
@@ -562,31 +575,33 @@ export default function CashierSessionPage() {
       {/* Stats */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 14, marginBottom: 24 }}>
         <StatCard label="Sessions actives"    value={active}                                      icon={<Icon name="checkCircle" size={22} />} color="green"  loading={loading} />
-        <StatCard label="Sessions clôturées"  value={closed}                                      icon={<Icon name="clock" size={22} />} color="gray"   loading={loading} />
+        <StatCard label="Sessions clôturées"  value={closed}                                      icon={<Icon name="clock" size={22} />} color="orange" loading={loading} />
         <StatCard label="CA sessions actives" value={`${totalCA.toLocaleString("fr-FR")} F`}      icon={<Icon name="money" size={22} />} color="blue"   loading={loading} />
         <StatCard label="Employés disponibles" value={employees.length}                            icon={<Icon name="users" size={22} />} color="purple" loading={loading} />
       </div>
 
       {/* Filtres */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-        {(["all", "active", "closed"] as const).map(f => (
-          <button key={f} onClick={() => handleFilterStatus(f)}
-            style={{
-              padding: "6px 14px", borderRadius: 20, fontSize: 12.5,
-              fontWeight: filterStatus === f ? 600 : 400,
-              background: filterStatus === f ? "#0F172A" : "#fff",
-              color: filterStatus === f ? "#fff" : "#64748B",
-              border: filterStatus === f ? "none" : "1px solid #E2E8F0",
-              cursor: "pointer", fontFamily: "inherit",
-            }}>
-            {f === "all" ? "Toutes" : f === "active" ? "Actives" : "Clôturées"}
-          </button>
-        ))}
+      <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+        <select
+          value={filterStatus}
+          onChange={e => handleFilterStatus(e.target.value as typeof filterStatus)}
+          style={{
+            padding: "9px 14px", borderRadius: 10, border: "1px solid #E2E8F0",
+            background: "#fff", fontSize: 13, color: "#374151",
+            fontFamily: "inherit", cursor: "pointer", outline: "none",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+          }}
+        >
+          <option value="all">Toutes les sessions</option>
+          <option value="active">Actives</option>
+          <option value="upcoming">À venir</option>
+          <option value="closed">Clôturées</option>
+        </select>
       </div>
 
       <DataTable
         columns={columns as any}
-        data={sessions}
+        data={displayedSessions}
         loading={loading}
         emptyText="Aucune session trouvée"
         searchValue={search}
