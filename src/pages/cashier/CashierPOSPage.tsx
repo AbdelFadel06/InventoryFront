@@ -720,42 +720,49 @@ export default function CashierPOSPage() {
 
   // Scan code-barres (entrées clavier rapides)
   useEffect(() => {
-    // Extrait le caractère réel depuis e.code (indépendant de la disposition clavier)
-    // Résout le problème AZERTY où "1" devient "&", "2" devient "é", etc.
+    // Chiffres AZERTY sans Shift : & é " ' ( - è _ ç à
+    const AZERTY_TO_DIGIT: Record<string, string> = {
+      "&": "1", "é": "2", '"': "3", "'": "4", "(": "5",
+      "-": "6", "è": "7", "_": "8", "ç": "9", "à": "0",
+    };
+
     const getScannedChar = (e: KeyboardEvent): string | null => {
-      // Chiffres physiques (Digit0–Digit9) → toujours "0"–"9" quelle que soit la disposition
+      // e.code = touche physique, indépendant de la disposition clavier
       if (/^Digit(\d)$/.test(e.code)) return e.code.slice(5);
-      // Pavé numérique
       if (/^Numpad(\d)$/.test(e.code)) return e.code.slice(6);
-      // Lettres : e.code = "KeyA"–"KeyZ" → position physique QWERTY
-      // Pour les barcodes alphanumériques (Code-39, etc.), on lit la position physique
       if (/^Key([A-Z])$/.test(e.code)) {
-        const letter = e.code.slice(3); // "KeyA" → "A"
+        const letter = e.code.slice(3);
         return e.shiftKey ? letter : letter.toLowerCase();
       }
+      // Fallback : carte AZERTY explicite (quand e.code est vide ou incorrect)
+      if (e.key in AZERTY_TO_DIGIT) return AZERTY_TO_DIGIT[e.key];
+      // Tout autre caractère ASCII imprimable (tirets, points dans les codes barres)
+      if (e.key.length === 1 && /[\x20-\x7E]/.test(e.key)) return e.key;
       return null;
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignorer si focus sur un champ de saisie normal
       const tag = (e.target as HTMLElement).tagName;
-      if (tag === "INPUT" && (e.target as HTMLInputElement).id !== "barcode-search") return;
+      const isOnBarcodeInput = tag === "INPUT" &&
+        (e.target as HTMLInputElement).id === "barcode-search";
+      if (tag === "INPUT" && !isOnBarcodeInput) return;
       if (tag === "TEXTAREA") return;
 
       if (e.key === "Enter") {
         if (barcodeBuffer.current.length > 3) {
           const code = barcodeBuffer.current;
           barcodeBuffer.current = "";
+          // Vider le champ de recherche après le scan
+          if (isOnBarcodeInput) setSearch("");
           const local = products.find(p => p.barcode === code || p.sku === code);
           if (local) {
             addToCart(local);
             barcodeJustFired.current = true;
             setTimeout(() => { barcodeJustFired.current = false; }, 50);
           } else {
-            // Lookup backend si non trouvé localement
             axiosInstance.get(`/products/by_barcode/?code=${encodeURIComponent(code)}`)
               .then(r => { addToCart(r.data); })
-              .catch(() => { /* produit introuvable */ });
+              .catch(() => {});
           }
         }
         return;
@@ -763,6 +770,12 @@ export default function CashierPOSPage() {
 
       const char = getScannedChar(e);
       if (char !== null) {
+        // À partir du 2e caractère : on est en mode scan
+        // → bloquer le char AZERTY brut et afficher le buffer correct à la place
+        if (isOnBarcodeInput && barcodeBuffer.current.length > 0) {
+          e.preventDefault();
+          setSearch(barcodeBuffer.current + char);
+        }
         barcodeBuffer.current += char;
         clearTimeout(barcodeTimer.current);
         barcodeTimer.current = setTimeout(() => {
