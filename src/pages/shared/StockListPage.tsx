@@ -100,7 +100,6 @@ export default function StockListPage() {
     } catch { /* ignore */ } finally { setSelectingAll(false); }
   };
 
-  const clearSelection = () => { setSelection(new Set()); selectionCache.current.clear(); };
 
   // ── Impression ───────────────────────────────────────────────
   const handlePrintSelection = () => {
@@ -271,48 +270,37 @@ export default function StockListPage() {
         <StatCard label="Ruptures"   value={outOfStock}  icon={<Icon name="xCircle" size={22} />}     color="red"    loading={loading} />
       </div>
 
-      {/* Filtres emplacement */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
-        {([
-          { key: "all",      label: "Tous emplacements" },
-          { key: "BOUTIQUE", label: "Boutique"          },
-          { key: "MAGASIN",  label: "Magasin"           },
-        ] as const).map(f => (
-          <button key={f.key} onClick={() => handleLocation(f.key)}
-            style={{
-              padding: "6px 14px", borderRadius: 20, fontSize: 12.5,
-              fontWeight: filterLocation === f.key ? 600 : 400,
-              background: filterLocation === f.key ? "#1D4ED8" : "#fff",
-              color:      filterLocation === f.key ? "#fff"    : "#64748B",
-              border:     filterLocation === f.key ? "none"    : "1px solid #E2E8F0",
-              cursor: "pointer", transition: "all 0.15s", fontFamily: "inherit",
-            }}>
-            {f.label}
-          </button>
-        ))}
-      </div>
+      {/* Filtres */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
+        <select
+          value={filterLocation}
+          onChange={e => handleLocation(e.target.value as typeof filterLocation)}
+          style={{
+            padding: "7px 12px", borderRadius: 8, border: "1px solid #E2E8F0",
+            background: "#fff", fontSize: 13, color: "#0F172A",
+            fontFamily: "inherit", cursor: "pointer", outline: "none",
+          }}
+        >
+          <option value="all">Tous les emplacements</option>
+          <option value="BOUTIQUE">Boutique</option>
+          <option value="MAGASIN">Magasin</option>
+        </select>
 
-      {/* Filtres statut */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-        {[
-          { key: "all",          label: "Tous statuts" },
-          { key: "ok",           label: "OK"           },
-          { key: "low",          label: "Stock bas"    },
-          { key: "critical",     label: "Critiques"    },
-          { key: "out_of_stock", label: "Ruptures"     },
-        ].map(f => (
-          <button key={f.key} onClick={() => setFilterStatus(f.key as any)}
-            style={{
-              padding: "6px 14px", borderRadius: 20, fontSize: 12.5,
-              fontWeight: filterStatus === f.key ? 600 : 400,
-              background: filterStatus === f.key ? "#0F172A" : "#fff",
-              color:      filterStatus === f.key ? "#fff"    : "#64748B",
-              border:     filterStatus === f.key ? "none"    : "1px solid #E2E8F0",
-              cursor: "pointer", transition: "all 0.15s", fontFamily: "inherit",
-            }}>
-            {f.label}
-          </button>
-        ))}
+        <select
+          value={filterStatus}
+          onChange={e => setFilterStatus(e.target.value as StockStatus | "all")}
+          style={{
+            padding: "7px 12px", borderRadius: 8, border: "1px solid #E2E8F0",
+            background: "#fff", fontSize: 13, color: "#0F172A",
+            fontFamily: "inherit", cursor: "pointer", outline: "none",
+          }}
+        >
+          <option value="all">Tous les statuts</option>
+          <option value="ok">OK</option>
+          <option value="low">Stock bas</option>
+          <option value="critical">Critiques</option>
+          <option value="out_of_stock">Ruptures</option>
+        </select>
       </div>
 
       {/* ── Panneau impression rapport stock ──────────────────── */}
@@ -337,15 +325,6 @@ export default function StockListPage() {
             <span style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>
               {selection.size} sélectionné{selection.size > 1 ? "s" : ""}
             </span>
-            <button
-              onClick={clearSelection}
-              style={{
-                padding: "5px 12px", borderRadius: 16, fontSize: 12, fontWeight: 500,
-                background: "#FEF2F2", color: "#DC2626", border: "1px solid #FECACA",
-                cursor: "pointer", fontFamily: "inherit",
-              }}>
-              Effacer
-            </button>
             <button
               onClick={handlePrintSelection}
               style={{

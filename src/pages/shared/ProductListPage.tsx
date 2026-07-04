@@ -169,7 +169,6 @@ export default function ProductListPage() {
   const [lowStockProds, setLowStockProds] = useState<Product[]>([]);
   const [outStockProds, setOutStockProds] = useState<Product[]>([]);
   const [noBarcodeCount, setNoBarcodeCount] = useState(0);
-  const [legacyBarcodeCount, setLegacyBarcodeCount] = useState(0);
 
   // Search debounce
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -236,8 +235,7 @@ export default function ProductListPage() {
         if (q)                   params.search     = q;
         if (status === "active") params.is_active  = true;
         if (status === "inactive") params.is_active = false;
-        if (status === "no_barcode")     params.has_barcode        = false;
-        if (status === "legacy_barcode") params.has_legacy_barcode = true;
+        if (status === "no_barcode") params.has_barcode = false;
         const res = await productService.getAll(params);
         setProducts(res.results ?? []);
         setTotalCount(res.count ?? 0);
@@ -255,14 +253,12 @@ export default function ProductListPage() {
       productService.getOutOfStock(),
       productService.getAll({ has_barcode: false, page_size: 1 }),
       productService.findDuplicates(),
-      productService.getAll({ has_legacy_barcode: true, page_size: 1 }),
-    ]).then(([s, l, o, nb, dup, legacy]) => {
+    ]).then(([s, l, o, nb, dup]) => {
       setStatsData({ total: s.total_products, active: s.active_products, inactive: s.inactive_products });
       setLowStockProds(l.products);
       setOutStockProds(o.products);
       setNoBarcodeCount(nb.count ?? 0);
       setDuplicateCount(dup.count);
-      setLegacyBarcodeCount(legacy.count ?? 0);
     });
     categoryService.getAll().then(res => setCategories(res.results ?? res));
     if (isAdmin) shopService.getAll().then(res => setShops(res.results ?? res));
@@ -395,7 +391,6 @@ export default function ProductListPage() {
       });
       setSelection(new Set(barcodes.map(b => b.id)));
       setNoBarcodeCount(0);
-      setLegacyBarcodeCount(0);
     } catch { /* ignore */ } finally {
       setGeneratingAll(false);
     }
@@ -635,46 +630,36 @@ export default function ProductListPage() {
         <StatCard label="Ruptures"          value={outStock} icon={<Icon name="package"      size={22} />} color="red"    loading={loading} />
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-        {[
-          { key: "all",        label: "Tous",            color: "#0F172A" },
-          { key: "active",     label: "Actifs",          color: "#0F172A" },
-          { key: "inactive",   label: "Inactifs",        color: "#0F172A" },
-          { key: "low",        label: "Stock bas",       color: "#0F172A" },
-          { key: "out",        label: "Ruptures",        color: "#0F172A" },
-          { key: "no_barcode",     label: `Sans code-barres${noBarcodeCount > 0 ? ` (${noBarcodeCount})` : ""}`,         color: "#7C3AED" },
-          { key: "legacy_barcode", label: `Format SHM${legacyBarcodeCount > 0 ? ` (${legacyBarcodeCount})` : ""}`,       color: "#D97706" },
-          { key: "duplicates",     label: `Doublons${duplicateCount > 0 ? ` (${duplicateCount})` : ""}`,                  color: "#DC2626" },
-        ].map(f => (
-          <button key={f.key} onClick={() => handleFilterStatus(f.key as any)}
-            style={{
-              padding: "6px 14px", borderRadius: 20, fontSize: 12.5,
-              fontWeight: filterStatus === f.key ? 600 : 400,
-              background: filterStatus === f.key ? f.color : "#fff",
-              color:  filterStatus === f.key ? "#fff" : "#64748B",
-              border: filterStatus === f.key ? "none" : "1px solid #E2E8F0",
-              cursor: "pointer", transition: "all 0.15s", fontFamily: "inherit",
-            }}>
-            {f.label}
-          </button>
-        ))}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
+        <select
+          value={filterStatus}
+          onChange={e => handleFilterStatus(e.target.value as typeof filterStatus)}
+          style={{
+            padding: "7px 12px", borderRadius: 8, border: "1px solid #E2E8F0",
+            background: "#fff", fontSize: 13, color: "#0F172A",
+            fontFamily: "inherit", cursor: "pointer", outline: "none",
+          }}
+        >
+          <option value="all">Tous les produits</option>
+          <option value="active">Actifs</option>
+          <option value="inactive">Inactifs</option>
+          <option value="low">Stock bas</option>
+          <option value="out">Ruptures</option>
+          <option value="no_barcode">Sans code-barres{noBarcodeCount > 0 ? ` (${noBarcodeCount})` : ""}</option>
+          <option value="duplicates">Doublons{duplicateCount > 0 ? ` (${duplicateCount})` : ""}</option>
+        </select>
 
-        {/* Générer codes-barres — visible sur les filtres sans/legacy barcode */}
-        {(filterStatus === "no_barcode" || filterStatus === "legacy_barcode") && (
+        {filterStatus === "no_barcode" && (
           <button
             onClick={handleGenerateAll}
             disabled={generatingAll}
             style={{
-              marginLeft: "auto", padding: "6px 14px", borderRadius: 20, fontSize: 12.5, fontWeight: 600,
+              padding: "7px 16px", borderRadius: 8, fontSize: 13, fontWeight: 600,
               background: generatingAll ? "#C4B5FD" : "#7C3AED", color: "#fff",
               border: "none", cursor: generatingAll ? "not-allowed" : "pointer",
               fontFamily: "inherit", transition: "background 0.2s",
             }}>
-            {generatingAll
-              ? "Génération…"
-              : filterStatus === "legacy_barcode"
-                ? `Migrer vers EAN-13 (${legacyBarcodeCount})`
-                : `Générer EAN-13 (${noBarcodeCount})`}
+            {generatingAll ? "Génération…" : `Générer EAN-13 (${noBarcodeCount})`}
           </button>
         )}
       </div>
