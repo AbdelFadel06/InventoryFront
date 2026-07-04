@@ -5,6 +5,7 @@ import { Badge, Icon } from "../../components/ui";
 import axiosInstance from "../../api/axiosInstance";
 import { userService } from "../../services/userService";
 import { getScannedChar } from "../../utils/barcodeInput";
+import { useHIDScanner } from "../../hooks/useHIDScanner";
 
 // ── Types ────────────────────────────────────────────────────────
 interface CashierSession {
@@ -649,6 +650,8 @@ export default function CashierPOSPage() {
   const [livreurs, setLivreurs] = useState<User[]>([]);
   const [scanToast, setScanToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const scanToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Ref always pointing to latest products — avoids stale closure in callbacks
+  const productsRef = useRef<Product[]>([]);
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [search, setSearch] = useState("");
@@ -683,7 +686,9 @@ export default function CashierPOSPage() {
           axiosInstance.get("/products/?page_size=500"),
           userService.getLivreurs().catch(() => []),
         ]);
-        setProducts(prods.data.results ?? prods.data);
+        const loaded = prods.data.results ?? prods.data;
+        setProducts(loaded);
+        productsRef.current = loaded;
         setLivreurs(livs as User[]);
       } catch (e) {
         console.error(e);
@@ -744,33 +749,9 @@ export default function CashierPOSPage() {
         if (barcodeBuffer.current.length > 3) {
           const code = barcodeBuffer.current;
           barcodeBuffer.current = "";
-
-          const clearInputDelayed = () => {
-            if (scanClearTimer.current) clearTimeout(scanClearTimer.current);
-            scanClearTimer.current = setTimeout(() => setSearch(""), 1400);
-          };
-
-          const local = products.find(p => p.barcode === code || p.sku === code);
-          if (local) {
-            addToCart(local);
-            // Afficher "✓ Nom du produit" dans l'input pendant 1,4s
-            setSearch(`✓ ${local.name}`);
-            clearInputDelayed();
-            barcodeJustFired.current = true;
-            setTimeout(() => { barcodeJustFired.current = false; }, 50);
-          } else {
-            setSearch("Recherche...");
-            axiosInstance.get(`/products/by_barcode/?code=${encodeURIComponent(code)}`)
-              .then(r => {
-                addToCart(r.data);
-                setSearch(`✓ ${r.data.name}`);
-                clearInputDelayed();
-              })
-              .catch(() => {
-                setSearch(`✗ Code introuvable : ${code}`);
-                clearInputDelayed();
-              });
-          }
+          handleScan(code);
+          barcodeJustFired.current = true;
+          setTimeout(() => { barcodeJustFired.current = false; }, 50);
         }
         return;
       }
@@ -793,7 +774,30 @@ export default function CashierPOSPage() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [products]);
+  }, [handleScan]);
+
+  // ── Gestion commune du barcode scanné (clavier ET HID POS) ────────
+  const handleScan = useCallback((code: string) => {
+    const clearInputDelayed = () => {
+      if (scanClearTimer.current) clearTimeout(scanClearTimer.current);
+      scanClearTimer.current = setTimeout(() => setSearch(""), 1400);
+    };
+    const local = productsRef.current.find(p => p.barcode === code || p.sku === code);
+    if (local) {
+      addToCart(local);
+      setSearch(`✓ ${local.name}`);
+      clearInputDelayed();
+    } else {
+      setSearch("Recherche...");
+      axiosInstance.get(`/products/by_barcode/?code=${encodeURIComponent(code)}`)
+        .then(r => { addToCart(r.data); setSearch(`✓ ${r.data.name}`); clearInputDelayed(); })
+        .catch(() => { setSearch(`✗ Code introuvable : ${code}`); clearInputDelayed(); });
+    }
+  }, [addToCart]);
+
+  // Hook HID POS — actif uniquement si le navigateur supporte Web HID
+  const { status: hidStatus, connect: hidConnect, disconnect: hidDisconnect } =
+    useHIDScanner({ onBarcode: handleScan, minLength: 4 });
 
   const addToCart = useCallback((product: Product) => {
     setCart(prev => {
@@ -918,6 +922,41 @@ export default function CashierPOSPage() {
         }}>
           {/* Barre de recherche / scan */}
           <div style={{ padding: "14px 16px", borderBottom: "1px solid #F1F5F9", background: "#fff" }}>
+
+            {/* Bouton connexion scanner HID POS */}
+            {hidStatus !== "unsupported" && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                <button
+                  onClick={hidStatus === "connected" ? hidDisconnect : hidConnect}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 6,
+                    padding: "5px 12px", borderRadius: 8, fontSize: 12.5, fontWeight: 600,
+                    border: "1px solid",
+                    borderColor: hidStatus === "connected" ? "#BBF7D0" : hidStatus === "connecting" ? "#FDE68A" : "#E2E8F0",
+                    background: hidStatus === "connected" ? "#F0FDF4" : hidStatus === "connecting" ? "#FFFBEB" : "#F8FAFC",
+                    color: hidStatus === "connected" ? "#15803D" : hidStatus === "connecting" ? "#92400E" : "#64748B",
+                    cursor: hidStatus === "connecting" ? "default" : "pointer",
+                    fontFamily: "inherit",
+                  }}
+                  disabled={hidStatus === "connecting"}
+                >
+                  <span style={{ fontSize: 14 }}>
+                    {hidStatus === "connected" ? "🟢" : hidStatus === "connecting" ? "🟡" : "⚫"}
+                  </span>
+                  {hidStatus === "connected"
+                    ? "Scanner HID connecté — Déconnecter"
+                    : hidStatus === "connecting"
+                    ? "Connexion..."
+                    : "Connecter scanner HID POS"}
+                </button>
+                {hidStatus === "disconnected" && (
+                  <span style={{ fontSize: 11.5, color: "#94A3B8" }}>
+                    Mode clavier actif (AZERTY/QWERTY supporté)
+                  </span>
+                )}
+              </div>
+            )}
+
             <div style={{ position: "relative" }}>
               <span style={{
                 position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)",
