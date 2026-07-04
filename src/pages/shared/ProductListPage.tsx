@@ -437,11 +437,6 @@ export default function ProductListPage() {
     }
   };
 
-  const clearSelection = () => {
-    setSelection(new Set());
-    selectionCache.current.clear();
-  };
-
   const handleSelectAllFromDB = async () => {
     setSelectingAll(true);
     try {
@@ -682,16 +677,9 @@ export default function ProductListPage() {
         </button>
 
         {selection.size > 0 && (
-          <>
-            <span style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>
-              {selection.size} sélectionné{selection.size > 1 ? "s" : ""}
-            </span>
-            <button onClick={clearSelection} style={{
-              padding: "5px 12px", borderRadius: 16, fontSize: 12, fontWeight: 500,
-              background: "#FEF2F2", color: "#DC2626", border: "1px solid #FECACA",
-              cursor: "pointer", fontFamily: "inherit",
-            }}>Effacer</button>
-          </>
+          <span style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>
+            {selection.size} sélectionné{selection.size > 1 ? "s" : ""}
+          </span>
         )}
 
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>

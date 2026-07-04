@@ -159,27 +159,23 @@ export default function InventoryListPage() {
       </div>
 
       {/* Filtres */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-        {[
-          { key: "all",         label: "Tous"      },
-          { key: "draft",       label: "Brouillon" },
-          { key: "in_progress", label: "En cours"  },
-          { key: "completed",   label: "Terminés"  },
-          { key: "validated",   label: "Validés"   },
-          { key: "cancelled",   label: "Annulés"   },
-        ].map(f => (
-          <button key={f.key} onClick={() => handleFilterStatus(f.key as any)}
-            style={{
-              padding: "6px 14px", borderRadius: 20, fontSize: 12.5,
-              fontWeight: filterStatus === f.key ? 600 : 400,
-              background: filterStatus === f.key ? "#0F172A" : "#fff",
-              color:      filterStatus === f.key ? "#fff"    : "#64748B",
-              border:     filterStatus === f.key ? "none"    : "1px solid #E2E8F0",
-              cursor: "pointer", transition: "all 0.15s", fontFamily: "inherit",
-            }}>
-            {f.label}
-          </button>
-        ))}
+      <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
+        <select
+          value={filterStatus}
+          onChange={e => handleFilterStatus(e.target.value as typeof filterStatus)}
+          style={{
+            padding: "7px 12px", borderRadius: 8, border: "1px solid #E2E8F0",
+            background: "#fff", fontSize: 13, color: "#0F172A",
+            fontFamily: "inherit", cursor: "pointer", outline: "none",
+          }}
+        >
+          <option value="all">Tous les statuts</option>
+          <option value="draft">Brouillon</option>
+          <option value="in_progress">En cours</option>
+          <option value="completed">Terminés</option>
+          <option value="validated">Validés</option>
+          <option value="cancelled">Annulés</option>
+        </select>
       </div>
 
       <DataTable

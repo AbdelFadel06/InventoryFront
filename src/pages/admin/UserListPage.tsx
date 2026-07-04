@@ -406,13 +406,21 @@ export default function UserListPage() {
         <StatCard label="Inactifs"     value={inactive}  icon={<Icon name="xCircle"   size={22} />} color="red"    loading={loading} />
       </div>
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-        {[{ key: "all", label: "Tous" }, { key: "SUPER_ADMIN", label: "Super Admins" }, { key: "SHOP_MANAGER", label: "Managers" }, { key: "EMPLOYEE", label: "Employés" }].map(f => (
-          <button key={f.key} onClick={() => handleFilterRole(f.key as any)}
-            style={{ padding: "6px 14px", borderRadius: 20, fontSize: 12.5, fontWeight: filterRole === f.key ? 600 : 400, background: filterRole === f.key ? "#0F172A" : "#fff", color: filterRole === f.key ? "#fff" : "#64748B", border: filterRole === f.key ? "none" : "1px solid #E2E8F0", cursor: "pointer", transition: "all 0.15s", fontFamily: "inherit" }}>
-            {f.label}
-          </button>
-        ))}
+      <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
+        <select
+          value={filterRole}
+          onChange={e => handleFilterRole(e.target.value as typeof filterRole)}
+          style={{
+            padding: "7px 12px", borderRadius: 8, border: "1px solid #E2E8F0",
+            background: "#fff", fontSize: 13, color: "#0F172A",
+            fontFamily: "inherit", cursor: "pointer", outline: "none",
+          }}
+        >
+          <option value="all">Tous les rôles</option>
+          <option value="SUPER_ADMIN">Super Admins</option>
+          <option value="SHOP_MANAGER">Managers</option>
+          <option value="EMPLOYEE">Employés</option>
+        </select>
       </div>
 
       <DataTable columns={columns as any} data={users} loading={loading} emptyText="Aucun utilisateur trouvé"

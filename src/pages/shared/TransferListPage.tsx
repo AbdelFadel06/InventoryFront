@@ -222,26 +222,22 @@ export default function TransferListPage() {
       </div>
 
       {/* Filtres statut */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-        {(["all", "pending", "in_transit", "received", "cancelled"] as const).map(s => (
-          <button
-            key={s}
-            onClick={() => handleFilterStatus(s)}
-            style={{
-              padding: "6px 14px", borderRadius: 20, fontSize: 12.5,
-              fontWeight: filterStatus === s ? 600 : 400,
-              background: filterStatus === s ? "#0F172A" : "#fff",
-              color:      filterStatus === s ? "#fff"    : "#64748B",
-              border:     filterStatus === s ? "none"    : "1px solid #E2E8F0",
-              cursor: "pointer", transition: "all 0.15s", fontFamily: "inherit",
-            }}
-          >
-            {s === "all" ? "Tous" :
-             s === "pending" ? "En attente" :
-             s === "in_transit" ? "En transit" :
-             s === "received" ? "Reçus" : "Annulés"}
-          </button>
-        ))}
+      <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+        <select
+          value={filterStatus}
+          onChange={e => handleFilterStatus(e.target.value as typeof filterStatus)}
+          style={{
+            padding: "7px 12px", borderRadius: 8, border: "1px solid #E2E8F0",
+            background: "#fff", fontSize: 13, color: "#0F172A",
+            fontFamily: "inherit", cursor: "pointer", outline: "none",
+          }}
+        >
+          <option value="all">Tous les statuts</option>
+          <option value="pending">En attente</option>
+          <option value="in_transit">En transit</option>
+          <option value="received">Reçus</option>
+          <option value="cancelled">Annulés</option>
+        </select>
       </div>
 
       <DataTable

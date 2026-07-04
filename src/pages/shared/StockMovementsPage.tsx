@@ -196,31 +196,20 @@ export default function StockMovementsPage() {
       </div>
 
       {/* Filtres type */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-        {FILTER_TYPES.map(f => (
-          <button
-            key={f.key}
-            onClick={() => handleFilterType(f.key)}
-            style={{
-              padding: "6px 14px", borderRadius: 20, fontSize: 12.5,
-              fontWeight: filterType === f.key ? 600 : 400,
-              background: filterType === f.key ? "#0F172A" : "#fff",
-              color:      filterType === f.key ? "#fff"    : "#64748B",
-              border:     filterType === f.key ? "none"    : "1px solid #E2E8F0",
-              cursor: "pointer", transition: "all 0.15s", fontFamily: "inherit",
-            }}
-          >
-            {f.label}
-            {f.key !== "all" && (
-              <span style={{
-                marginLeft: 6, fontSize: 11,
-                opacity: filterType === f.key ? 0.7 : 0.5,
-              }}>
-                ({movements.filter(m => m.movement_type === f.key).length})
-              </span>
-            )}
-          </button>
-        ))}
+      <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
+        <select
+          value={filterType}
+          onChange={e => handleFilterType(e.target.value as typeof filterType)}
+          style={{
+            padding: "7px 12px", borderRadius: 8, border: "1px solid #E2E8F0",
+            background: "#fff", fontSize: 13, color: "#0F172A",
+            fontFamily: "inherit", cursor: "pointer", outline: "none",
+          }}
+        >
+          {FILTER_TYPES.map(f => (
+            <option key={f.key} value={f.key}>{f.label}</option>
+          ))}
+        </select>
       </div>
 
       <DataTable
