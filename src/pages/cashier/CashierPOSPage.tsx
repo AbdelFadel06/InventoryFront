@@ -4,6 +4,7 @@ import { useAuth } from "../../context/AuthContext";
 import { Badge, Icon } from "../../components/ui";
 import axiosInstance from "../../api/axiosInstance";
 import { userService } from "../../services/userService";
+import { getScannedChar } from "../../utils/barcodeInput";
 
 // ── Types ────────────────────────────────────────────────────────
 interface CashierSession {
@@ -646,6 +647,8 @@ export default function CashierPOSPage() {
   const [sessionLoading, setSessionLoading] = useState(true);
   const [products, setProducts] = useState<Product[]>([]);
   const [livreurs, setLivreurs] = useState<User[]>([]);
+  const [scanToast, setScanToast] = useState<{ msg: string; ok: boolean } | null>(null);
+  const scanToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [search, setSearch] = useState("");
@@ -691,6 +694,12 @@ export default function CashierPOSPage() {
     loadTodayStats();
   }, []);
 
+  const showScanToast = (msg: string, ok: boolean) => {
+    if (scanToastTimer.current) clearTimeout(scanToastTimer.current);
+    setScanToast({ msg, ok });
+    scanToastTimer.current = setTimeout(() => setScanToast(null), 2500);
+  };
+
   const loadTodayStats = async () => {
     try {
       const today = new Date().toISOString().split("T")[0];
@@ -720,27 +729,6 @@ export default function CashierPOSPage() {
 
   // Scan code-barres (entrées clavier rapides)
   useEffect(() => {
-    // Chiffres AZERTY sans Shift : & é " ' ( - è _ ç à
-    const AZERTY_TO_DIGIT: Record<string, string> = {
-      "&": "1", "é": "2", '"': "3", "'": "4", "(": "5",
-      "-": "6", "è": "7", "_": "8", "ç": "9", "à": "0",
-    };
-
-    const getScannedChar = (e: KeyboardEvent): string | null => {
-      // e.code = touche physique, indépendant de la disposition clavier
-      if (/^Digit(\d)$/.test(e.code)) return e.code.slice(5);
-      if (/^Numpad(\d)$/.test(e.code)) return e.code.slice(6);
-      if (/^Key([A-Z])$/.test(e.code)) {
-        const letter = e.code.slice(3);
-        return e.shiftKey ? letter : letter.toLowerCase();
-      }
-      // Fallback : carte AZERTY explicite (quand e.code est vide ou incorrect)
-      if (e.key in AZERTY_TO_DIGIT) return AZERTY_TO_DIGIT[e.key];
-      // Tout autre caractère ASCII imprimable (tirets, points dans les codes barres)
-      if (e.key.length === 1 && /[\x20-\x7E]/.test(e.key)) return e.key;
-      return null;
-    };
-
     const handleKeyDown = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName;
       const isOnBarcodeInput = tag === "INPUT" &&
@@ -757,12 +745,13 @@ export default function CashierPOSPage() {
           const local = products.find(p => p.barcode === code || p.sku === code);
           if (local) {
             addToCart(local);
+            showScanToast(`✓ ${local.name}`, true);
             barcodeJustFired.current = true;
             setTimeout(() => { barcodeJustFired.current = false; }, 50);
           } else {
             axiosInstance.get(`/products/by_barcode/?code=${encodeURIComponent(code)}`)
-              .then(r => { addToCart(r.data); })
-              .catch(() => {});
+              .then(r => { addToCart(r.data); showScanToast(`✓ ${r.data.name}`, true); })
+              .catch(() => { showScanToast(`Code introuvable : ${code}`, false); });
           }
         }
         return;
@@ -1178,6 +1167,21 @@ export default function CashierPOSPage() {
           onApply={(type, value) => applyDiscount(discountItem, type, value)}
           onClose={() => setDiscountItem(null)}
         />
+      )}
+
+      {/* Toast scan code-barres */}
+      {scanToast && (
+        <div style={{
+          position: "fixed", bottom: 28, left: "50%", transform: "translateX(-50%)",
+          zIndex: 2000, pointerEvents: "none",
+          background: scanToast.ok ? "#15803D" : "#DC2626",
+          color: "#fff", padding: "11px 22px", borderRadius: 12,
+          fontSize: 14, fontWeight: 600,
+          boxShadow: "0 8px 28px rgba(0,0,0,0.22)",
+          whiteSpace: "nowrap",
+        }}>
+          {scanToast.msg}
+        </div>
       )}
     </div>
   );
