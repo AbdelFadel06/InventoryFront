@@ -348,9 +348,10 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           transition: "transform 0.28s cubic-bezier(.4,0,.2,1)",
           boxShadow: drawerOpen ? "4px 0 32px rgba(0,0,0,0.3)" : "none",
           overflow: "hidden",
+          paddingTop: "env(safe-area-inset-top, 0px)",
         }}>
           <button onClick={() => setDrawerOpen(false)} style={{
-            position: "absolute", top: 16, right: 16, zIndex: 10,
+            position: "absolute", top: "calc(16px + env(safe-area-inset-top, 0px))", right: 16, zIndex: 10,
             width: 32, height: 32, borderRadius: 8,
             background: "rgba(255,255,255,0.1)", border: "none",
             cursor: "pointer", color: "#94A3B8",
@@ -361,43 +362,58 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
           <SidebarContent collapsed={false} onNavClick={() => setDrawerOpen(false)} onLogout={handleLogout} />
         </aside>
 
+        {/* Safe-area background behind status bar on iOS */}
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, zIndex: 101,
+          height: "env(safe-area-inset-top, 0px)",
+          background: "#fff",
+          borderBottom: "none",
+        }} />
+
         <header style={{
-          position: "sticky", top: 0, zIndex: 100, height: 56,
+          position: "sticky", top: 0, zIndex: 100,
           background: "#fff", borderBottom: "1px solid #E2E8F0",
-          display: "flex", alignItems: "center", padding: "0 16px", gap: 12,
           boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+          paddingTop: "env(safe-area-inset-top, 0px)",
         }}>
-          <button onClick={() => setDrawerOpen(true)} style={{
-            width: 36, height: 36, borderRadius: 8, background: "#F1F5F9",
-            border: "none", cursor: "pointer",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            color: "#374151", flexShrink: 0,
-          }}>
-            <Icon d={ICONS.menu} size={18} />
-          </button>
-          <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ height: 56, display: "flex", alignItems: "center", padding: "0 16px", gap: 12 }}>
+            <button onClick={() => setDrawerOpen(true)} style={{
+              width: 40, height: 40, borderRadius: 8, background: "#F1F5F9",
+              border: "none", cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              color: "#374151", flexShrink: 0,
+              WebkitTapHighlightColor: "transparent",
+            }}>
+              <Icon d={ICONS.menu} size={18} />
+            </button>
+            <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{
+                width: 28, height: 28, borderRadius: 7,
+                background: "linear-gradient(135deg, #3B82F6, #1D4ED8)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="white">
+                  <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                </svg>
+              </div>
+              <span style={{ fontWeight: 700, fontSize: 15, color: "#0F172A" }}>ShopM</span>
+            </div>
             <div style={{
-              width: 28, height: 28, borderRadius: 7,
+              width: 32, height: 32, borderRadius: "50%",
               background: "linear-gradient(135deg, #3B82F6, #1D4ED8)",
               display: "flex", alignItems: "center", justifyContent: "center",
+              color: "#fff", fontSize: 12, fontWeight: 700, flexShrink: 0,
             }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="white">
-                <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
-              </svg>
+              {initials}
             </div>
-            <span style={{ fontWeight: 700, fontSize: 15, color: "#0F172A" }}>ShopM</span>
-          </div>
-          <div style={{
-            width: 32, height: 32, borderRadius: "50%",
-            background: "linear-gradient(135deg, #3B82F6, #1D4ED8)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            color: "#fff", fontSize: 12, fontWeight: 700, flexShrink: 0,
-          }}>
-            {initials}
           </div>
         </header>
 
-        <main key={activeShop?.id ?? "no-shop"} style={{ padding: "16px", minHeight: "calc(100vh - 56px)" }}>
+        <main key={activeShop?.id ?? "no-shop"} style={{
+          padding: "16px",
+          paddingBottom: "max(16px, env(safe-area-inset-bottom, 0px))",
+          minHeight: "calc(100dvh - 56px - env(safe-area-inset-top, 0px))",
+        }}>
           {children}
         </main>
       </div>

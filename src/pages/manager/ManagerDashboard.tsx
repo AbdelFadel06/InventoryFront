@@ -234,7 +234,7 @@ export default function ManagerDashboard() {
       </div>
 
       {/* ── Section Ventes ────────────────────────────────────────────── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: 14 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(280px, 100%), 1fr))", gap: 14 }}>
 
         {/* Graphe CA */}
         <div style={{ background: "#fff", border: "1px solid #E2E8F0", borderRadius: 14, padding: "20px 22px" }}>

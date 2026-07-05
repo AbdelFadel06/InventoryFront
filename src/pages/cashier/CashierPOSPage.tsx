@@ -269,18 +269,24 @@ function PaymentModal({
   onSuccess: () => void;
   onClose: () => void;
 }) {
-  const total = cart.reduce((s, i) => s + i.total_price, 0);
+  const cartSubtotal   = cart.reduce((s, i) => s + i.subtotal, 0);
+  const itemDiscounts  = cart.reduce((s, i) => s + i.discount_amount, 0);
+  const cartTotal      = cart.reduce((s, i) => s + i.total_price, 0);
+
   const [saleType, setSaleType] = useState<"direct" | "delivery">("direct");
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "mobile_money" | "on_delivery">("cash");
   const [livreur, setLivreur]       = useState("");
   const [address, setAddress]       = useState("");
   const [clientPhone, setClientPhone] = useState("");
   const [notes, setNotes] = useState("");
+  const [orderDiscountStr, setOrderDiscountStr] = useState("");
   const [amountGiven, setAmountGiven] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const change = amountGiven ? Math.max(0, parseFloat(amountGiven) - total) : null;
+  const orderDiscount = Math.min(Math.max(0, parseFloat(orderDiscountStr) || 0), cartTotal);
+  const netTotal      = cartTotal - orderDiscount;
+  const change        = amountGiven ? Math.max(0, parseFloat(amountGiven) - netTotal) : null;
 
   const handleSubmit = async () => {
     setError(null);
@@ -297,6 +303,7 @@ function PaymentModal({
         delivery_address: address || undefined,
         client_phone: saleType === "delivery" ? (clientPhone || undefined) : undefined,
         notes: notes || undefined,
+        order_discount: orderDiscount > 0 ? orderDiscount : undefined,
         items: cart.map(item => ({
           product: item.product.id,
           quantity: item.quantity,
@@ -339,10 +346,13 @@ function PaymentModal({
               Finaliser la vente
             </div>
             <div style={{ fontSize: 28, fontWeight: 800, color: "#fff", marginTop: 2 }}>
-              {fmtPrice(total)}
+              {fmtPrice(netTotal)}
             </div>
             <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.5)", marginTop: 1 }}>
               {cart.length} article(s) · {cart.reduce((s, i) => s + i.quantity, 0)} unité(s)
+              {orderDiscount > 0 && (
+                <span style={{ color: "#FCA5A5", marginLeft: 8 }}>· remise −{fmtPrice(orderDiscount)}</span>
+              )}
             </div>
           </div>
           <button onClick={onClose} style={{
@@ -422,6 +432,54 @@ function PaymentModal({
             </div>
           )}
 
+          {/* Remise globale */}
+          <div style={{ marginBottom: 18 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>
+              Remise globale (optionnel)
+            </div>
+            <input
+              type="number" min={0} max={cartTotal} step={1}
+              value={orderDiscountStr}
+              onChange={e => setOrderDiscountStr(e.target.value)}
+              placeholder="Montant de la remise (F)"
+              style={{
+                width: "100%", padding: "10px 12px", border: "1px solid #E2E8F0",
+                borderRadius: 9, fontSize: 14, outline: "none",
+                fontFamily: "inherit", boxSizing: "border-box",
+              }}
+              onFocus={e => (e.target.style.borderColor = "#F97316")}
+              onBlur={e => (e.target.style.borderColor = "#E2E8F0")}
+            />
+            {(itemDiscounts > 0 || orderDiscount > 0) && (
+              <div style={{
+                marginTop: 10, padding: "10px 14px", borderRadius: 9,
+                background: "#F8FAFC", border: "1px solid #E2E8F0",
+                fontSize: 13,
+              }}>
+                <div style={{ display: "flex", justifyContent: "space-between", color: "#64748B", marginBottom: 4 }}>
+                  <span>Sous-total articles</span>
+                  <span>{fmtPrice(cartSubtotal)}</span>
+                </div>
+                {itemDiscounts > 0 && (
+                  <div style={{ display: "flex", justifyContent: "space-between", color: "#F97316", marginBottom: 4 }}>
+                    <span>Réductions articles</span>
+                    <span>−{fmtPrice(itemDiscounts)}</span>
+                  </div>
+                )}
+                {orderDiscount > 0 && (
+                  <div style={{ display: "flex", justifyContent: "space-between", color: "#DC2626", marginBottom: 4 }}>
+                    <span>Remise globale</span>
+                    <span>−{fmtPrice(orderDiscount)}</span>
+                  </div>
+                )}
+                <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, color: "#0F172A", borderTop: "1px solid #E2E8F0", paddingTop: 6, marginTop: 2 }}>
+                  <span>Net à payer</span>
+                  <span>{fmtPrice(netTotal)}</span>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Moyen de paiement */}
           <div style={{ marginBottom: 18 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>
@@ -454,9 +512,9 @@ function PaymentModal({
               <div style={{ fontSize: 12, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>
                 Montant reçu
               </div>
-              <input type="number" min={total} value={amountGiven}
+              <input type="number" min={netTotal} value={amountGiven}
                 onChange={e => setAmountGiven(e.target.value)}
-                placeholder={String(total)}
+                placeholder={String(netTotal)}
                 autoFocus
                 style={{
                   width: "100%", padding: "12px 14px", border: "1px solid #E2E8F0",
@@ -506,7 +564,7 @@ function PaymentModal({
               fontSize: 14, fontWeight: 700, fontFamily: "inherit",
               boxShadow: loading ? "none" : "0 4px 14px rgba(16,185,129,0.4)",
             }}>
-            {loading ? "Enregistrement..." : `✓ Encaisser ${fmtPrice(total)}`}
+            {loading ? "Enregistrement..." : `✓ Encaisser ${fmtPrice(netTotal)}`}
           </button>
         </div>
       </div>
