@@ -85,7 +85,7 @@ export default function ResetPasswordPage() {
                 margin: "0 auto 20px", fontSize: 28,
               }}>✕</div>
               <div style={{ fontSize: 14, color: "#64748B", lineHeight: 1.6, marginBottom: 24 }}>
-                Ce lien de réinitialisation est invalide ou a expiré.<br>
+                Ce lien de réinitialisation est invalide ou a expiré.<br/>
                 Demandez un nouveau lien.
               </div>
               <Link to="/forgot-password" style={{
