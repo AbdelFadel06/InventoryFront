@@ -1,6 +1,6 @@
 // src/pages/auth/LoginPage.tsx
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 
 export default function LoginPage() {
@@ -416,6 +416,14 @@ export default function LoginPage() {
                     )}
                   </button>
                 </div>
+              </div>
+
+              <div style={{ textAlign: "right", marginBottom: 16, marginTop: -4 }}>
+                <Link to="/forgot-password" style={{
+                  fontSize: 13, color: "#3B82F6", textDecoration: "none", fontWeight: 500,
+                }}>
+                  Mot de passe oublié ?
+                </Link>
               </div>
 
               <button type="submit" className="login-btn" disabled={loading}>

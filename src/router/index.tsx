@@ -3,7 +3,9 @@ import { createBrowserRouter } from "react-router-dom";
 import NotFoundPage from "../pages/NotFoundPage";
 import { ProtectedRoute } from "./ProtectedRoute";
 import MainLayout from "../components/layout/MainLayout";
-import LoginPage from "../pages/auth/LoginPage";
+import LoginPage           from "../pages/auth/LoginPage";
+import ForgotPasswordPage  from "../pages/auth/ForgotPasswordPage";
+import ResetPasswordPage   from "../pages/auth/ResetPasswordPage";
 import RoleRedirect from "./RoleRedirect";
 import AdminDashboard    from "../pages/admin/AdminDashboard";
 import CreateShopPage    from "../pages/admin/CreateShopPage";
@@ -59,9 +61,11 @@ const EMPLOYEE    = ["EMPLOYEE"];
 const MAGASINIER  = ["MAGASINIER"];
 
 export const router = createBrowserRouter([
-  { path: "/login", element: <LoginPage /> },
-  { path: "/",      element: <ProtectedRoute><RoleRedirect /></ProtectedRoute> },
-  { path: "*",      element: <NotFoundPage /> },
+  { path: "/login",           element: <LoginPage /> },
+  { path: "/forgot-password", element: <ForgotPasswordPage /> },
+  { path: "/reset-password",  element: <ResetPasswordPage /> },
+  { path: "/",                element: <ProtectedRoute><RoleRedirect /></ProtectedRoute> },
+  { path: "*",                element: <NotFoundPage /> },
 
   // ── Admin ─────────────────────────────────────────────────────────
   { path: "/admin",                                element: A(ADMIN, AdminDashboard)                        },
