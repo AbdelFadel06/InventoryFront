@@ -186,7 +186,11 @@ export default function CreateProductPage() {
         setCatError(null)
         try {
             const cat = await categoryService.create({ name: newCatName.trim() })
-            setCategories(prev => [...prev, cat])
+            setCategories(prev => {
+                const next = [...prev, cat]
+                next.sort((a, b) => a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' }))
+                return next
+            })
             setForm(f => ({ ...f, category: String(cat.id) }))
             setNewCatName('')
             setShowCatModal(false)

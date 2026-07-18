@@ -6,7 +6,9 @@ import type { PaginatedResponse } from "../types/common";
 
 export const categoryService = {
   getAll: async (): Promise<PaginatedResponse<Category>> => {
-    const { data } = await api.get(ENDPOINTS.categories.list);
+    const { data } = await api.get(ENDPOINTS.categories.list, {
+      params: { page_size: 500 },
+    });
     return data;
   },
 
