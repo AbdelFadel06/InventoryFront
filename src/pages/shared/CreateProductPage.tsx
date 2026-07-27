@@ -3,10 +3,13 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { productService } from '../../services/productService'
 import { categoryService } from '../../services/categoryService'
+import { shopService } from '../../services/shopService'
+import axiosInstance from '../../api/axiosInstance'
 import { useAuth } from '../../context/AuthContext'
 import { PageHeader, Btn, Icon } from '../../components/ui'
 import { uploadToCloudinary } from '../../utils/cloudinary'
 import type { Category } from '../../types/category'
+import type { Shop } from '../../types/shop'
 
 // ── Composants locaux ────────────────────────────────────────────
 const Field = ({
@@ -142,12 +145,19 @@ const SectionTitle = ({ children }: { children: React.ReactNode }) => (
 // ── Page ─────────────────────────────────────────────────────────
 export default function CreateProductPage() {
     const navigate = useNavigate()
-    const { user } = useAuth()
+    const { user, activeShop } = useAuth()
     const basePath = user?.role === 'SUPER_ADMIN' ? '/admin' : '/manager'
 
     const [categories, setCategories] = useState<Category[]>([])
+    const [shops, setShops] = useState<Shop[]>([])
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
+
+    // Stock d'entrée initial
+    const [initialQty, setInitialQty] = useState('')
+    const [initialLocation, setInitialLocation] = useState<'BOUTIQUE' | 'MAGASIN'>('BOUTIQUE')
+    const [initialUnitPrice, setInitialUnitPrice] = useState('')
+    const [initialShopId, setInitialShopId] = useState('')
 
     // Images Cloudinary
     const [imageUrls, setImageUrls] = useState<string[]>([])
@@ -175,9 +185,10 @@ export default function CreateProductPage() {
     const set = (k: keyof typeof form) => (v: string) => setForm(f => ({ ...f, [k]: v }))
 
     useEffect(() => {
-        categoryService.getAll().then(res => {
-            setCategories(res.results ?? res)
-        })
+        categoryService.getAll().then(res => setCategories(res.results ?? res))
+        if (user?.role === 'SUPER_ADMIN') {
+            shopService.getAll().then(res => setShops(res.results ?? res))
+        }
     }, [])
 
     const handleCreateCategory = async () => {
@@ -244,12 +255,16 @@ export default function CreateProductPage() {
             setError("Le nom et le prix de vente sont obligatoires.")
             return
         }
+        const qty = parseInt(initialQty) || 0
+        const shopId = activeShop?.id ?? (initialShopId ? parseInt(initialShopId) : null)
+        if (qty > 0 && !shopId) {
+            setError("Sélectionnez une boutique pour enregistrer le stock d'entrée.")
+            return
+        }
         setLoading(true)
         try {
-            // Générer SKU si vide
             const sku = form.sku.trim() || generateSku(form.name)
-
-            await productService.create({
+            const product = await productService.create({
                 name: form.name,
                 sku,
                 category: form.category ? Number(form.category) : undefined,
@@ -261,12 +276,25 @@ export default function CreateProductPage() {
                 barcode: form.barcode || undefined,
                 image_urls: imageUrls,
             } as any)
+
+            if (qty > 0 && shopId) {
+                await axiosInstance.post('/stock-movements/add_stock/', {
+                    product: product.id,
+                    shop: shopId,
+                    quantity: qty,
+                    location: initialLocation,
+                    reason: 'Stock initial',
+                    ...(initialUnitPrice ? { unit_price: parseFloat(initialUnitPrice) } : {}),
+                })
+            }
+
             navigate(`${basePath}/products`)
         } catch (e: any) {
             const data = e?.response?.data
             if (data?.name) setError(data.name[0])
             else if (data?.sku) setError(`SKU: ${data.sku[0]}`)
             else if (data?.detail) setError(data.detail)
+            else if (data?.error) setError(data.error)
             else setError('Erreur lors de la création du produit.')
         } finally {
             setLoading(false)
@@ -527,6 +555,64 @@ export default function CreateProductPage() {
                             placeholder="0"
                         />
                     </Field>
+
+                    <SectionTitle>Stock d'entrée</SectionTitle>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                        <Field label="Quantité initiale" hint="Laisser vide ou 0 pour ne pas enregistrer de stock">
+                            <Input
+                                type="number"
+                                min="0"
+                                value={initialQty}
+                                onChange={setInitialQty}
+                                placeholder="0"
+                            />
+                        </Field>
+                        <Field label="Emplacement">
+                            <Select value={initialLocation} onChange={v => setInitialLocation(v as 'BOUTIQUE' | 'MAGASIN')}>
+                                <option value="BOUTIQUE">Boutique</option>
+                                <option value="MAGASIN">Magasin</option>
+                            </Select>
+                        </Field>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: user?.role === 'SUPER_ADMIN' ? '1fr 1fr' : '1fr', gap: 16 }}>
+                        <Field label="Prix d'achat unitaire (F CFA)" hint="Optionnel — pour le calcul de la valeur du stock">
+                            <Input
+                                type="number"
+                                min="0"
+                                step="1"
+                                value={initialUnitPrice}
+                                onChange={setInitialUnitPrice}
+                                placeholder="0"
+                            />
+                        </Field>
+                        {user?.role === 'SUPER_ADMIN' && (
+                            <Field label="Boutique" hint="Requis si quantité > 0">
+                                <Select value={initialShopId} onChange={setInitialShopId}>
+                                    <option value="">— Sélectionner —</option>
+                                    {shops.map(s => (
+                                        <option key={s.id} value={s.id}>{s.name}</option>
+                                    ))}
+                                </Select>
+                            </Field>
+                        )}
+                    </div>
+
+                    {activeShop && (parseInt(initialQty) || 0) > 0 && (
+                        <div style={{
+                            background: '#F0FDF4', border: '1px solid #BBF7D0',
+                            borderRadius: 10, padding: '10px 14px',
+                            fontSize: 13, color: '#15803D', marginBottom: 20,
+                            display: 'flex', alignItems: 'center', gap: 8,
+                        }}>
+                            <span>✓</span>
+                            <span>
+                                <strong>{parseInt(initialQty)}</strong> unité(s) seront ajoutées à{' '}
+                                <strong>{activeShop.name}</strong> ({initialLocation.toLowerCase()})
+                            </span>
+                        </div>
+                    )}
 
                     <SectionTitle>Seuils de stock</SectionTitle>
 
