@@ -156,7 +156,6 @@ export default function CreateProductPage() {
     // Stock d'entrée initial
     const [initialQty, setInitialQty] = useState('')
     const [initialLocation, setInitialLocation] = useState<'BOUTIQUE' | 'MAGASIN'>('BOUTIQUE')
-    const [initialUnitPrice, setInitialUnitPrice] = useState('')
     const [initialShopId, setInitialShopId] = useState('')
 
     // Images Cloudinary
@@ -284,7 +283,6 @@ export default function CreateProductPage() {
                     quantity: qty,
                     location: initialLocation,
                     reason: 'Stock initial',
-                    ...(initialUnitPrice ? { unit_price: parseFloat(initialUnitPrice) } : {}),
                 })
             }
 
@@ -576,28 +574,16 @@ export default function CreateProductPage() {
                         </Field>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: user?.role === 'SUPER_ADMIN' ? '1fr 1fr' : '1fr', gap: 16 }}>
-                        <Field label="Prix d'achat unitaire (F CFA)" hint="Optionnel — pour le calcul de la valeur du stock">
-                            <Input
-                                type="number"
-                                min="0"
-                                step="1"
-                                value={initialUnitPrice}
-                                onChange={setInitialUnitPrice}
-                                placeholder="0"
-                            />
+                    {user?.role === 'SUPER_ADMIN' && (
+                        <Field label="Boutique" hint="Requis si quantité > 0">
+                            <Select value={initialShopId} onChange={setInitialShopId}>
+                                <option value="">— Sélectionner —</option>
+                                {shops.map(s => (
+                                    <option key={s.id} value={s.id}>{s.name}</option>
+                                ))}
+                            </Select>
                         </Field>
-                        {user?.role === 'SUPER_ADMIN' && (
-                            <Field label="Boutique" hint="Requis si quantité > 0">
-                                <Select value={initialShopId} onChange={setInitialShopId}>
-                                    <option value="">— Sélectionner —</option>
-                                    {shops.map(s => (
-                                        <option key={s.id} value={s.id}>{s.name}</option>
-                                    ))}
-                                </Select>
-                            </Field>
-                        )}
-                    </div>
+                    )}
 
                     {activeShop && (parseInt(initialQty) || 0) > 0 && (
                         <div style={{
