@@ -304,7 +304,11 @@ export default function ShopListPage() {
 
       {/* ── Modal gestion managers ───────────────────────── */}
       {managerModal && (() => {
-        const currentIds = new Set(managerModal.managers_details?.map(m => m.id) ?? []);
+        const currentManagers = (managerModal.managers ?? []).map((id, i) => ({
+          id,
+          name: managerModal.managers_names?.[i] ?? `Manager #${id}`,
+        }));
+        const currentIds = new Set(managerModal.managers ?? []);
         const available  = managers.filter(m => !currentIds.has(m.id));
         return (
           <div style={{
@@ -344,9 +348,9 @@ export default function ShopListPage() {
                 Managers actuels
               </div>
 
-              {managerModal.managers_details?.length ? (
+              {currentManagers.length ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 24 }}>
-                  {managerModal.managers_details.map(m => (
+                  {currentManagers.map(m => (
                     <div key={m.id} style={{
                       display: "flex", alignItems: "center", justifyContent: "space-between",
                       padding: "10px 14px", borderRadius: 10,
@@ -359,12 +363,9 @@ export default function ShopListPage() {
                           display: "flex", alignItems: "center", justifyContent: "center",
                           color: "#fff", fontSize: 12, fontWeight: 700, flexShrink: 0,
                         }}>
-                          {m.full_name?.[0]?.toUpperCase() ?? "?"}
+                          {m.name[0]?.toUpperCase() ?? "?"}
                         </div>
-                        <div>
-                          <div style={{ fontSize: 13.5, fontWeight: 600, color: "#0F172A" }}>{m.full_name}</div>
-                          <div style={{ fontSize: 11.5, color: "#94A3B8" }}>{m.email}</div>
-                        </div>
+                        <div style={{ fontSize: 13.5, fontWeight: 600, color: "#0F172A" }}>{m.name}</div>
                       </div>
                       <button
                         onClick={() => handleRemoveManager(m.id)}
