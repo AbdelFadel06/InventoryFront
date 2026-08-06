@@ -94,11 +94,12 @@ export default function ShopListPage() {
   const [loading, setLoading]   = useState(true);
   const [search, setSearch]     = useState("");
 
-  // Modal assignation manager
-  const [assignModal, setAssignModal]         = useState<Shop | null>(null);
-  const [selectedManager, setSelectedManager] = useState("");
-  const [assigning, setAssigning]             = useState(false);
-  const [assignError, setAssignError]         = useState<string | null>(null);
+  // Modal gestion managers
+  const [managerModal, setManagerModal] = useState<Shop | null>(null);
+  const [addManagerId, setAddManagerId] = useState("");
+  const [adding, setAdding]             = useState(false);
+  const [removingId, setRemovingId]     = useState<number | null>(null);
+  const [modalError, setModalError]     = useState<string | null>(null);
 
   const fetchData = async () => {
     setLoading(true);
@@ -123,25 +124,43 @@ export default function ShopListPage() {
     } catch { console.error("Erreur toggle"); }
   };
 
-  const openAssign = (shop: Shop) => {
-    setAssignModal(shop);
-    setSelectedManager(shop.managers?.[0] ? String(shop.managers[0]) : "");
-    setAssignError(null);
+  const openManagerModal = (shop: Shop) => {
+    setManagerModal(shop);
+    setAddManagerId("");
+    setModalError(null);
+    setRemovingId(null);
   };
 
-  const handleAssignManager = async () => {
-    if (!assignModal || !selectedManager) return;
-    setAssigning(true);
-    setAssignError(null);
+  const handleAddManager = async () => {
+    if (!managerModal || !addManagerId) return;
+    setAdding(true);
+    setModalError(null);
     try {
-      await shopService.assignManager(assignModal.id, Number(selectedManager));
-      setAssignModal(null);
-      setSelectedManager("");
-      await fetchData();
+      await shopService.assignManager(managerModal.id, Number(addManagerId), "add");
+      setAddManagerId("");
+      const res = await shopService.getAll();
+      const updated = (res.results ?? res).find((s: Shop) => s.id === managerModal.id);
+      if (updated) { setManagerModal(updated); setShops(res.results ?? res); }
     } catch {
-      setAssignError("Erreur lors de l'assignation.");
+      setModalError("Erreur lors de l'ajout du manager.");
     } finally {
-      setAssigning(false);
+      setAdding(false);
+    }
+  };
+
+  const handleRemoveManager = async (managerId: number) => {
+    if (!managerModal) return;
+    setRemovingId(managerId);
+    setModalError(null);
+    try {
+      await shopService.assignManager(managerModal.id, managerId, "remove");
+      const res = await shopService.getAll();
+      const updated = (res.results ?? res).find((s: Shop) => s.id === managerModal.id);
+      if (updated) { setManagerModal(updated); setShops(res.results ?? res); }
+    } catch {
+      setModalError("Erreur lors du retrait du manager.");
+    } finally {
+      setRemovingId(null);
     }
   };
 
@@ -235,19 +254,11 @@ export default function ShopListPage() {
       key: "actions", label: "",
       render: (row: Shop) => (
         <ActionMenu items={[
-          ...(row.managers_names?.length ? [
-            {
-              icon: <Icon name="person" size={15} />,
-              label: "Changer de manager",
-              onClick: () => openAssign(row),
-            },
-          ] : [
-            {
-              icon: <Icon name="plus" size={15} />,
-              label: "Assigner un manager",
-              onClick: () => openAssign(row),
-            },
-          ]),
+          {
+            icon: <Icon name="users" size={15} />,
+            label: "Gérer les managers",
+            onClick: () => openManagerModal(row),
+          },
           {
             icon: row.is_active
               ? <Icon name="xCircle" size={15} />
@@ -291,90 +302,136 @@ export default function ShopListPage() {
         searchPlaceholder="Nom, ville, manager..."
       />
 
-      {/* ── Modal assignation manager ─────────────────────── */}
-      {assignModal && (
-        <div style={{
-          position: "fixed", inset: 0, zIndex: 300,
-          background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-        }}>
+      {/* ── Modal gestion managers ───────────────────────── */}
+      {managerModal && (() => {
+        const currentIds = new Set(managerModal.managers_details?.map(m => m.id) ?? []);
+        const available  = managers.filter(m => !currentIds.has(m.id));
+        return (
           <div style={{
-            background: "#fff", borderRadius: 16, padding: 28,
-            width: 420, boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
+            position: "fixed", inset: 0, zIndex: 300,
+            background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)",
+            display: "flex", alignItems: "center", justifyContent: "center",
           }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#0F172A" }}>
-                {assignModal.managers_names?.length ? "Changer le manager" : "Assigner un manager"}
-              </h3>
-              <button onClick={() => setAssignModal(null)}
-                style={{ background: "none", border: "none", cursor: "pointer", color: "#94A3B8", fontSize: 22 }}>×</button>
-            </div>
-
-            <p style={{ fontSize: 13, color: "#64748B", margin: "0 0 20px" }}>
-              Boutique : <strong>{assignModal.name}</strong>
-            </p>
-
-            {/* Manager actuel */}
-            {assignModal.managers_names?.length ? (
-              <div style={{
-                background: "#F0FDF4", border: "1px solid #BBF7D0",
-                borderRadius: 9, padding: "10px 14px", marginBottom: 16,
-                fontSize: 13, color: "#15803D",
-              }}>
-                Manager actuel : <strong>{assignModal.managers_names.join(", ")}</strong>
+            <div style={{
+              background: "#fff", borderRadius: 16, padding: 28,
+              width: 460, boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
+              maxHeight: "90vh", overflowY: "auto",
+            }}>
+              {/* Header */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#0F172A" }}>
+                  Gérer les managers
+                </h3>
+                <button onClick={() => setManagerModal(null)}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "#94A3B8", fontSize: 22, lineHeight: 1 }}>×</button>
               </div>
-            ) : null}
+              <p style={{ fontSize: 13, color: "#64748B", margin: "0 0 20px" }}>
+                Boutique : <strong>{managerModal.name}</strong>
+              </p>
 
-            {assignError && (
-              <div style={{
-                background: "#FEF2F2", border: "1px solid #FECACA",
-                color: "#DC2626", borderRadius: 9, padding: "10px 14px",
-                fontSize: 13, marginBottom: 16,
-              }}>
-                {assignError}
+              {modalError && (
+                <div style={{
+                  background: "#FEF2F2", border: "1px solid #FECACA",
+                  color: "#DC2626", borderRadius: 9, padding: "10px 14px",
+                  fontSize: 13, marginBottom: 16,
+                }}>
+                  {modalError}
+                </div>
+              )}
+
+              {/* Managers actuels */}
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>
+                Managers actuels
               </div>
-            )}
 
-            <div style={{ marginBottom: 20 }}>
-              <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 6 }}>
-                {assignModal.managers_names?.length ? "Nouveau manager" : "Manager"} *
-              </label>
-              <select
-                value={selectedManager}
-                onChange={e => setSelectedManager(e.target.value)}
-                style={{
-                  width: "100%", padding: "10px 12px",
-                  border: "1px solid #E2E8F0", borderRadius: 9,
-                  fontSize: 13.5, color: "#374151", outline: "none",
-                  fontFamily: "inherit", background: "#fff",
-                }}
-              >
-                <option value="">-- Sélectionner un manager --</option>
-                {managers.map(m => (
-                  <option key={m.id} value={m.id}>
-                    {(m as any).full_name || `${m.first_name ?? ""} ${m.last_name ?? ""}`.trim() || m.email}
-                    {m.shop && m.shop !== assignModal.id ? " (déjà assigné)" : ""}
-                  </option>
-                ))}
-              </select>
-              {managers.length === 0 && (
-                <p style={{ fontSize: 12, color: "#F97316", marginTop: 6 }}>
-                  Aucun manager disponible. Créez d'abord un utilisateur avec le rôle Manager.
+              {managerModal.managers_details?.length ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 24 }}>
+                  {managerModal.managers_details.map(m => (
+                    <div key={m.id} style={{
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      padding: "10px 14px", borderRadius: 10,
+                      border: "1px solid #E2E8F0", background: "#F8FAFC",
+                    }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <div style={{
+                          width: 32, height: 32, borderRadius: "50%",
+                          background: "linear-gradient(135deg, #3B82F6, #1D4ED8)",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          color: "#fff", fontSize: 12, fontWeight: 700, flexShrink: 0,
+                        }}>
+                          {m.full_name?.[0]?.toUpperCase() ?? "?"}
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 13.5, fontWeight: 600, color: "#0F172A" }}>{m.full_name}</div>
+                          <div style={{ fontSize: 11.5, color: "#94A3B8" }}>{m.email}</div>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleRemoveManager(m.id)}
+                        disabled={removingId === m.id}
+                        style={{
+                          padding: "5px 12px", borderRadius: 7,
+                          border: "1px solid #FECACA", background: removingId === m.id ? "#F8FAFC" : "#FEF2F2",
+                          color: "#DC2626", fontSize: 12, fontWeight: 600,
+                          cursor: removingId === m.id ? "not-allowed" : "pointer",
+                          fontFamily: "inherit",
+                        }}
+                      >
+                        {removingId === m.id ? "..." : "Retirer"}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{
+                  padding: "14px", borderRadius: 10, border: "1px dashed #E2E8F0",
+                  textAlign: "center", fontSize: 13, color: "#94A3B8", marginBottom: 24,
+                }}>
+                  Aucun manager assigné à cette boutique
+                </div>
+              )}
+
+              {/* Ajouter un manager */}
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>
+                Ajouter un manager
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <select
+                  value={addManagerId}
+                  onChange={e => setAddManagerId(e.target.value)}
+                  style={{
+                    flex: 1, padding: "10px 12px",
+                    border: "1px solid #E2E8F0", borderRadius: 9,
+                    fontSize: 13.5, color: "#374151", outline: "none",
+                    fontFamily: "inherit", background: "#fff",
+                  }}
+                >
+                  <option value="">-- Sélectionner --</option>
+                  {available.map(m => (
+                    <option key={m.id} value={m.id}>
+                      {(m as any).full_name || `${m.first_name ?? ""} ${m.last_name ?? ""}`.trim() || m.email}
+                    </option>
+                  ))}
+                </select>
+                <Btn onClick={handleAddManager} disabled={adding || !addManagerId}>
+                  {adding ? "..." : "Ajouter"}
+                </Btn>
+              </div>
+              {available.length === 0 && (
+                <p style={{ fontSize: 12, color: "#94A3B8", marginTop: 8 }}>
+                  Tous les managers sont déjà assignés ou aucun manager n'existe.
                 </p>
               )}
-            </div>
 
-            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-              <Btn variant="secondary" onClick={() => { setAssignModal(null); setSelectedManager(""); }}>
-                Annuler
-              </Btn>
-              <Btn onClick={handleAssignManager} disabled={assigning || !selectedManager}>
-                {assigning ? "Assignation..." : "Confirmer"}
-              </Btn>
+              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 24 }}>
+                <Btn variant="secondary" onClick={() => { setManagerModal(null); fetchData(); }}>
+                  Fermer
+                </Btn>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
