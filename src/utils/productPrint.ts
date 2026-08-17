@@ -17,19 +17,19 @@ function openAndPrint(html: string, delay: number) {
   setTimeout(() => w.print(), delay);
 }
 
-// EAN-13 via canvas — même logique que barcodePrint.ts
-function generateEAN13Url(code: string, height = 55): string | null {
+// EAN-13 via canvas — résolution haute pour une bonne lisibilité à l'impression
+function generateEAN13Url(code: string): string | null {
   if (!code) return null;
   try {
     const canvas = document.createElement('canvas');
     JsBarcode(canvas, code, {
       format: 'EAN13',
-      width: 2,
-      height,
+      width: 3,        // barres plus épaisses → plus scannable
+      height: 140,     // canvas haute résolution pour l'impression
       displayValue: true,
-      fontSize: 11,
-      textMargin: 2,
-      margin: 4,
+      fontSize: 14,
+      textMargin: 4,
+      margin: 10,
       background: '#ffffff',
       lineColor: '#000000',
     });
@@ -296,7 +296,8 @@ export function printProductCatalog(products: Product[], shopName = 'ShopM') {
     letter-spacing: 0.05em; line-height: 1.3;
   }
   .card-bc  { width: 100%; display: flex; justify-content: center; }
-  .bc-img   { display: block; max-width: 100%; height: 42px; object-fit: contain; }
+  .bc-img   { display: block; max-width: 100%; height: 68px; object-fit: contain;
+              image-rendering: crisp-edges; image-rendering: -webkit-optimize-contrast; }
   .card-ref { font-family: 'Courier New', Courier, monospace;
               font-size: 6pt; color: #9a9486; text-align: center; }
 
