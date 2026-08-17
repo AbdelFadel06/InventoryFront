@@ -489,7 +489,22 @@ export default function ProductListPage() {
         const res = await productService.getAll({ page_size: 9999 });
         toPrint = res.results ?? [];
       }
-      const shopName = user?.shop_name ?? user?.first_name ?? 'ShopM';
+
+      // Résoudre le nom de la boutique active
+      let shopName = user?.shop_name ?? 'ShopM';
+      const activeShopId = localStorage.getItem('shopm_active_shop_id');
+      if (activeShopId) {
+        const fromList = shops.find(s => String(s.id) === activeShopId);
+        if (fromList) {
+          shopName = fromList.name;
+        } else {
+          try {
+            const fetched = await shopService.getById(Number(activeShopId));
+            shopName = fetched.name;
+          } catch { /* garder le fallback */ }
+        }
+      }
+
       if (mode === 'list') printProductList(toPrint, shopName);
       else printProductCatalog(toPrint, shopName);
     } catch { /* ignore */ } finally {
