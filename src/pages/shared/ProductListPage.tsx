@@ -9,6 +9,7 @@ import { useAuth }              from "../../context/AuthContext";
 import { PageHeader, Btn, Badge, DataTable, StatCard, Icon } from "../../components/ui";
 import { uploadToCloudinary }   from "../../utils/cloudinary";
 import { printBarcodeLabels, printAllBarcodeLabels } from "../../utils/barcodePrint";
+import { printProductList, printProductCatalog }    from "../../utils/productPrint";
 import type { Product, ProductImage }  from "../../types/product";
 import type { Category } from "../../types/category";
 import type { Shop }     from "../../types/shop";
@@ -178,6 +179,7 @@ export default function ProductListPage() {
   const [copies, setCopies]               = useState(1);
   const [selectingAll, setSelectingAll]   = useState(false);
   const [printingLabels, setPrintingLabels] = useState(false);
+  const [printing, setPrinting]           = useState(false);
 
   const [editModal, setEditModal]     = useState<Product | null>(null);
   const [deleteModal, setDeleteModal] = useState<Product | null>(null);
@@ -474,6 +476,26 @@ export default function ProductListPage() {
     }
   };
 
+  // ── Product list / catalog printing ──────────────────────────────
+  const handlePrint = async (mode: 'list' | 'catalog', scope: 'selection' | 'all') => {
+    setPrinting(true);
+    try {
+      let toPrint: Product[];
+      if (scope === 'selection' && selection.size > 0) {
+        toPrint = Array.from(selection)
+          .map(id => selectionCache.current.get(id))
+          .filter((p): p is Product => !!p);
+      } else {
+        const res = await productService.getAll({ page_size: 9999 });
+        toPrint = res.results ?? [];
+      }
+      const shopName = user?.shop_name ?? user?.first_name ?? 'ShopM';
+      if (mode === 'list') printProductList(toPrint, shopName);
+      else printProductCatalog(toPrint, shopName);
+    } catch { /* ignore */ } finally {
+      setPrinting(false);
+    }
+  };
 
   const openStock = (p: Product) => {
     setStockForm({ shop: isAdmin ? "" : String(user?.shop ?? ""), quantity: "", reason: "", location: "BOUTIQUE" });
@@ -711,6 +733,65 @@ export default function ProductListPage() {
             {printingLabels ? "Chargement…" : "Tout imprimer"}
           </button>
         </div>
+      </div>
+
+      {/* ── Panneau impression articles ──────────────────────────── */}
+      <div style={{
+        display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
+        background: "#F0FDF4", border: "1px solid #BBF7D0", borderRadius: 10,
+        padding: "10px 14px", marginBottom: 14,
+      }}>
+        <span style={{ fontSize: 12.5, fontWeight: 600, color: "#15803D" }}>Impression :</span>
+
+        {selection.size > 0 && (
+          <>
+            <button
+              onClick={() => handlePrint('list', 'selection')}
+              disabled={printing}
+              style={{
+                padding: "5px 14px", borderRadius: 16, fontSize: 12.5, fontWeight: 600,
+                background: "#fff", color: "#15803D", border: "1px solid #86EFAC",
+                cursor: printing ? "not-allowed" : "pointer", fontFamily: "inherit",
+              }}>
+              Liste — sélection ({selection.size})
+            </button>
+            <button
+              onClick={() => handlePrint('catalog', 'selection')}
+              disabled={printing}
+              style={{
+                padding: "5px 14px", borderRadius: 16, fontSize: 12.5, fontWeight: 600,
+                background: "#fff", color: "#15803D", border: "1px solid #86EFAC",
+                cursor: printing ? "not-allowed" : "pointer", fontFamily: "inherit",
+              }}>
+              Catalogue — sélection ({selection.size})
+            </button>
+            <span style={{ color: "#86EFAC" }}>|</span>
+          </>
+        )}
+
+        <button
+          onClick={() => handlePrint('list', 'all')}
+          disabled={printing}
+          style={{
+            padding: "5px 14px", borderRadius: 16, fontSize: 12.5, fontWeight: 600,
+            background: "#15803D", color: "#fff", border: "none",
+            cursor: printing ? "not-allowed" : "pointer", fontFamily: "inherit",
+            opacity: printing ? 0.6 : 1,
+          }}>
+          {printing ? "Chargement…" : "Liste — tous"}
+        </button>
+
+        <button
+          onClick={() => handlePrint('catalog', 'all')}
+          disabled={printing}
+          style={{
+            padding: "5px 14px", borderRadius: 16, fontSize: 12.5, fontWeight: 600,
+            background: "#166534", color: "#fff", border: "none",
+            cursor: printing ? "not-allowed" : "pointer", fontFamily: "inherit",
+            opacity: printing ? 0.6 : 1,
+          }}>
+          {printing ? "Chargement…" : "Catalogue — tous"}
+        </button>
       </div>
 
       <DataTable
