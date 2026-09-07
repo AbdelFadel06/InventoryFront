@@ -79,11 +79,14 @@ const UNIT_LABELS_PRINT: Record<string, string> = {
   ml: "ml", m: "m", box: "boîte(s)", pack: "pack(s)",
 };
 
-function buildPrintHTML(report: DailyReport, shopName: string, date: string): string {
+function buildPrintHTML(report: DailyReport, shopName: string, date: string, dateTo?: string): string {
   const fmt = (n: number | string) => Number(n).toLocaleString("fr-FR") + " F";
-  const dateLabel = new Date(date + "T00:00:00").toLocaleDateString("fr-FR", {
-    weekday: "long", year: "numeric", month: "long", day: "numeric",
-  });
+  const fmtShort = (d: string) => new Date(d + "T00:00:00").toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
+  const isPeriod = !!dateTo && dateTo !== date;
+  const dateLabel = isPeriod
+    ? `${fmtShort(date)} → ${fmtShort(dateTo!)}`
+    : new Date(date + "T00:00:00").toLocaleDateString("fr-FR", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+  const reportTitle = isPeriod ? "Rapport par période" : "Rapport journalier";
 
   const productsRows = report.products_recap.map((p, idx) => {
     const unitPrice = p.total_qty > 0 ? Math.round(p.total_subtotal / p.total_qty) : 0;
@@ -160,7 +163,7 @@ function buildPrintHTML(report: DailyReport, shopName: string, date: string): st
     <div style="font-size:11px;color:#64748B;margin-top:2px">Gestion commerciale</div>
   </div>
   <div style="text-align:right">
-    <div style="font-size:15px;font-weight:700;color:#0F172A">Rapport journalier</div>
+    <div style="font-size:15px;font-weight:700;color:#0F172A">${reportTitle}</div>
     <div style="font-size:12px;color:#64748B;margin-top:2px">${shopName}</div>
     <div style="font-size:11px;color:#94A3B8;margin-top:1px">${dateLabel}</div>
   </div>
@@ -231,7 +234,7 @@ ${report.products_recap.length > 0 ? `
 </table>` : ""}
 
 <!-- Livreurs -->
-${report.by_livreur.length > 0 ? `
+${!isPeriod && report.by_livreur.length > 0 ? `
 <div class="section">
 <div style="${sectionTitle};margin-top:20px">Livraisons en attente de paiement</div>
 <table style="${tableStyle}">
@@ -353,9 +356,11 @@ export default function DailyReportPage() {
   const [[dateFrom, dateTo], setDateRange] = useState<[string, string]>(getLast7());
 
   const handlePrint = () => {
-    if (!report) return;
+    if (!activeReport) return;
     const shopName = activeShop?.name ?? user?.shop_name ?? "Toutes boutiques";
-    const html = buildPrintHTML(report, shopName, selectedDate);
+    const html = mode === "daily"
+      ? buildPrintHTML(activeReport, shopName, selectedDate)
+      : buildPrintHTML(activeReport, shopName, dateFrom, dateTo);
     const blob = new Blob([html], { type: "text/html;charset=utf-8" });
     const url  = URL.createObjectURL(blob);
     const w    = window.open(url, "_blank");
@@ -423,17 +428,15 @@ export default function DailyReportPage() {
         action={
           <div className="no-print" style={{ display: "flex", gap: 10, alignItems: "center" }}>
             {mode === "daily" && (
-              <>
-                <DateInput value={selectedDate} onChange={setSelectedDate} max={today} />
-                <button onClick={handlePrint} disabled={!report || loading} style={{
-                  padding: "8px 16px", borderRadius: 9, border: "none",
-                  background: report && !loading ? "linear-gradient(135deg, #1D4ED8, #3B82F6)" : "#E2E8F0",
-                  cursor: report && !loading ? "pointer" : "not-allowed",
-                  fontSize: 13, fontFamily: "inherit",
-                  color: report && !loading ? "#fff" : "#94A3B8", fontWeight: 600,
-                }}>Imprimer</button>
-              </>
+              <DateInput value={selectedDate} onChange={setSelectedDate} max={today} />
             )}
+            <button onClick={handlePrint} disabled={!activeReport || activeLoading} style={{
+              padding: "8px 16px", borderRadius: 9, border: "none",
+              background: activeReport && !activeLoading ? "linear-gradient(135deg, #1D4ED8, #3B82F6)" : "#E2E8F0",
+              cursor: activeReport && !activeLoading ? "pointer" : "not-allowed",
+              fontSize: 13, fontFamily: "inherit",
+              color: activeReport && !activeLoading ? "#fff" : "#94A3B8", fontWeight: 600,
+            }}>Imprimer</button>
           </div>
         }
       />
