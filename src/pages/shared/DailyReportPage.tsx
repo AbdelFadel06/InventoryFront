@@ -105,14 +105,15 @@ function buildPrintHTML(report: DailyReport, shopName: string, date: string, dat
   const totalDisc  = report.products_recap.reduce((s, p) => s + Number(p.total_discount), 0);
   const totalAmt   = report.products_recap.reduce((s, p) => s + Number(p.total_amount), 0);
 
-  const livreurRows = report.by_livreur.map(l => `
+  const byLivreur = report.by_livreur ?? [];
+  const livreurRows = byLivreur.map(l => `
     <tr style="border-bottom:1px solid #E2E8F0;page-break-inside:avoid">
       <td style="padding:9px 12px;font-weight:600;color:#0F172A">${l.livreur_name}</td>
       <td style="padding:9px 12px;text-align:center;font-weight:600">${l.pending_count}</td>
       <td style="padding:9px 12px;font-weight:700;color:#D97706">${fmt(l.pending_amount)}</td>
     </tr>`).join("");
-  const livreurTotal = report.by_livreur.reduce((s, l) => s + safeNum(l.pending_amount), 0);
-  const livreurTotalCount = report.by_livreur.reduce((s, l) => s + safeNum(l.pending_count), 0);
+  const livreurTotal = byLivreur.reduce((s, l) => s + safeNum(l.pending_amount), 0);
+  const livreurTotalCount = byLivreur.reduce((s, l) => s + safeNum(l.pending_count), 0);
 
   const expenseRows = report.expenses.map(e => `
     <tr style="border-bottom:1px solid #E2E8F0;page-break-inside:avoid">
