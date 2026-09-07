@@ -310,36 +310,39 @@ ${report.expenses.length > 0 ? `
 }
 
 // ── Helpers période ───────────────────────────────────────────────
+const fmtLocal = (d: Date) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
 function getWeekRange(offset = 0): [string, string] {
   const now = new Date();
   const day = now.getDay() === 0 ? 7 : now.getDay();
   const mon = new Date(now); mon.setDate(now.getDate() - day + 1 + offset * 7);
   const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
-  const fmt = (d: Date) => d.toISOString().split("T")[0];
-  return [fmt(mon), fmt(sun)];
+  return [fmtLocal(mon), fmtLocal(sun)];
 }
 
 function getMonthRange(offset = 0): [string, string] {
   const now = new Date();
-  const y = now.getFullYear(); const m = now.getMonth() + offset;
-  const first = new Date(y, m, 1);
-  const last  = new Date(y, m + 1, 0);
-  const fmt = (d: Date) => d.toISOString().split("T")[0];
-  return [fmt(first), fmt(last)];
+  const first = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+  const last  = new Date(now.getFullYear(), now.getMonth() + offset + 1, 0);
+  return [fmtLocal(first), fmtLocal(last)];
 }
 
 function getLast7(): [string, string] {
   const today = new Date();
   const from  = new Date(today); from.setDate(today.getDate() - 6);
-  const fmt = (d: Date) => d.toISOString().split("T")[0];
-  return [fmt(from), fmt(today)];
+  return [fmtLocal(from), fmtLocal(today)];
 }
 
 // ── Page principale ───────────────────────────────────────────────
 export default function DailyReportPage() {
   const { user, activeShop } = useAuth();
   const [searchParams] = useSearchParams();
-  const today = new Date().toISOString().split("T")[0];
+  const today = fmtLocal(new Date());
 
   const [mode, setMode] = useState<"daily" | "period">("daily");
 
