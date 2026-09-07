@@ -364,11 +364,12 @@ export default function DailyReportPage() {
     const html = mode === "daily"
       ? buildPrintHTML(activeReport, shopName, selectedDate)
       : buildPrintHTML(activeReport, shopName, dateFrom, dateTo);
-    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
-    const url  = URL.createObjectURL(blob);
-    const w    = window.open(url, "_blank");
-    if (!w) return;
-    w.onload = () => { w.print(); URL.revokeObjectURL(url); };
+    const w = window.open('', '_blank', 'width=960,height=750');
+    if (!w) { alert('Autorisez les popups pour imprimer.'); return; }
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+    setTimeout(() => w.print(), 500);
   };
 
   const fetchReport = async () => {
