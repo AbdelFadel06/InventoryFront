@@ -306,137 +306,221 @@ ${report.expenses.length > 0 ? `
 </html>`;
 }
 
+// ── Helpers période ───────────────────────────────────────────────
+function getWeekRange(offset = 0): [string, string] {
+  const now = new Date();
+  const day = now.getDay() === 0 ? 7 : now.getDay();
+  const mon = new Date(now); mon.setDate(now.getDate() - day + 1 + offset * 7);
+  const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+  const fmt = (d: Date) => d.toISOString().split("T")[0];
+  return [fmt(mon), fmt(sun)];
+}
+
+function getMonthRange(offset = 0): [string, string] {
+  const now = new Date();
+  const y = now.getFullYear(); const m = now.getMonth() + offset;
+  const first = new Date(y, m, 1);
+  const last  = new Date(y, m + 1, 0);
+  const fmt = (d: Date) => d.toISOString().split("T")[0];
+  return [fmt(first), fmt(last)];
+}
+
+function getLast7(): [string, string] {
+  const today = new Date();
+  const from  = new Date(today); from.setDate(today.getDate() - 6);
+  const fmt = (d: Date) => d.toISOString().split("T")[0];
+  return [fmt(from), fmt(today)];
+}
+
 // ── Page principale ───────────────────────────────────────────────
 export default function DailyReportPage() {
   const { user, activeShop } = useAuth();
   const [searchParams] = useSearchParams();
   const today = new Date().toISOString().split("T")[0];
 
-  const [report, setReport]           = useState<DailyReport | null>(null);
-  const [loading, setLoading]         = useState(true);
-  const [error, setError]             = useState<string | null>(null);
+  const [mode, setMode] = useState<"daily" | "period">("daily");
+
+  // mode journalier
+  const [report, setReport]             = useState<DailyReport | null>(null);
+  const [loading, setLoading]           = useState(true);
+  const [error, setError]               = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState(searchParams.get("date") ?? today);
+
+  // mode période
+  const [periodReport, setPeriodReport]   = useState<DailyReport | null>(null);
+  const [periodLoading, setPeriodLoading] = useState(false);
+  const [periodError, setPeriodError]     = useState<string | null>(null);
+  const [[dateFrom, dateTo], setDateRange] = useState<[string, string]>(getLast7());
 
   const handlePrint = () => {
     if (!report) return;
     const shopName = activeShop?.name ?? user?.shop_name ?? "Toutes boutiques";
     const html = buildPrintHTML(report, shopName, selectedDate);
-    // Blob URL → le browser n'affiche pas de titre ni d'URL dans les marges
     const blob = new Blob([html], { type: "text/html;charset=utf-8" });
     const url  = URL.createObjectURL(blob);
     const w    = window.open(url, "_blank");
     if (!w) return;
-    w.onload = () => {
-      w.print();
-      URL.revokeObjectURL(url);
-    };
+    w.onload = () => { w.print(); URL.revokeObjectURL(url); };
   };
 
   const fetchReport = async () => {
-    setLoading(true);
-    setError(null);
+    setLoading(true); setError(null);
     try {
       const res = await axiosInstance.get(`/sales/daily_report/?date=${selectedDate}`);
       setReport(res.data);
     } catch {
       setError("Erreur lors du chargement du rapport.");
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
+  };
+
+  const fetchPeriodReport = async () => {
+    setPeriodLoading(true); setPeriodError(null);
+    try {
+      const res = await axiosInstance.get(`/sales/period_report/?date_from=${dateFrom}&date_to=${dateTo}`);
+      setPeriodReport(res.data);
+    } catch {
+      setPeriodError("Erreur lors du chargement du rapport.");
+    } finally { setPeriodLoading(false); }
   };
 
   useEffect(() => { fetchReport(); }, [selectedDate]);
+  useEffect(() => { if (mode === "period") fetchPeriodReport(); }, [dateFrom, dateTo, mode]);
+
+  const tabBtn = (label: string, active: boolean, onClick: () => void) => (
+    <button onClick={onClick} style={{
+      padding: "7px 18px", borderRadius: 8, border: "none", cursor: "pointer",
+      fontFamily: "inherit", fontSize: 13, fontWeight: 600,
+      background: active ? "#1D4ED8" : "transparent",
+      color: active ? "#fff" : "#64748B",
+      transition: "all .15s",
+    }}>{label}</button>
+  );
+
+  const shortcutBtn = (label: string, range: [string, string]) => {
+    const active = dateFrom === range[0] && dateTo === range[1];
+    return (
+      <button onClick={() => setDateRange(range)} style={{
+        padding: "5px 12px", borderRadius: 7, border: `1px solid ${active ? "#1D4ED8" : "#E2E8F0"}`,
+        background: active ? "#EFF6FF" : "#fff", color: active ? "#1D4ED8" : "#64748B",
+        fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+      }}>{label}</button>
+    );
+  };
+
+  const activeReport  = mode === "daily" ? report        : periodReport;
+  const activeLoading = mode === "daily" ? loading       : periodLoading;
+  const activeError   = mode === "daily" ? error         : periodError;
+
+  const periodLabel = mode === "period" && dateFrom && dateTo
+    ? `${formatDate(dateFrom)} → ${formatDate(dateTo)}`
+    : formatDate(selectedDate);
 
   return (
     <div id="print-report">
       <PageHeader
-        title="Rapport journalier"
-        subtitle={`${activeShop?.name ?? user?.shop_name ?? "Toutes boutiques"} · ${formatDate(selectedDate)}`}
+        title="Rapport de ventes"
+        subtitle={`${activeShop?.name ?? user?.shop_name ?? "Toutes boutiques"} · ${periodLabel}`}
         action={
           <div className="no-print" style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <DateInput value={selectedDate} onChange={setSelectedDate} max={today} />
-            <button
-              onClick={handlePrint}
-              disabled={!report || loading}
-              style={{
-                padding: "8px 16px", borderRadius: 9, border: "none",
-                background: report && !loading ? "linear-gradient(135deg, #1D4ED8, #3B82F6)" : "#E2E8F0",
-                cursor: report && !loading ? "pointer" : "not-allowed",
-                fontSize: 13, fontFamily: "inherit",
-                color: report && !loading ? "#fff" : "#94A3B8",
-                fontWeight: 600,
-              }}>
-              Imprimer
-            </button>
+            {mode === "daily" && (
+              <>
+                <DateInput value={selectedDate} onChange={setSelectedDate} max={today} />
+                <button onClick={handlePrint} disabled={!report || loading} style={{
+                  padding: "8px 16px", borderRadius: 9, border: "none",
+                  background: report && !loading ? "linear-gradient(135deg, #1D4ED8, #3B82F6)" : "#E2E8F0",
+                  cursor: report && !loading ? "pointer" : "not-allowed",
+                  fontSize: 13, fontFamily: "inherit",
+                  color: report && !loading ? "#fff" : "#94A3B8", fontWeight: 600,
+                }}>Imprimer</button>
+              </>
+            )}
           </div>
         }
       />
 
-      {error && (
+      {/* ── Mode toggle ─────────────────────────────────────────── */}
+      <div style={{
+        display: "flex", gap: 4, background: "#F1F5F9",
+        borderRadius: 10, padding: 4, width: "fit-content", marginBottom: 20,
+      }}>
+        {tabBtn("Journalier",   mode === "daily",  () => setMode("daily"))}
+        {tabBtn("Par période",  mode === "period", () => setMode("period"))}
+      </div>
+
+      {/* ── Sélecteur de période ─────────────────────────────────── */}
+      {mode === "period" && (
+        <div style={{
+          background: "#fff", border: "1px solid #E2E8F0", borderRadius: 12,
+          padding: "14px 18px", marginBottom: 20,
+          display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 12, color: "#64748B", fontWeight: 600 }}>Du</span>
+            <DateInput value={dateFrom} onChange={v => setDateRange([v, dateTo])} max={dateTo} />
+            <span style={{ fontSize: 12, color: "#64748B", fontWeight: 600 }}>au</span>
+            <DateInput value={dateTo}   onChange={v => setDateRange([dateFrom, v])} max={today} min={dateFrom} />
+          </div>
+          <div style={{ width: 1, height: 24, background: "#E2E8F0" }} />
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {shortcutBtn("7 derniers jours", getLast7())}
+            {shortcutBtn("Cette semaine",    getWeekRange(0))}
+            {shortcutBtn("Semaine passée",   getWeekRange(-1))}
+            {shortcutBtn("Ce mois",          getMonthRange(0))}
+            {shortcutBtn("Mois passé",       getMonthRange(-1))}
+          </div>
+        </div>
+      )}
+
+      {activeError && (
         <div style={{
           border: "1px solid #BFDBFE", color: "#1D4ED8",
           borderRadius: 10, padding: "12px 16px", fontSize: 13.5, marginBottom: 20,
         }}>
-          {error}
+          {activeError}
         </div>
       )}
 
-      {/* Stats principales — max 3 */}
+      {/* Stats principales */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 20 }}>
-        <StatCard label="Ventes totales"   value={report?.summary.total_sales ?? 0}                   icon={<Icon name="cart" size={22} />} color="blue"   loading={loading} />
-        <StatCard label="CA total"         value={fmtPrice(report?.summary.total_amount ?? 0)}         icon={<Icon name="money" size={22} />} color="blue"   loading={loading} />
-        <StatCard label="Réductions"       value={fmtPrice(report?.summary.total_discount ?? 0)}       icon={<Icon name="tag" size={22} />} color="blue"   loading={loading} />
+        <StatCard label="Ventes totales" value={activeReport?.summary.total_sales ?? 0}          icon={<Icon name="cart" size={22} />}  color="blue" loading={activeLoading} />
+        <StatCard label="CA total"       value={fmtPrice(activeReport?.summary.total_amount ?? 0)} icon={<Icon name="money" size={22} />} color="blue" loading={activeLoading} />
+        <StatCard label="Réductions"     value={fmtPrice(activeReport?.summary.total_discount ?? 0)} icon={<Icon name="tag" size={22} />} color="blue" loading={activeLoading} />
       </div>
 
-      {report && (
+      {activeReport && (
         <>
           {/* ── Encaissements ───────────────────────────────── */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 16 }}>
-
-            {/* Total encaissé */}
             <div style={{ border: "1px solid #BFDBFE", borderRadius: 12, overflow: "hidden" }}>
-              <div style={{
-                padding: "10px 16px", borderBottom: "1px solid #BFDBFE",
-                fontSize: 13, fontWeight: 700, color: "#1D4ED8",
-              }}>
-                Total encaissé — {fmtPrice(report.summary.total_collected)}
+              <div style={{ padding: "10px 16px", borderBottom: "1px solid #BFDBFE", fontSize: 13, fontWeight: 700, color: "#1D4ED8" }}>
+                Total encaissé — {fmtPrice(activeReport.summary.total_collected)}
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr" }}>
                 <div style={{ padding: "14px 16px", borderRight: "1px solid #EFF6FF" }}>
                   <div style={{ fontSize: 11.5, color: "#64748B", marginBottom: 4 }}>Espèces (dont livraisons)</div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: "#0F172A" }}>
-                    {fmtPrice(report.summary.cash_total)}
-                  </div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: "#0F172A" }}>{fmtPrice(activeReport.summary.cash_total)}</div>
                 </div>
                 <div style={{ padding: "14px 16px" }}>
                   <div style={{ fontSize: 11.5, color: "#64748B", marginBottom: 4 }}>Mobile Money (dont livraisons)</div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: "#0F172A" }}>
-                    {fmtPrice(report.summary.momo_total)}
-                  </div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: "#0F172A" }}>{fmtPrice(activeReport.summary.momo_total)}</div>
                 </div>
               </div>
             </div>
 
-            {/* Livraisons en attente */}
             <div style={{ border: "1px solid #FED7AA", borderRadius: 12, overflow: "hidden" }}>
-              <div style={{
-                padding: "10px 16px", borderBottom: "1px solid #FED7AA",
-                fontSize: 13, fontWeight: 700, color: "#D97706",
-              }}>
+              <div style={{ padding: "10px 16px", borderBottom: "1px solid #FED7AA", fontSize: 13, fontWeight: 700, color: "#D97706" }}>
                 Livraisons en attente
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr" }}>
                 <div style={{ padding: "14px 16px", borderRight: "1px solid #FEF3C7" }}>
                   <div style={{ fontSize: 11.5, color: "#92400E", marginBottom: 4 }}>Colis non payés</div>
                   <div style={{ fontSize: 16, fontWeight: 700, color: "#0F172A" }}>
-                    {report.by_livreur.reduce((s, l) => s + safeNum(l.pending_count), 0)}
+                    {(activeReport.by_livreur ?? []).reduce((s, l) => s + safeNum(l.pending_count), 0)}
                   </div>
                 </div>
                 <div style={{ padding: "14px 16px" }}>
                   <div style={{ fontSize: 11.5, color: "#92400E", marginBottom: 4 }}>Montant en attente</div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: "#D97706" }}>
-                    {fmtPrice(report.summary.deliveries_pending)}
-                  </div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: "#D97706" }}>{fmtPrice(activeReport.summary.deliveries_pending)}</div>
                 </div>
               </div>
             </div>
@@ -444,9 +528,9 @@ export default function DailyReportPage() {
 
           {/* ── Articles vendus ──────────────────────────────── */}
           <Section title="Articles vendus" icon={<Icon name="package" size={16} color="#1D4ED8" />}>
-            {report.products_recap.length === 0 ? (
+            {activeReport.products_recap.length === 0 ? (
               <div style={{ padding: 32, textAlign: "center", color: "#94A3B8", fontSize: 13.5 }}>
-                Aucune vente enregistrée pour cette date
+                Aucune vente enregistrée pour cette période
               </div>
             ) : (
               <div style={{ overflowX: "auto" }}>
@@ -459,45 +543,27 @@ export default function DailyReportPage() {
                           color: "#64748B", fontWeight: 600, fontSize: 11.5,
                           textTransform: "uppercase", letterSpacing: "0.04em",
                           borderBottom: "1px solid #E2E8F0", whiteSpace: "nowrap",
-                        }}>
-                          {h}
-                        </th>
+                        }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {report.products_recap.map((p, idx) => {
-                      const unitPrice = p.total_qty > 0
-                        ? Math.round(p.total_subtotal / p.total_qty)
-                        : 0;
+                    {activeReport.products_recap.map((p, idx) => {
+                      const unitPrice = p.total_qty > 0 ? Math.round(p.total_subtotal / p.total_qty) : 0;
                       return (
-                        <tr key={p.product__id} style={{
-                          borderBottom: idx < report.products_recap.length - 1 ? "1px solid #F1F5F9" : "none",
-                        }}>
-                          <td style={{ padding: "12px 16px", fontWeight: 600, color: "#0F172A" }}>
-                            {p.product__name}
-                          </td>
-                          <td style={{ padding: "12px 16px", color: "#64748B" }}>
-                            {fmtPrice(unitPrice)}
-                          </td>
+                        <tr key={p.product__id} style={{ borderBottom: idx < activeReport.products_recap.length - 1 ? "1px solid #F1F5F9" : "none" }}>
+                          <td style={{ padding: "12px 16px", fontWeight: 600, color: "#0F172A" }}>{p.product__name}</td>
+                          <td style={{ padding: "12px 16px", color: "#64748B" }}>{fmtPrice(unitPrice)}</td>
                           <td style={{ padding: "12px 16px" }}>
-                            <span style={{
-                              border: "1px solid #BFDBFE", color: "#1D4ED8",
-                              padding: "2px 10px", borderRadius: 20,
-                              fontWeight: 600, fontSize: 13,
-                            }}>
+                            <span style={{ border: "1px solid #BFDBFE", color: "#1D4ED8", padding: "2px 10px", borderRadius: 20, fontWeight: 600, fontSize: 13 }}>
                               {p.total_qty} {UNIT_LABELS_PRINT[p.product__unit] ?? p.product__unit}
                             </span>
                           </td>
-                          <td style={{ padding: "12px 16px", color: "#64748B" }}>
-                            {fmtPrice(p.total_subtotal)}
-                          </td>
+                          <td style={{ padding: "12px 16px", color: "#64748B" }}>{fmtPrice(p.total_subtotal)}</td>
                           <td style={{ padding: "12px 16px", color: "#374151" }}>
                             {p.total_discount > 0 ? `−${fmtPrice(p.total_discount)}` : <span style={{ color: "#CBD5E1" }}>—</span>}
                           </td>
-                          <td style={{ padding: "12px 16px", fontWeight: 700, color: "#0F172A" }}>
-                            {fmtPrice(p.total_amount)}
-                          </td>
+                          <td style={{ padding: "12px 16px", fontWeight: 700, color: "#0F172A" }}>{fmtPrice(p.total_amount)}</td>
                         </tr>
                       );
                     })}
@@ -507,21 +573,18 @@ export default function DailyReportPage() {
                       <td style={{ padding: "12px 16px", fontWeight: 700, color: "#374151" }}>TOTAL</td>
                       <td style={{ padding: "12px 16px" }} />
                       <td style={{ padding: "12px 16px" }}>
-                        <span style={{
-                          background: "#1D4ED8", color: "#fff",
-                          padding: "2px 10px", borderRadius: 20, fontWeight: 700, fontSize: 13,
-                        }}>
-                          {report.products_recap.reduce((s, p) => s + p.total_qty, 0)} unités
+                        <span style={{ background: "#1D4ED8", color: "#fff", padding: "2px 10px", borderRadius: 20, fontWeight: 700, fontSize: 13 }}>
+                          {activeReport.products_recap.reduce((s, p) => s + p.total_qty, 0)} unités
                         </span>
                       </td>
                       <td style={{ padding: "12px 16px", fontWeight: 700, color: "#64748B" }}>
-                        {fmtPrice(report.products_recap.reduce((s, p) => s + Number(p.total_subtotal), 0))}
+                        {fmtPrice(activeReport.products_recap.reduce((s, p) => s + Number(p.total_subtotal), 0))}
                       </td>
                       <td style={{ padding: "12px 16px", fontWeight: 700, color: "#374151" }}>
-                        −{fmtPrice(report.products_recap.reduce((s, p) => s + Number(p.total_discount), 0))}
+                        −{fmtPrice(activeReport.products_recap.reduce((s, p) => s + Number(p.total_discount), 0))}
                       </td>
                       <td style={{ padding: "12px 16px", fontWeight: 800, color: "#0F172A", fontSize: 14 }}>
-                        {fmtPrice(report.products_recap.reduce((s, p) => s + Number(p.total_amount), 0))}
+                        {fmtPrice(activeReport.products_recap.reduce((s, p) => s + Number(p.total_amount), 0))}
                       </td>
                     </tr>
                   </tfoot>
@@ -530,11 +593,11 @@ export default function DailyReportPage() {
             )}
           </Section>
 
-          {/* ── Livraisons en attente ────────────────────────── */}
-          {report.by_livreur.length > 0 && (
+          {/* ── Livraisons en attente (journalier seulement) ─── */}
+          {mode === "daily" && (activeReport.by_livreur ?? []).length > 0 && (
             <Section title="Livraisons en attente de paiement" icon={<Icon name="delivery" size={16} color="#D97706" />}>
               <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
-                {report.by_livreur.map(l => (
+                {activeReport.by_livreur.map(l => (
                   <div key={l.livreur_id} style={{
                     border: "1px solid #FED7AA", borderRadius: 10,
                     padding: "12px 16px", background: "#FFFBEB",
@@ -562,16 +625,12 @@ export default function DailyReportPage() {
                     </div>
                   </div>
                 ))}
-                {/* Total */}
-                <div style={{
-                  borderTop: "1px solid #FED7AA", paddingTop: 10,
-                  display: "flex", justifyContent: "space-between", alignItems: "center",
-                }}>
+                <div style={{ borderTop: "1px solid #FED7AA", paddingTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <span style={{ fontSize: 13, fontWeight: 700, color: "#374151" }}>
-                    Total en attente — {report.by_livreur.reduce((s, l) => s + safeNum(l.pending_count), 0)} colis
+                    Total en attente — {activeReport.by_livreur.reduce((s, l) => s + safeNum(l.pending_count), 0)} colis
                   </span>
                   <span style={{ fontSize: 15, fontWeight: 800, color: "#D97706" }}>
-                    {fmtPrice(report.by_livreur.reduce((s, l) => s + safeNum(l.pending_amount), 0))}
+                    {fmtPrice(activeReport.by_livreur.reduce((s, l) => s + safeNum(l.pending_amount), 0))}
                   </span>
                 </div>
               </div>
@@ -580,17 +639,17 @@ export default function DailyReportPage() {
 
           {/* ── Dépenses ─────────────────────────────────────── */}
           <Section title="Dépenses" icon={<Icon name="expense" size={16} color="#1D4ED8" />}>
-            {report.expenses.length === 0 ? (
+            {activeReport.expenses.length === 0 ? (
               <div style={{ padding: 32, textAlign: "center", color: "#94A3B8", fontSize: 13.5 }}>
                 Aucune dépense enregistrée
               </div>
             ) : (
               <>
-                {report.expenses.map((exp, idx) => (
+                {activeReport.expenses.map((exp, idx) => (
                   <div key={exp.id} style={{
                     display: "flex", alignItems: "center", justifyContent: "space-between",
                     padding: "12px 18px",
-                    borderBottom: idx < report.expenses.length - 1 ? "1px solid #F1F5F9" : "none",
+                    borderBottom: idx < activeReport.expenses.length - 1 ? "1px solid #F1F5F9" : "none",
                   }}>
                     <div>
                       <div style={{ fontWeight: 500, color: "#0F172A", fontSize: 13.5 }}>{exp.label}</div>
@@ -603,13 +662,10 @@ export default function DailyReportPage() {
                     </span>
                   </div>
                 ))}
-                <div style={{
-                  padding: "12px 18px", borderTop: "1px solid #E2E8F0",
-                  display: "flex", justifyContent: "space-between",
-                }}>
+                <div style={{ padding: "12px 18px", borderTop: "1px solid #E2E8F0", display: "flex", justifyContent: "space-between" }}>
                   <span style={{ fontWeight: 700, color: "#374151" }}>Total dépenses</span>
                   <span style={{ fontWeight: 800, fontSize: 14, color: "#0F172A" }}>
-                    −{fmtPrice(report.summary.total_expenses)}
+                    −{fmtPrice(activeReport.summary.total_expenses)}
                   </span>
                 </div>
               </>
@@ -624,28 +680,25 @@ export default function DailyReportPage() {
               padding: "12px 18px", borderBottom: "1px solid #BFDBFE",
               fontSize: 13.5, fontWeight: 700, color: "#1D4ED8",
             }}>
-              Bilan net · {formatDate(selectedDate)}
+              Bilan net · {periodLabel}
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr" }}>
               <div style={{ padding: "18px 20px", borderRight: "1px solid #EFF6FF" }}>
                 <div style={{ fontSize: 11.5, color: "#64748B", marginBottom: 6 }}>Total encaissé</div>
                 <div style={{ fontSize: 20, fontWeight: 800, color: "#0F172A" }}>
-                  {fmtPrice(report.summary.total_collected)}
+                  {fmtPrice(activeReport.summary.total_collected)}
                 </div>
               </div>
               <div style={{ padding: "18px 20px", borderRight: "1px solid #EFF6FF" }}>
                 <div style={{ fontSize: 11.5, color: "#64748B", marginBottom: 6 }}>Dépenses</div>
                 <div style={{ fontSize: 20, fontWeight: 800, color: "#0F172A" }}>
-                  −{fmtPrice(report.summary.total_expenses)}
+                  −{fmtPrice(activeReport.summary.total_expenses)}
                 </div>
               </div>
               <div style={{ padding: "18px 20px" }}>
                 <div style={{ fontSize: 11.5, color: "#64748B", marginBottom: 6 }}>Net final</div>
-                <div style={{
-                  fontSize: 22, fontWeight: 800,
-                  color: report.summary.net_total >= 0 ? "#1D4ED8" : "#DC2626",
-                }}>
-                  {fmtPrice(report.summary.net_total)}
+                <div style={{ fontSize: 22, fontWeight: 800, color: activeReport.summary.net_total >= 0 ? "#1D4ED8" : "#DC2626" }}>
+                  {fmtPrice(activeReport.summary.net_total)}
                 </div>
               </div>
             </div>
