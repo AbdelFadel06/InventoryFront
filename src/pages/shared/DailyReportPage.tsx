@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { PageHeader, StatCard, Icon, DateInput } from "../../components/ui";
+import OpenIssuesBanner from "../../components/OpenIssuesBanner";
 import { formatDate, formatDateTime } from "../../utils/format";
 import axiosInstance from "../../api/axiosInstance";
 
@@ -445,6 +446,8 @@ export default function DailyReportPage() {
           </div>
         }
       />
+
+      <OpenIssuesBanner />
 
       {/* ── Mode toggle ─────────────────────────────────────────── */}
       <div style={{

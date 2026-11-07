@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { PageHeader, Badge, Icon, DateInput } from "../../components/ui";
 import { formatDateTime } from "../../utils/format";
+import { useRegisterAccess } from "../../hooks/useRegisterAccess";
 import api from "../../api/axiosInstance";
 
 // ── Types ────────────────────────────────────────────────────────
@@ -221,17 +222,20 @@ function ModifyModal({ sale, onClose, onSaved }: {
 }
 
 // ── Carte livraison (manager) ─────────────────────────────────────
-function DeliveryCard({ delivery, onModify, onCancel, onValidate, loading }: {
+function DeliveryCard({ delivery, onModify, onCancel, onValidate, loading, canManageSales, canOperateRegister }: {
   delivery: DeliveryRow;
   onModify: (id: number) => void;
   onCancel: (id: number) => void;
   onValidate: (id: number) => void;
   loading: number | null;
+  canManageSales: boolean;
+  canOperateRegister: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [cancelConfirm, setCancelConfirm] = useState(false);
   const state = deliveryState(delivery);
   const isLoading = loading === delivery.id;
+  const canModify = canManageSales || (canOperateRegister && state === "transit");
 
   const stateConfig = {
     transit: { label: "En transit", color: "blue" as const, bg: "#EFF6FF", border: "#BFDBFE" },
@@ -276,7 +280,7 @@ function DeliveryCard({ delivery, onModify, onCancel, onValidate, loading }: {
         {/* Actions */}
         <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end", flexShrink: 0 }}>
           {/* Valider paiement — seulement si on_delivery + collecté */}
-          {state === "collected" && delivery.payment_method === "on_delivery" && (
+          {canOperateRegister && state === "collected" && delivery.payment_method === "on_delivery" && (
             <button
               onClick={() => onValidate(delivery.id)}
               disabled={isLoading}
@@ -286,11 +290,13 @@ function DeliveryCard({ delivery, onModify, onCancel, onValidate, loading }: {
 
           {state !== "cancelled" && (
             <div style={{ display: "flex", gap: 5 }}>
-              <button onClick={() => onModify(delivery.id)} disabled={isLoading}
-                style={{ padding: "5px 10px", borderRadius: 7, border: "1px solid #BFDBFE", background: "#EFF6FF", color: "#2563EB", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "inherit" }}>
-                Modifier
-              </button>
-              {cancelConfirm ? (
+              {canModify && (
+                <button onClick={() => onModify(delivery.id)} disabled={isLoading}
+                  style={{ padding: "5px 10px", borderRadius: 7, border: "1px solid #BFDBFE", background: "#EFF6FF", color: "#2563EB", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "inherit" }}>
+                  Modifier
+                </button>
+              )}
+              {!canManageSales ? null : cancelConfirm ? (
                 <>
                   <button onClick={() => { setCancelConfirm(false); onCancel(delivery.id); }} disabled={isLoading}
                     style={{ padding: "5px 10px", borderRadius: 7, border: "none", background: "#EF4444", color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "inherit" }}>
@@ -337,6 +343,7 @@ function DeliveryCard({ delivery, onModify, onCancel, onValidate, loading }: {
 // ── Page principale ───────────────────────────────────────────────
 export default function DeliveryManagementPage() {
   const today = new Date().toISOString().split("T")[0];
+  const { canManageSales, canOperateRegister } = useRegisterAccess();
 
   const [deliveries, setDeliveries] = useState<DeliveryRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -368,9 +375,11 @@ export default function DeliveryManagementPage() {
   };
 
   const handleCancel = async (id: number) => {
+    const reason = window.prompt("Motif de l'annulation (obligatoire) :")?.trim();
+    if (!reason) return;
     setActionLoading(id);
     try {
-      await api.post(`/sales/${id}/cancel/`);
+      await api.post(`/sales/${id}/cancel/`, { reason });
       await fetchDeliveries();
     } catch (e: any) {
       setError(e.response?.data?.error ?? "Erreur lors de l'annulation.");
@@ -481,6 +490,8 @@ export default function DeliveryManagementPage() {
               onCancel={handleCancel}
               onValidate={handleValidate}
               loading={actionLoading ?? loadingModify}
+              canManageSales={canManageSales}
+              canOperateRegister={canOperateRegister}
             />
           ))}
         </div>

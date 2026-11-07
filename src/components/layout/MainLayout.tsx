@@ -163,6 +163,7 @@ const NAV_ITEMS: Record<UserRole, NavItem[]> = {
     { label: "Caisse",      path: "/manager/caisse",      icon: "pos"      },
     { label: "Sessions",    path: "/manager/sessions",    icon: "sessions" },
     { label: "Ventes",      path: "/manager/ventes",      icon: "movements"},
+    { label: "Signalements", path: "/manager/signalements", icon: "bell"   },
     { label: "Historique",  path: "/manager/historique",  icon: "inventory"},
     { label: "Livraisons",  path: "/manager/livraisons",  icon: "livreur"  },
     { label: "Livreurs",    path: "/manager/livreurs",    icon: "employees"},
@@ -176,6 +177,7 @@ const NAV_ITEMS: Record<UserRole, NavItem[]> = {
     { label: "Mouvements",  path: "/employee/movements",   icon: "movements"  },
 
     { label: "Caisse",      path: "/employee/caisse",      icon: "pos"      },
+    { label: "Ventes",      path: "/employee/ventes",      icon: "movements"},
     { label: "Livraisons",  path: "/employee/livraisons",  icon: "livreur"  },
     { label: "Rapport",     path: "/employee/rapport",     icon: "report"   },
   ],

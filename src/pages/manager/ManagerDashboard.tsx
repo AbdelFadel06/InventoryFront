@@ -6,6 +6,7 @@ import { stockService } from "../../services/stockService";
 import { userService }  from "../../services/userService";
 import axiosInstance    from "../../api/axiosInstance";
 import { StatCard, PageHeader, Btn, Icon } from "../../components/ui";
+import OpenIssuesBanner from "../../components/OpenIssuesBanner";
 import type { User } from "../../types/user";
 
 interface DayRevenue { date: string; total_sales: number; total_amount: number; }
@@ -179,6 +180,8 @@ export default function ManagerDashboard() {
         subtitle={`${user?.shop_name ?? "Votre boutique"} — ${new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}`}
         action={<Btn size="sm" onClick={() => navigate("/manager/users/create")}>+ Nouvel employé</Btn>}
       />
+
+      <OpenIssuesBanner />
 
       {/* Stats */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 14, marginBottom: 28 }}>

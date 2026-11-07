@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { PageHeader, Badge, DataTable, StatCard, Icon, DateInput, PaginationBar } from "../../components/ui";
 import { formatDateTime } from "../../utils/format";
+import { useRegisterAccess } from "../../hooks/useRegisterAccess";
 import axiosInstance from "../../api/axiosInstance";
 
 // ── Types ────────────────────────────────────────────────────────
@@ -40,12 +41,75 @@ interface Sale {
 
 const fmtPrice = (n: number | string) => Number(n).toLocaleString("fr-FR") + " F";
 
+const ISSUE_REASONS = [
+  { value: "wrong_amount",  label: "Erreur de montant" },
+  { value: "wrong_item",    label: "Mauvais article" },
+  { value: "client_return", label: "Client revenu" },
+  { value: "other",         label: "Autre" },
+];
+
+// ── Formulaire de signalement ─────────────────────────────────────
+function ReportIssueForm({ saleId, onDone }: { saleId: number; onDone: () => void }) {
+  const [reason, setReason] = useState(ISSUE_REASONS[0].value);
+  const [comment, setComment] = useState("");
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = async () => {
+    setSending(true);
+    setError(null);
+    try {
+      await axiosInstance.post(`/sales/${saleId}/report_issue/`, { reason, comment });
+      onDone();
+    } catch (e: any) {
+      const data = e?.response?.data;
+      setError(data?.comment?.[0] ?? data?.error ?? "Le signalement a échoué.");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const fieldStyle: React.CSSProperties = {
+    width: "100%", padding: "9px 12px", borderRadius: 9, border: "1px solid #E2E8F0",
+    fontSize: 13.5, fontFamily: "inherit", boxSizing: "border-box",
+  };
+
+  return (
+    <div style={{ margin: "0 24px 16px", padding: 14, borderRadius: 10, background: "#FFFBEB", border: "1px solid #FDE68A", display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ fontSize: 13, color: "#92400E" }}>
+        La vente ne change pas : le manager la traitera au point du soir.
+      </div>
+      <select aria-label="Motif" value={reason} onChange={e => setReason(e.target.value)} style={fieldStyle}>
+        {ISSUE_REASONS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+      </select>
+      <textarea
+        aria-label="Commentaire"
+        placeholder={reason === "other" ? "Précisez le problème (obligatoire)" : "Commentaire (facultatif)"}
+        value={comment}
+        onChange={e => setComment(e.target.value)}
+        rows={2}
+        style={{ ...fieldStyle, resize: "vertical" }}
+      />
+      {error && <div role="alert" style={{ fontSize: 13, color: "#B91C1C" }}>{error}</div>}
+      <button onClick={submit} disabled={sending} style={{
+        alignSelf: "flex-end", padding: "8px 16px", borderRadius: 9, border: "none",
+        background: sending ? "#94A3B8" : "#D97706", color: "#fff",
+        cursor: sending ? "not-allowed" : "pointer", fontSize: 13, fontWeight: 600, fontFamily: "inherit",
+      }}>
+        {sending ? "Envoi..." : "Envoyer le signalement"}
+      </button>
+    </div>
+  );
+}
+
 // ── Modal détail vente ────────────────────────────────────────────
 function SaleDetailModal({ saleId, onClose, onRefresh }: {
   saleId: number;
   onClose: () => void;
   onRefresh: () => void;
 }) {
+  const { canManageSales, canOperateRegister } = useRegisterAccess();
+  const [reporting, setReporting] = useState(false);
   const [sale, setSale] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState(false);
@@ -59,10 +123,11 @@ function SaleDetailModal({ saleId, onClose, onRefresh }: {
   }, [saleId]);
 
   const handleCancel = async () => {
-    if (!confirm("Annuler cette vente ? Le stock sera remis en place.")) return;
+    const reason = window.prompt("Annuler cette vente ? Le stock sera remis en place.\n\nMotif (obligatoire) :")?.trim();
+    if (!reason) return;
     setCancelling(true);
     try {
-      await axiosInstance.post(`/sales/${saleId}/cancel/`);
+      await axiosInstance.post(`/sales/${saleId}/cancel/`, { reason });
       onRefresh();
       onClose();
     } catch (e: any) {
@@ -204,9 +269,32 @@ function SaleDetailModal({ saleId, onClose, onRefresh }: {
                   <Icon name="info" size={13} color="#94A3B8" style={{ marginRight: 5 }} />{sale.notes}
                 </div>
               )}
+
+              {sale.cancel_reason && (
+                <div style={{
+                  marginTop: 12, padding: "10px 14px",
+                  background: "#FEF2F2", borderRadius: 9, fontSize: 13, color: "#B91C1C",
+                }}>
+                  <strong>Motif d'annulation :</strong> {sale.cancel_reason}
+                </div>
+              )}
+
+              {sale.open_issue && (
+                <div style={{
+                  marginTop: 12, padding: "10px 14px",
+                  background: "#FFFBEB", borderRadius: 9, fontSize: 13, color: "#92400E",
+                }}>
+                  <strong>Signalée : {sale.open_issue.reason_label}.</strong>
+                  {sale.open_issue.comment && ` ${sale.open_issue.comment}`}
+                </div>
+              )}
             </>
           )}
         </div>
+
+        {reporting && (
+          <ReportIssueForm saleId={saleId} onDone={() => { onRefresh(); onClose(); }} />
+        )}
 
         <div style={{ padding: "0 24px 20px", display: "flex", gap: 10, justifyContent: "flex-end" }}>
           <button onClick={onClose} style={{
@@ -215,7 +303,16 @@ function SaleDetailModal({ saleId, onClose, onRefresh }: {
           }}>
             Fermer
           </button>
-          {sale && sale.status === "completed" && (
+          {canOperateRegister && !reporting && sale && sale.status === "completed" && !sale.open_issue && (
+            <button onClick={() => setReporting(true)} style={{
+              padding: "9px 20px", borderRadius: 9, border: "1px solid #FDE68A",
+              background: "#FFFBEB", color: "#B45309", cursor: "pointer",
+              fontSize: 13.5, fontWeight: 600, fontFamily: "inherit",
+            }}>
+              Signaler
+            </button>
+          )}
+          {canManageSales && sale && sale.status === "completed" && (
             <button onClick={handleCancel} disabled={cancelling}
               style={{
                 padding: "9px 20px", borderRadius: 9, border: "none",
