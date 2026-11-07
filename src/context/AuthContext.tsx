@@ -5,6 +5,7 @@ import type { Shop } from "../types/shop";
 import { userService } from "../services/userService";
 import { authService } from "../services/authService";
 import { shopService } from "../services/shopService";
+import { forgetPushOnLogout } from "../services/pushService";
 import type { TokenObtainPair } from "../types/auth";
 
 interface AuthContextType {
@@ -44,6 +45,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const resolveActiveShop = (shops: Shop[]): Shop | null => {
     if (shops.length === 0) return null;
+    // Une notification ouvre la page avec ?shop= : basculer sur cette boutique si le manager la gère.
+    const linkedId = new URLSearchParams(window.location.search).get("shop");
+    if (linkedId && shops.some(s => s.id === Number(linkedId))) {
+      localStorage.setItem(ACTIVE_SHOP_KEY, linkedId);
+    }
     const savedId = localStorage.getItem(ACTIVE_SHOP_KEY);
     if (savedId) {
       const found = shops.find(s => s.id === Number(savedId));
@@ -105,6 +111,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = () => {
+    forgetPushOnLogout();
     authService.logout();
     setUser(null);
     setManagedShops([]);
