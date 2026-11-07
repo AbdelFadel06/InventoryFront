@@ -3,6 +3,9 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { SaleDetailModal } from "../shared/SalesListPage";
+import IconAction from "../../components/sales/IconAction";
+import ReasonDialog from "../../components/sales/ReasonDialog";
+import SaleCorrectionModal from "../../components/sales/SaleCorrectionModal";
 import { PageHeader, Badge, DataTable } from "../../components/ui";
 import { formatDateTime } from "../../utils/format";
 import axiosInstance from "../../api/axiosInstance";
@@ -24,17 +27,12 @@ interface SaleIssue {
 
 const fmtPrice = (n: number | string) => Number(n).toLocaleString("fr-FR") + " F";
 
-const actionButton = (color: string, background: string, border: string): React.CSSProperties => ({
-  padding: "5px 10px", borderRadius: 7, border: `1px solid ${border}`, background, color,
-  cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "inherit",
-});
 
 export default function SaleIssuesPage() {
   const { activeShop } = useAuth();
   const [filter, setFilter] = useState<"open" | "resolved">("open");
   const [issues, setIssues] = useState<SaleIssue[]>([]);
   const [loading, setLoading] = useState(true);
-  const [busyId, setBusyId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   // ?sale=<id> : ouverture directe depuis la cloche.
   const [searchParams, setSearchParams] = useSearchParams();
@@ -58,27 +56,18 @@ export default function SaleIssuesPage() {
 
   useEffect(() => { load(); }, [filter, activeShop?.id]);
 
-  const run = async (issue: SaleIssue, action: () => Promise<unknown>) => {
-    setBusyId(issue.id);
-    setError(null);
+  /** Action en cours sur une ligne : fenêtre de clôture, d'annulation ou de correction. */
+  const [pending, setPending] = useState<{ kind: "resolve" | "cancel" | "correct"; issue: SaleIssue } | null>(null);
+
+  const done = async () => { setPending(null); await load(); };
+
+  const submit = (request: () => Promise<unknown>) => async () => {
     try {
-      await action();
-      await load();
+      await request();
     } catch (e: any) {
-      setError(e?.response?.data?.error ?? "L'opération a échoué.");
-    } finally {
-      setBusyId(null);
+      return e?.response?.data?.error ?? "L'opération a échoué.";
     }
-  };
-
-  const handleResolve = (issue: SaleIssue) => {
-    const note = window.prompt(`Clôturer le signalement de ${issue.sale_reference}.\n\nComment le problème a-t-il été traité ?`)?.trim();
-    if (note) run(issue, () => axiosInstance.post(`/sale-issues/${issue.id}/resolve/`, { note }));
-  };
-
-  const handleCancelSale = (issue: SaleIssue) => {
-    const reason = window.prompt(`Annuler la vente ${issue.sale_reference} ? Le stock sera remis en place.\n\nMotif (obligatoire) :`)?.trim();
-    if (reason) run(issue, () => axiosInstance.post(`/sales/${issue.sale}/cancel/`, { reason }));
+    await done();
   };
 
   const columns = [
@@ -106,13 +95,12 @@ export default function SaleIssuesPage() {
     filter === "open"
       ? { key: "actions", label: "Actions", render: (i: SaleIssue) => (
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          <button disabled={busyId === i.id} onClick={() => handleResolve(i)} style={actionButton("#047857", "#ECFDF5", "#A7F3D0")}>
-            Clôturer
-          </button>
+          <IconAction icon="check" tone="green" label="Clôturer le signalement" onClick={() => setPending({ kind: "resolve", issue: i })} />
           {i.sale_status === "completed" && (
-            <button disabled={busyId === i.id} onClick={() => handleCancelSale(i)} style={actionButton("#DC2626", "#FEF2F2", "#FECACA")}>
-              Annuler la vente
-            </button>
+            <>
+              <IconAction icon="cancel" tone="red" label="Annuler la vente" onClick={() => setPending({ kind: "cancel", issue: i })} />
+              <IconAction icon="edit" tone="blue" label="Corriger la vente" onClick={() => setPending({ kind: "correct", issue: i })} />
+            </>
           )}
         </div>
       ) }
@@ -156,6 +144,40 @@ export default function SaleIssuesPage() {
         loading={loading}
         emptyText={filter === "open" ? "Aucune vente à traiter." : "Aucun signalement traité."}
       />
+
+
+      {pending?.kind === "resolve" && (
+        <ReasonDialog
+          title="Clôturer le signalement"
+          label="Comment le problème a-t-il été traité ? (obligatoire)"
+          placeholder="Ex. : vérifié, le montant était juste"
+          confirmLabel="Clôturer"
+          onConfirm={note => submit(() => axiosInstance.post(`/sale-issues/${pending.issue.id}/resolve/`, { note }))()}
+          onClose={() => setPending(null)}
+        >
+          {pending.issue.sale_reference} · {fmtPrice(pending.issue.sale_total)} · signalée : <strong>{pending.issue.reason_label}</strong>.
+          La vente reste telle quelle.
+        </ReasonDialog>
+      )}
+
+      {pending?.kind === "cancel" && (
+        <ReasonDialog
+          title={`Annuler la vente ${pending.issue.sale_reference} ?`}
+          label="Motif de l'annulation (obligatoire)"
+          placeholder="Ex. : vente saisie deux fois"
+          confirmLabel="Annuler la vente"
+          danger
+          onConfirm={reason => submit(() => axiosInstance.post(`/sales/${pending.issue.sale}/cancel/`, { reason }))()}
+          onClose={() => setPending(null)}
+        >
+          {fmtPrice(pending.issue.sale_total)}. La vente restera visible avec le badge « Annulée » et ce motif ;
+          le stock sera remis en place et le signalement clôturé.
+        </ReasonDialog>
+      )}
+
+      {pending?.kind === "correct" && (
+        <SaleCorrectionModal saleId={pending.issue.sale} onClose={() => setPending(null)} onDone={done} />
+      )}
 
       {openSaleId && (
         <SaleDetailModal saleId={openSaleId} onClose={() => openSale(null)} onRefresh={load} />

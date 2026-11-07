@@ -1,6 +1,6 @@
 // src/pages/shared/StockListPage.tsx
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { stockService } from "../../services/stockService";
 import { useAuth } from "../../context/AuthContext";
 import { PageHeader, Btn, Badge, DataTable, StatCard, Icon, PaginationBar } from "../../components/ui";
@@ -25,7 +25,13 @@ export default function StockListPage() {
   const [stocks, setStocks]     = useState<Stock[]>([]);
   const [loading, setLoading]   = useState(true);
   const [search, setSearch]     = useState("");
-  const [filterStatus,   setFilterStatus]   = useState<StockStatus | "all">("all");
+  // ?status=… : arrivée depuis une notification de stock.
+  const [searchParams] = useSearchParams();
+  const statusParam = searchParams.get("status");
+  const initialStatus = (["ok", "low", "critical", "out_of_stock"] as const).find(s => s === statusParam) ?? "all";
+  const [filterStatus,   setFilterStatus]   = useState<StockStatus | "all">(initialStatus);
+  // Une nouvelle notification peut arriver alors que la page est déjà ouverte.
+  useEffect(() => { setFilterStatus(initialStatus); }, [initialStatus]);
   const [filterLocation, setFilterLocation] = useState<"BOUTIQUE" | "MAGASIN" | "all">("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount]   = useState(0);

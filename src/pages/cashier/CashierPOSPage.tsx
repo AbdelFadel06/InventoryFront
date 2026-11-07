@@ -1,8 +1,6 @@
 // src/pages/cashier/CashierPOSPage.tsx
 import { useEffect, useState, useRef, useCallback } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import type { SaleCorrection } from "../shared/SalesListPage";
 import { Badge, Icon } from "../../components/ui";
 import axiosInstance from "../../api/axiosInstance";
 import { userService } from "../../services/userService";
@@ -714,10 +712,6 @@ export default function CashierPOSPage() {
   const productsRef = useRef<Product[]>([]);
 
   const [cart, setCart] = useState<CartItem[]>([]);
-  const location = useLocation();
-  const navigate = useNavigate();
-  /** Référence de la vente annulée dont on refait le panier, via le bouton « Corriger ». */
-  const [correctionOf, setCorrectionOf] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [showResults] = useState(false); // kept for compatibility, unused
@@ -762,33 +756,6 @@ export default function CashierPOSPage() {
     };
     load();
     loadTodayStats();
-  }, []);
-
-  // Correction d'une vente : on reprend ses articles au prix actuel, le manager ajuste puis encaisse.
-  useEffect(() => {
-    const correction = (location.state as { correction?: SaleCorrection } | null)?.correction;
-    if (!correction) return;
-    // Efface l'état de navigation : un rechargement de la page ne doit pas refaire le panier.
-    navigate(location.pathname, { replace: true, state: null });
-    Promise.all(correction.items.map(item =>
-      axiosInstance.get(`/products/${item.product}/`)
-        .then(res => calcItem({
-          product: res.data,
-          quantity: item.quantity,
-          unit_price: parseFloat(res.data.selling_price),
-          discount_type: item.discount_type,
-          discount_value: item.discount_value,
-        }))
-        .catch(() => null),
-    )).then(items => {
-      const found = items.filter((i): i is CartItem => i !== null);
-      setCart(found);
-      setCorrectionOf(correction.reference);
-      if (found.length < correction.items.length) {
-        showScanToast("Certains articles n'existent plus : vérifiez le panier.", false);
-      }
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const showScanToast = (msg: string, ok: boolean) => {
@@ -1192,14 +1159,6 @@ export default function CashierPOSPage() {
               </button>
             )}
           </div>
-          {correctionOf && cart.length > 0 && (
-            <div role="status" style={{
-              padding: "10px 16px", background: "#EFF6FF", borderBottom: "1px solid #BFDBFE",
-              fontSize: 12.5, color: "#1E40AF",
-            }}>
-              Correction de la vente <strong>{correctionOf}</strong> (annulée). Ajustez le panier, puis encaissez.
-            </div>
-          )}
 
           {/* Articles */}
           <div style={{ flex: 1, overflowY: "auto" }}>

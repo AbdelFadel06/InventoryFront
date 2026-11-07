@@ -6,7 +6,6 @@ import { stockService } from "../../services/stockService";
 import { userService }  from "../../services/userService";
 import axiosInstance    from "../../api/axiosInstance";
 import { StatCard, PageHeader, Btn, Icon } from "../../components/ui";
-import OpenIssuesBanner from "../../components/OpenIssuesBanner";
 import type { User } from "../../types/user";
 
 interface DayRevenue { date: string; total_sales: number; total_amount: number; }
@@ -181,7 +180,6 @@ export default function ManagerDashboard() {
         action={<Btn size="sm" onClick={() => navigate("/manager/users/create")}>+ Nouvel employé</Btn>}
       />
 
-      <OpenIssuesBanner />
 
       {/* Stats */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 14, marginBottom: 28 }}>
@@ -190,26 +188,6 @@ export default function ManagerDashboard() {
         <StatCard label="Critiques" value={alerts.critical}     icon={<Icon name="warning" size={22} />} color="orange" loading={loading} sub="en dessous du minimum" />
         <StatCard label="Stock bas" value={alerts.low}          icon={<Icon name="chartUp" size={22} />} color="purple" loading={loading} sub="à réapprovisionner" />
       </div>
-
-      {/* Alerte rouge */}
-      {!loading && (alerts.out_of_stock > 0 || alerts.critical > 0) && (
-        <div style={{
-          background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 12,
-          padding: "14px 18px", marginBottom: 24,
-          display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
-        }}>
-          <div>
-            <div style={{ fontSize: 13.5, fontWeight: 600, color: "#DC2626", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
-              <Icon name="warning" size={15} color="#DC2626" /> Attention requise
-            </div>
-            <div style={{ fontSize: 13, color: "#EF4444" }}>
-              {alerts.out_of_stock > 0 && <span>{alerts.out_of_stock} produit(s) en rupture. </span>}
-              {alerts.critical > 0     && <span>{alerts.critical} produit(s) en stock critique.</span>}
-            </div>
-          </div>
-          <Btn size="sm" variant="danger" onClick={() => navigate("/manager/stocks")}>Voir les stocks →</Btn>
-        </div>
-      )}
 
       {/* Actions rapides */}
       <div style={{ marginBottom: 24 }}>

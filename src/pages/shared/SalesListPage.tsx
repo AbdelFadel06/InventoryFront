@@ -1,6 +1,9 @@
 // src/pages/shared/SalesListPage.tsx
 import { useEffect, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
+import IconAction from "../../components/sales/IconAction";
+import ReasonDialog from "../../components/sales/ReasonDialog";
+import SaleCorrectionModal from "../../components/sales/SaleCorrectionModal";
 import { useAuth } from "../../context/AuthContext";
 import { PageHeader, Badge, DataTable, StatCard, Icon, DateInput, PaginationBar } from "../../components/ui";
 import { formatDateTime } from "../../utils/format";
@@ -102,11 +105,7 @@ function ReportIssueForm({ saleId, onDone }: { saleId: number; onDone: () => voi
   );
 }
 
-/** Articles d'une vente corrigée, repris par la caisse pour préremplir le panier. */
-export interface SaleCorrection {
-  reference: string;
-  items: { product: number; quantity: number; discount_type: "fixed" | "percent" | null; discount_value: number }[];
-}
+const apiError = (e: any, fallback: string) => e?.response?.data?.error ?? fallback;
 
 // ── Modal détail vente ────────────────────────────────────────────
 export function SaleDetailModal({ saleId, onClose, onRefresh }: {
@@ -114,63 +113,54 @@ export function SaleDetailModal({ saleId, onClose, onRefresh }: {
   onClose: () => void;
   onRefresh: () => void;
 }) {
-  const { user } = useAuth();
-  const navigate = useNavigate();
   const { canManageSales, canOperateRegister } = useRegisterAccess();
-  // Le Super Admin n'encaisse pas : la correction est réservée au manager.
-  const canCorrect = user?.role === "SHOP_MANAGER";
+  // La fenêtre peut passer d'une vente à celle qui la corrige (ou l'inverse).
+  const [currentId, setCurrentId] = useState(saleId);
   const [reporting, setReporting] = useState(false);
+  const [dialog, setDialog] = useState<"cancel" | "resolve" | "correct" | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [sale, setSale] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    axiosInstance.get(`/sales/${saleId}/`)
-      .then(res => setSale(res.data))
+  const loadSale = (id: number) => {
+    setLoading(true);
+    axiosInstance.get(`/sales/${id}/`)
+      .then(res => { setSale(res.data); setError(null); })
       .catch(() => setError("Erreur chargement"))
       .finally(() => setLoading(false));
-  }, [saleId]);
-
-  const handleCancel = async () => {
-    const reason = window.prompt("Annuler cette vente ? Le stock sera remis en place.\n\nMotif (obligatoire) :")?.trim();
-    if (!reason) return;
-    setCancelling(true);
-    try {
-      await axiosInstance.post(`/sales/${saleId}/cancel/`, { reason });
-      onRefresh();
-      onClose();
-    } catch (e: any) {
-      setError(e?.response?.data?.error ?? "Erreur lors de l'annulation.");
-    } finally {
-      setCancelling(false);
-    }
   };
 
-  /** Annule la vente puis ouvre la caisse avec les mêmes articles, à ajuster avant d'encaisser. */
-  const handleCorrect = async () => {
-    const reason = window.prompt(
-      "Corriger cette vente ? Elle sera annulée (stock remis en place), puis la caisse s'ouvrira avec les mêmes articles.\n\nMotif (obligatoire) :",
-    )?.trim();
-    if (!reason) return;
-    setCancelling(true);
+  useEffect(() => { setCurrentId(saleId); }, [saleId]);
+  useEffect(() => { loadSale(currentId); }, [currentId]);
+
+  const showSale = (id: number) => { setNotice(null); setCurrentId(id); };
+
+  const cancelSale = async (reason: string) => {
     try {
-      await axiosInstance.post(`/sales/${saleId}/cancel/`, { reason });
-      const correction: SaleCorrection = {
-        reference: sale.reference,
-        items: sale.items.map((i: any) => ({
-          product: i.product,
-          quantity: i.quantity,
-          discount_type: i.discount_type ?? null,
-          discount_value: Number(i.discount_value ?? 0),
-        })),
-      };
-      navigate("/manager/caisse", { state: { correction } });
-    } catch (e: any) {
-      setError(e?.response?.data?.error ?? "Erreur lors de l'annulation.");
-      setCancelling(false);
+      await axiosInstance.post(`/sales/${currentId}/cancel/`, { reason });
+    } catch (e) {
+      return apiError(e, "L'annulation a échoué.");
     }
+    setDialog(null);
+    setNotice("Vente annulée. Le stock a été remis en place.");
+    onRefresh();
+    loadSale(currentId);
   };
+
+  const resolveIssue = async (note: string) => {
+    try {
+      await axiosInstance.post(`/sale-issues/${sale.open_issue.id}/resolve/`, { note });
+    } catch (e) {
+      return apiError(e, "La clôture a échoué.");
+    }
+    setDialog(null);
+    setNotice("Signalement clôturé. La vente ne change pas.");
+    onRefresh();
+    loadSale(currentId);
+  };
+
+  const isOpen = sale && sale.status === "completed";
 
   return (
     <div style={{
@@ -314,6 +304,24 @@ export function SaleDetailModal({ saleId, onClose, onRefresh }: {
                 </div>
               )}
 
+              {sale.corrected_by_sale && (
+                <div style={{ marginTop: 12, padding: "10px 14px", background: "#EFF6FF", borderRadius: 9, fontSize: 13, color: "#1E40AF" }}>
+                  Remplacée par la vente corrigée{" "}
+                  <button onClick={() => showSale(sale.corrected_by_sale.id)} style={linkButton}>
+                    {sale.corrected_by_sale.reference}
+                  </button>
+                </div>
+              )}
+
+              {sale.corrected_from && (
+                <div style={{ marginTop: 12, padding: "10px 14px", background: "#EFF6FF", borderRadius: 9, fontSize: 13, color: "#1E40AF" }}>
+                  Correction de la vente{" "}
+                  <button onClick={() => showSale(sale.corrected_from)} style={linkButton}>
+                    {sale.corrected_from_reference}
+                  </button>
+                </div>
+              )}
+
               {sale.open_issue && (
                 <div style={{
                   marginTop: 12, padding: "10px 14px",
@@ -328,17 +336,26 @@ export function SaleDetailModal({ saleId, onClose, onRefresh }: {
         </div>
 
         {reporting && (
-          <ReportIssueForm saleId={saleId} onDone={() => { onRefresh(); onClose(); }} />
+          <ReportIssueForm saleId={currentId} onDone={() => { onRefresh(); onClose(); }} />
         )}
 
-        <div style={{ padding: "0 24px 20px", display: "flex", gap: 10, justifyContent: "flex-end" }}>
-          <button onClick={onClose} style={{
-            padding: "9px 20px", borderRadius: 9, border: "1px solid #E2E8F0",
-            background: "#fff", cursor: "pointer", fontSize: 13.5, fontFamily: "inherit",
-          }}>
-            Fermer
-          </button>
-          {canOperateRegister && !reporting && sale && sale.status === "completed" && !sale.open_issue && (
+        {notice && (
+          <div role="status" style={{ margin: "0 24px 14px", padding: "10px 14px", borderRadius: 9, background: "#ECFDF5", color: "#047857", fontSize: 13 }}>
+            {notice}
+          </div>
+        )}
+
+        <div style={{ padding: "0 24px 20px", display: "flex", gap: 8, justifyContent: "flex-end", alignItems: "center", flexWrap: "wrap" }}>
+          {canManageSales && isOpen && sale.open_issue && (
+            <IconAction icon="check" tone="green" label="Clôturer le signalement" onClick={() => setDialog("resolve")} />
+          )}
+          {canManageSales && isOpen && (
+            <IconAction icon="cancel" tone="red" label="Annuler la vente" onClick={() => setDialog("cancel")} />
+          )}
+          {canManageSales && isOpen && (
+            <IconAction icon="edit" tone="blue" label="Corriger la vente" onClick={() => setDialog("correct")} />
+          )}
+          {canOperateRegister && !canManageSales && !reporting && isOpen && !sale.open_issue && (
             <button onClick={() => setReporting(true)} style={{
               padding: "9px 20px", borderRadius: 9, border: "1px solid #FDE68A",
               background: "#FFFBEB", color: "#B45309", cursor: "pointer",
@@ -347,34 +364,66 @@ export function SaleDetailModal({ saleId, onClose, onRefresh }: {
               Signaler
             </button>
           )}
-          {canManageSales && sale && sale.status === "completed" && (
-            <button onClick={handleCancel} disabled={cancelling}
-              style={{
-                padding: "9px 20px", borderRadius: 9, border: "none",
-                background: cancelling ? "#94A3B8" : "#FEF2F2",
-                color: cancelling ? "#fff" : "#DC2626", cursor: cancelling ? "not-allowed" : "pointer",
-                fontSize: 13.5, fontWeight: 600, fontFamily: "inherit",
-                border: "1px solid #FECACA",
-              }}>
-              {cancelling ? "Annulation..." : "Annuler la vente"}
-            </button>
-          )}
-          {canCorrect && sale && sale.status === "completed" && (
-            <button onClick={handleCorrect} disabled={cancelling}
-              style={{
-                padding: "9px 20px", borderRadius: 9, border: "none",
-                background: cancelling ? "#94A3B8" : "#2563EB", color: "#fff",
-                cursor: cancelling ? "not-allowed" : "pointer",
-                fontSize: 13.5, fontWeight: 600, fontFamily: "inherit",
-              }}>
-              Corriger
-            </button>
-          )}
+          <button onClick={onClose} style={{
+            padding: "9px 20px", borderRadius: 9, border: "1px solid #E2E8F0",
+            background: "#fff", cursor: "pointer", fontSize: 13.5, fontFamily: "inherit",
+          }}>
+            Fermer
+          </button>
         </div>
       </div>
+
+      {dialog === "cancel" && sale && (
+        <ReasonDialog
+          title={`Annuler la vente ${sale.reference} ?`}
+          label="Motif de l'annulation (obligatoire)"
+          placeholder="Ex. : vente saisie deux fois"
+          confirmLabel="Annuler la vente"
+          danger
+          onConfirm={cancelSale}
+          onClose={() => setDialog(null)}
+        >
+          {fmtPrice(sale.total_amount)} · {sale.items?.length ?? 0} article(s). La vente restera visible avec le
+          badge « Annulée » et ce motif ; le stock sera remis en place.
+          {sale.open_issue && <><br />Le signalement « {sale.open_issue.reason_label} » sera clôturé.</>}
+        </ReasonDialog>
+      )}
+
+      {dialog === "resolve" && sale?.open_issue && (
+        <ReasonDialog
+          title="Clôturer le signalement"
+          label="Comment le problème a-t-il été traité ? (obligatoire)"
+          placeholder="Ex. : vérifié, le montant était juste"
+          confirmLabel="Clôturer"
+          onConfirm={resolveIssue}
+          onClose={() => setDialog(null)}
+        >
+          Signalée : <strong>{sale.open_issue.reason_label}</strong>
+          {sale.open_issue.comment && ` (${sale.open_issue.comment})`}.
+          La vente {sale.reference} reste telle quelle.
+        </ReasonDialog>
+      )}
+
+      {dialog === "correct" && (
+        <SaleCorrectionModal
+          saleId={currentId}
+          onClose={() => setDialog(null)}
+          onDone={newSale => {
+            setDialog(null);
+            onRefresh();
+            setCurrentId(newSale.id);
+            setNotice(`Vente corrigée. L'ancienne est annulée, la nouvelle est ${newSale.reference}.`);
+          }}
+        />
+      )}
     </div>
   );
 }
+
+const linkButton: React.CSSProperties = {
+  background: "none", border: "none", padding: 0, cursor: "pointer", color: "#1D4ED8",
+  fontFamily: "monospace", fontWeight: 700, fontSize: 13, textDecoration: "underline",
+};
 
 // ── Page liste des ventes ─────────────────────────────────────────
 export default function SalesListPage() {

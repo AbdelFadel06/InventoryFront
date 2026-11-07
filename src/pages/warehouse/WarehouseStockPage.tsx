@@ -1,6 +1,6 @@
 // src/pages/warehouse/WarehouseStockPage.tsx
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { stockService } from "../../services/stockService";
 import { useAuth } from "../../context/AuthContext";
 import { PageHeader, Btn, Badge, DataTable, StatCard, Icon } from "../../components/ui";
@@ -20,7 +20,13 @@ export default function WarehouseStockPage() {
   const [stocks,  setStocks]  = useState<Stock[]>([]);
   const [loading, setLoading] = useState(true);
   const [search,  setSearch]  = useState("");
-  const [filterStatus, setFilterStatus] = useState<StockStatus | "all">("all");
+  // ?status=… : arrivée depuis une notification de stock.
+  const [searchParams] = useSearchParams();
+  const statusParam = searchParams.get("status");
+  const initialStatus = (["ok", "low", "critical", "out_of_stock"] as const).find(s => s === statusParam) ?? "all";
+  const [filterStatus, setFilterStatus] = useState<StockStatus | "all">(initialStatus);
+  // Une nouvelle notification peut arriver alors que la page est déjà ouverte.
+  useEffect(() => { setFilterStatus(initialStatus); }, [initialStatus]);
 
   useEffect(() => {
     stockService.getAll({ location: "MAGASIN" })
