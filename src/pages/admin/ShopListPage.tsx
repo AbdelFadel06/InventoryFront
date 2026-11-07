@@ -3,7 +3,8 @@ import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { shopService } from "../../services/shopService";
 import { userService } from "../../services/userService";
-import { PageHeader, Btn, Badge, DataTable, StatCard, Icon } from "../../components/ui";
+import { PageHeader, Btn, Badge, DataTable, StatCard, Icon, PaginationBar } from "../../components/ui";
+import { useClientPage } from "../../hooks/useClientPage";
 import type { Shop } from "../../types/shop";
 import type { User } from "../../types/user";
 
@@ -177,6 +178,8 @@ export default function ShopListPage() {
     );
   });
 
+  const pageOf = useClientPage(filtered, search);
+
   const columns = [
     {
       key: "name", label: "Boutique",
@@ -294,13 +297,14 @@ export default function ShopListPage() {
 
       <DataTable
         columns={columns as any}
-        data={filtered}
+        data={pageOf.rows}
         loading={loading}
         emptyText="Aucune boutique trouvée"
         searchValue={search}
         onSearch={setSearch}
         searchPlaceholder="Nom, ville, manager..."
       />
+      <PaginationBar currentPage={pageOf.page} totalCount={pageOf.total} onPage={pageOf.setPage} />
 
       {/* ── Modal gestion managers ───────────────────────── */}
       {managerModal && (() => {

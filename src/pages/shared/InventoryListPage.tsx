@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { inventoryService } from "../../services/inventoryService";
 import { useAuth } from "../../context/AuthContext";
 import { PageHeader, Btn, Badge, DataTable, StatCard, Icon, PaginationBar } from "../../components/ui";
+import { countOf, getListCounts, type ListCounts } from "../../services/listCounts";
 import { formatDate } from "../../utils/format";
 import type { Inventory } from "../../types/inventory";
 
@@ -29,12 +30,15 @@ export default function InventoryListPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount]   = useState(0);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [counts, setCounts] = useState<ListCounts | null>(null);
 
   const fetchInventories = (page = 1, q = "", status = filterStatus) => {
     setLoading(true);
     const params: Record<string, any> = { page };
     if (q) params.search = q;
     if (status !== "all") params.status = status;
+    // Compteurs de toute la liste (sans le filtre de statut), pas seulement de cette page.
+    getListCounts<ListCounts>("inventories", q ? { search: q } : {}).then(setCounts).catch(() => setCounts(null));
     inventoryService.getAll(params)
       .then(res => { setInventories(res.results ?? []); setTotalCount(res.count ?? 0); })
       .finally(() => setLoading(false));
@@ -55,10 +59,10 @@ export default function InventoryListPage() {
     fetchInventories(1, search, status);
   };
 
-  const draft      = inventories.filter(i => i.status === "draft").length;
-  const inProgress = inventories.filter(i => i.status === "in_progress").length;
-  const completed  = inventories.filter(i => i.status === "completed").length;
-  const validated  = inventories.filter(i => i.status === "validated").length;
+  const draft      = countOf(counts, "draft");
+  const inProgress = countOf(counts, "in_progress");
+  const completed  = countOf(counts, "completed");
+  const validated  = countOf(counts, "validated");
 
   const columns = [
     {

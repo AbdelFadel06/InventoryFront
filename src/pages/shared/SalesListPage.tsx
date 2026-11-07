@@ -6,6 +6,9 @@ import ReasonDialog from "../../components/sales/ReasonDialog";
 import SaleCorrectionModal from "../../components/sales/SaleCorrectionModal";
 import { useAuth } from "../../context/AuthContext";
 import { PageHeader, Badge, DataTable, StatCard, Icon, DateInput, PaginationBar } from "../../components/ui";
+import { getListCounts } from "../../services/listCounts";
+
+interface SalesCounts { total: number; completed: number; cancelled: number; unpaid: number; revenue: string | number }
 import { formatDateTime } from "../../utils/format";
 import { useRegisterAccess } from "../../hooks/useRegisterAccess";
 import axiosInstance from "../../api/axiosInstance";
@@ -441,6 +444,7 @@ export default function SalesListPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount]   = useState(0);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [counts, setCounts] = useState<SalesCounts | null>(null);
 
   const fetchSales = async (page = 1, q = "", status = filterStatus, type = filterType, date = selectedDate) => {
     setLoading(true);
@@ -448,6 +452,9 @@ export default function SalesListPage() {
     if (q) params.search = q;
     if (status !== "all") params.status = status;
     if (type !== "all") params.sale_type = type;
+    // Totaux de toute la journée filtrée (sans le filtre de statut), pas seulement de cette page.
+    const { status: _status, page: _page, ...countParams } = params;
+    getListCounts<SalesCounts>("sales", countParams).then(setCounts).catch(() => setCounts(null));
     try {
       const res = await axiosInstance.get("/sales/", { params });
       setSales(res.data.results ?? res.data);
@@ -480,10 +487,7 @@ export default function SalesListPage() {
     fetchSales(1, search, filterStatus, type);
   };
 
-  const completed = sales.filter(s => s.status === "completed");
-  const cancelled = sales.filter(s => s.status === "cancelled");
-  const totalCA = completed.reduce((sum, s) => sum + Number(s.total_amount), 0);
-  const pending = sales.filter(s => s.payment_status === "pending").length;
+  const totalCA = Number(counts?.revenue ?? 0);
 
   const columns = [
     {
@@ -575,10 +579,10 @@ export default function SalesListPage() {
 
       {/* Stats */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 14, marginBottom: 24 }}>
-        <StatCard label="Ventes" value={completed.length} icon={<Icon name="checkCircle" size={22} />} color="green" loading={loading} />
+        <StatCard label="Ventes" value={counts?.completed ?? 0} icon={<Icon name="checkCircle" size={22} />} color="green" loading={loading} />
         <StatCard label="CA du jour" value={fmtPrice(totalCA)} icon={<Icon name="money" size={22} />} color="blue" loading={loading} />
-        <StatCard label="Non payées" value={pending} icon={<Icon name="clock" size={22} />} color="orange" loading={loading} />
-        <StatCard label="Annulées" value={cancelled.length} icon={<Icon name="xCircle" size={22} />} color="red" loading={loading} />
+        <StatCard label="Non payées" value={counts?.unpaid ?? 0} icon={<Icon name="clock" size={22} />} color="orange" loading={loading} />
+        <StatCard label="Annulées" value={counts?.cancelled ?? 0} icon={<Icon name="xCircle" size={22} />} color="red" loading={loading} />
       </div>
 
       {/* Filtres */}

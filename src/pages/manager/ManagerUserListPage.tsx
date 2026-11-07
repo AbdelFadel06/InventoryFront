@@ -3,7 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate }  from "react-router-dom";
 import { userService }  from "../../services/userService";
 import { useAuth }      from "../../context/AuthContext";
-import { PageHeader, Btn, Badge, DataTable, StatCard, Icon } from "../../components/ui";
+import { PageHeader, Btn, Badge, DataTable, StatCard, Icon, PaginationBar } from "../../components/ui";
+import { useClientPage } from "../../hooks/useClientPage";
 import { formatDate }   from "../../utils/format";
 import type { User }    from "../../types/user";
 
@@ -326,6 +327,8 @@ export default function ManagerUserListPage() {
     );
   });
 
+  const pageOf = useClientPage(filtered, search);
+
   const columns = [
     {
       key: "name", label: "Employé",
@@ -395,13 +398,14 @@ export default function ManagerUserListPage() {
 
       <DataTable
         columns={columns as any}
-        data={filtered}
+        data={pageOf.rows}
         loading={loading}
         emptyText="Aucun employé dans votre boutique"
         searchValue={search}
         onSearch={setSearch}
         searchPlaceholder="Nom, email..."
       />
+      <PaginationBar currentPage={pageOf.page} totalCount={pageOf.total} onPage={pageOf.setPage} />
 
       {infoModal && (
         <UserInfoModal

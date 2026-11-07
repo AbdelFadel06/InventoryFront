@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { stockService }        from "../../services/stockService";
 import { PageHeader, Badge, DataTable, Icon, PaginationBar } from "../../components/ui";
 import type { Stock }          from "../../types/stock";
+import { countOf, getListCounts, type ListCounts } from "../../services/listCounts";
 
 export default function EmployeeStockListPage() {
   const [stocks, setStocks]   = useState<Stock[]>([]);
@@ -11,6 +12,12 @@ export default function EmployeeStockListPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount]   = useState(0);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [counts, setCounts] = useState<ListCounts | null>(null);
+
+  // Compteurs de toute la boutique, pas seulement de la page affichée.
+  const fetchCounts = (q = "") => {
+    getListCounts("stocks", q ? { search: q } : {}).then(setCounts).catch(() => setCounts(null));
+  };
 
   const fetchStocks = (page = 1, q = "") => {
     setLoading(true);
@@ -20,17 +27,17 @@ export default function EmployeeStockListPage() {
   };
 
   useEffect(() => { fetchStocks(currentPage, search); }, [currentPage]);
-  useEffect(() => { fetchStocks(1, ""); }, []);
+  useEffect(() => { fetchStocks(1, ""); fetchCounts(); }, []);
 
   const handleSearch = (val: string) => {
     setSearch(val);
     if (searchTimer.current) clearTimeout(searchTimer.current);
-    searchTimer.current = setTimeout(() => { setCurrentPage(1); fetchStocks(1, val); }, 300);
+    searchTimer.current = setTimeout(() => { setCurrentPage(1); fetchStocks(1, val); fetchCounts(val); }, 300);
   };
 
-  const outOfStock = stocks.filter(s => s.stock_status === "out_of_stock").length;
-  const critical   = stocks.filter(s => s.stock_status === "critical").length;
-  const low        = stocks.filter(s => s.stock_status === "low").length;
+  const outOfStock = countOf(counts, "out_of_stock");
+  const critical   = countOf(counts, "critical");
+  const low        = countOf(counts, "low");
 
   const columns = [
     {

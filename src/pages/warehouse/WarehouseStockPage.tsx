@@ -1,9 +1,10 @@
 // src/pages/warehouse/WarehouseStockPage.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { stockService } from "../../services/stockService";
+import { countOf, getListCounts, type ListCounts } from "../../services/listCounts";
 import { useAuth } from "../../context/AuthContext";
-import { PageHeader, Btn, Badge, DataTable, StatCard, Icon } from "../../components/ui";
+import { PageHeader, Btn, Badge, DataTable, StatCard, Icon, PaginationBar } from "../../components/ui";
 import type { Stock, StockStatus } from "../../types/stock";
 
 const STATUS_CONFIG: Record<StockStatus, { label: string; color: "green" | "yellow" | "orange" | "red" }> = {
@@ -25,28 +26,40 @@ export default function WarehouseStockPage() {
   const statusParam = searchParams.get("status");
   const initialStatus = (["ok", "low", "critical", "out_of_stock"] as const).find(s => s === statusParam) ?? "all";
   const [filterStatus, setFilterStatus] = useState<StockStatus | "all">(initialStatus);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount]   = useState(0);
+  const [query, setQuery]             = useState("");
+  const [counts, setCounts]           = useState<ListCounts | null>(null);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Une nouvelle notification peut arriver alors que la page est déjà ouverte.
-  useEffect(() => { setFilterStatus(initialStatus); }, [initialStatus]);
+  useEffect(() => { setFilterStatus(initialStatus); setCurrentPage(1); }, [initialStatus]);
+
+  // Le serveur filtre puis découpe en pages pleines.
+  useEffect(() => {
+    setLoading(true);
+    const params: Record<string, any> = { location: "MAGASIN", page: currentPage };
+    if (query) params.search = query;
+    if (filterStatus !== "all") params.stock_status = filterStatus;
+    stockService.getAll(params)
+      .then(res => { setStocks(res.results ?? []); setTotalCount(res.count ?? 0); })
+      .finally(() => setLoading(false));
+  }, [currentPage, query, filterStatus]);
 
   useEffect(() => {
-    stockService.getAll({ location: "MAGASIN" })
-      .then(res => setStocks(res.results ?? []))
-      .finally(() => setLoading(false));
-  }, []);
+    getListCounts("stocks", { location: "MAGASIN", ...(query ? { search: query } : {}) })
+      .then(setCounts).catch(() => setCounts(null));
+  }, [query]);
 
-  const outOfStock = stocks.filter(s => s.stock_status === "out_of_stock").length;
-  const critical   = stocks.filter(s => s.stock_status === "critical").length;
-  const low        = stocks.filter(s => s.stock_status === "low").length;
-  const ok         = stocks.filter(s => s.stock_status === "ok").length;
+  const handleSearch = (val: string) => {
+    setSearch(val);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => { setCurrentPage(1); setQuery(val); }, 300);
+  };
 
-  const filtered = stocks.filter(s => {
-    const q = search.toLowerCase();
-    const matchSearch =
-      (s.product_name ?? "").toLowerCase().includes(q) ||
-      (s.product_sku  ?? "").toLowerCase().includes(q);
-    const matchStatus = filterStatus === "all" || s.stock_status === filterStatus;
-    return matchSearch && matchStatus;
-  });
+  const outOfStock = countOf(counts, "out_of_stock");
+  const critical   = countOf(counts, "critical");
+  const low        = countOf(counts, "low");
+  const ok         = countOf(counts, "ok");
 
   const columns = [
     {
@@ -141,7 +154,7 @@ export default function WarehouseStockPage() {
           { key: "critical",     label: "Critiques" },
           { key: "out_of_stock", label: "Ruptures"  },
         ].map(f => (
-          <button key={f.key} onClick={() => setFilterStatus(f.key as any)}
+          <button key={f.key} onClick={() => { setFilterStatus(f.key as any); setCurrentPage(1); }}
             style={{
               padding: "6px 14px", borderRadius: 20, fontSize: 12.5,
               fontWeight: filterStatus === f.key ? 600 : 400,
@@ -157,13 +170,14 @@ export default function WarehouseStockPage() {
 
       <DataTable
         columns={columns as any}
-        data={filtered}
+        data={stocks}
         loading={loading}
         emptyText="Aucun produit en magasin"
         searchValue={search}
-        onSearch={setSearch}
+        onSearch={handleSearch}
         searchPlaceholder="Produit, SKU..."
       />
+      <PaginationBar currentPage={currentPage} totalCount={totalCount} onPage={setCurrentPage} />
     </div>
   );
 }

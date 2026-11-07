@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { stockTransferService, stockService } from "../../services/stockService";
 import { productService } from "../../services/productService";
 import { useAuth } from "../../context/AuthContext";
-import { PageHeader, Btn, Badge, DataTable, Icon } from "../../components/ui";
+import { PageHeader, Btn, Badge, DataTable, Icon, PaginationBar } from "../../components/ui";
 import { formatDateTime } from "../../utils/format";
 import type { Product } from "../../types/product";
 import type { StockTransfer } from "../../types/stock";
@@ -67,15 +67,19 @@ export default function WarehouseTransferPage() {
   });
   const set = (k: keyof typeof form) => (v: string) => setForm(f => ({ ...f, [k]: v }));
 
-  const loadTransfers = () => {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount]   = useState(0);
+
+  const loadTransfers = (page = currentPage) => {
     setLoading(true);
-    stockTransferService.getAll({ transfer_type: "warehouse" })
-      .then(res => setTransfers(res.results ?? []))
+    stockTransferService.getAll({ transfer_type: "warehouse", page })
+      .then(res => { setTransfers(res.results ?? []); setTotalCount(res.count ?? 0); })
       .finally(() => setLoading(false));
   };
 
+  useEffect(() => { loadTransfers(currentPage); }, [currentPage]);
+
   useEffect(() => {
-    loadTransfers();
     if (user?.shop) productService.getAll({ shop: user.shop, page_size: 500 }).then(res => setProducts(res.results ?? []));
   }, [user?.shop]);
 
@@ -292,12 +296,15 @@ export default function WarehouseTransferPage() {
           </div>
         </div>
       ) : (
-        <DataTable
-          columns={columns as any}
-          data={transfers}
-          loading={loading}
-          emptyText="Aucun transfert pour le moment"
-        />
+        <>
+          <DataTable
+            columns={columns as any}
+            data={transfers}
+            loading={loading}
+            emptyText="Aucun transfert pour le moment"
+          />
+          <PaginationBar currentPage={currentPage} totalCount={totalCount} onPage={setCurrentPage} />
+        </>
       )}
     </div>
   );

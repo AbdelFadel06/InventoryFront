@@ -215,23 +215,26 @@ export default function ProductListPage() {
     );
   };
 
+  // Listes déjà complètes (stock bas, rupture, doublons) : découpées en pages de 10 comme les autres.
+  const showPage = (list: Product[], page: number) => {
+    setProducts(list.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE));
+    setTotalCount(list.length);
+  };
+
   const fetchProducts = async (page = currentPage, q = search, status = filterStatus) => {
     setLoading(true);
     try {
       if (status === "low") {
         const list = q ? lowStockProds.filter(p => matchesSearch(p, q)) : lowStockProds;
-        setProducts(list);
-        setTotalCount(0);
+        showPage(list, page);
       } else if (status === "out") {
         const list = q ? outStockProds.filter(p => matchesSearch(p, q)) : outStockProds;
-        setProducts(list);
-        setTotalCount(0);
+        showPage(list, page);
       } else if (status === "duplicates") {
         const res = await productService.findDuplicates();
         const list = q ? res.results.filter(p => matchesSearch(p, q)) : res.results;
-        setProducts(list);
+        showPage(list, page);
         setDuplicateCount(res.count);
-        setTotalCount(0);
       } else {
         const params: Record<string, unknown> = { page };
         if (q)                   params.search     = q;
@@ -825,7 +828,7 @@ export default function ProductListPage() {
       />
 
       {/* ── Pagination ─────────────────────────────────────────── */}
-      {!["low", "out"].includes(filterStatus) && totalCount > PAGE_SIZE && (
+      {totalCount > PAGE_SIZE && (
         <div style={{
           display: "flex", alignItems: "center", justifyContent: "center",
           gap: 12, marginTop: 20,

@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { stockMovementService } from "../../services/stockService";
 import { useAuth } from "../../context/AuthContext";
 import { PageHeader, Badge, DataTable, PaginationBar } from "../../components/ui";
+import { countOf, getListCounts, type ListCounts } from "../../services/listCounts";
 import { formatDateTime } from "../../utils/format";
 import type { StockMovement } from "../../types/stock";
 
@@ -44,12 +45,15 @@ export default function StockMovementsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount]   = useState(0);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [counts, setCounts] = useState<ListCounts | null>(null);
 
   const fetchMovements = (page = 1, q = "", type = filterType) => {
     setLoading(true);
     const params: Record<string, any> = { page };
     if (q) params.search = q;
     if (type !== "all") params.movement_type = type;
+    // Compteurs de toute la liste (sans le filtre de statut), pas seulement de cette page.
+    getListCounts<ListCounts>("stock-movements", q ? { search: q } : {}).then(setCounts).catch(() => setCounts(null));
     stockMovementService.getAll(params)
       .then(res => { setMovements(res.results ?? []); setTotalCount(res.count ?? 0); })
       .finally(() => setLoading(false));
@@ -70,9 +74,10 @@ export default function StockMovementsPage() {
     fetchMovements(1, search, type);
   };
 
-  const totalEntries = movements.filter(m => ["entry", "transfer_in", "return"].includes(m.movement_type)).length;
-  const totalExits   = movements.filter(m => ["exit", "transfer_out", "damage"].includes(m.movement_type)).length;
-  const totalAdjusts = movements.filter(m => ["adjustment", "inventory"].includes(m.movement_type)).length;
+  const sumOf = (types: string[]) => types.reduce((n, t) => n + countOf(counts, t), 0);
+  const totalEntries = sumOf(["entry", "transfer_in", "return"]);
+  const totalExits   = sumOf(["exit", "transfer_out", "damage"]);
+  const totalAdjusts = sumOf(["adjustment", "inventory"]);
 
   const columns = [
     {
@@ -178,7 +183,7 @@ export default function StockMovementsPage() {
       {/* Stats */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 14, marginBottom: 24 }}>
         {[
-          { label: "Total mouvements", value: movements.length, bg: "#F8FAFC", border: "#E2E8F0", color: "#0F172A" },
+          { label: "Total mouvements", value: counts?.total ?? 0, bg: "#F8FAFC", border: "#E2E8F0", color: "#0F172A" },
           { label: "Entrées / Réceptions", value: totalEntries, bg: "#F0FDF4", border: "#BBF7D0", color: "#15803D" },
           { label: "Sorties / Ventes",     value: totalExits,   bg: "#FEF2F2", border: "#FECACA", color: "#DC2626" },
           { label: "Ajustements",          value: totalAdjusts, bg: "#F5F3FF", border: "#DDD6FE", color: "#6D28D9" },

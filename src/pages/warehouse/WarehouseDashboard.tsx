@@ -6,6 +6,7 @@ import { PageHeader, StatCard, Btn, Icon, Badge } from "../../components/ui";
 import { stockService, stockTransferService } from "../../services/stockService";
 import { formatDateTime } from "../../utils/format";
 import type { Stock } from "../../types/stock";
+import { countOf, getListCounts, type ListCounts } from "../../services/listCounts";
 import type { StockTransfer } from "../../types/stock";
 
 export default function WarehouseDashboard() {
@@ -15,21 +16,25 @@ export default function WarehouseDashboard() {
   const [stocks,    setStocks]    = useState<Stock[]>([]);
   const [transfers, setTransfers] = useState<StockTransfer[]>([]);
   const [loading,   setLoading]   = useState(true);
+  const [transferCounts, setTransferCounts] = useState<ListCounts | null>(null);
 
+  // Tout le stock du magasin (pas seulement la première page) pour des totaux justes.
   useEffect(() => {
     Promise.all([
-      stockService.getAll({ location: "MAGASIN" }),
+      stockService.getAll({ location: "MAGASIN", page_size: 500 }),
       stockTransferService.getAll({ transfer_type: "warehouse" }),
-    ]).then(([sRes, tRes]) => {
+      getListCounts("stock-transfers", { transfer_type: "warehouse" }),
+    ]).then(([sRes, tRes, tCounts]) => {
       setStocks(sRes.results ?? []);
       setTransfers(tRes.results ?? []);
+      setTransferCounts(tCounts);
     }).finally(() => setLoading(false));
   }, []);
 
   const totalProducts  = stocks.length;
   const totalQty       = stocks.reduce((s, st) => s + st.quantity, 0);
   const lowStock       = stocks.filter(s => s.stock_status !== "ok" && s.stock_status !== "out_of_stock").length;
-  const pendingTransfers = transfers.filter(t => t.status === "pending" || t.status === "in_transit").length;
+  const pendingTransfers = countOf(transferCounts, "pending") + countOf(transferCounts, "in_transit");
 
   const recentTransfers = [...transfers]
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())

@@ -4,6 +4,7 @@ import { useNavigate }   from "react-router-dom";
 import { userService }   from "../../services/userService";
 import { shopService }   from "../../services/shopService";
 import { PageHeader, Btn, Badge, DataTable, StatCard, Icon, PaginationBar } from "../../components/ui";
+import { countOf, getListCounts, type ListCounts } from "../../services/listCounts";
 import { formatDate }    from "../../utils/format";
 import type { User, UserRole } from "../../types/user";
 import type { Shop } from "../../types/shop";
@@ -319,12 +320,15 @@ export default function UserListPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount]   = useState(0);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [counts, setCounts] = useState<ListCounts & { inactive?: number } | null>(null);
 
   const fetchUsers = (page = 1, q = "", role = filterRole) => {
     setLoading(true);
     const params: Record<string, any> = { page };
     if (q) params.search = q;
     if (role !== "all") params.role = role;
+    // Compteurs de toute la liste (sans le filtre de statut), pas seulement de cette page.
+    getListCounts<ListCounts & { inactive?: number }>("users", q ? { search: q } : {}).then(setCounts).catch(() => setCounts(null));
     userService.getAll(params)
       .then(res => { setUsers(res.results ?? []); setTotalCount(res.count ?? 0); })
       .finally(() => setLoading(false));
@@ -353,10 +357,10 @@ export default function UserListPage() {
     fetchUsers(currentPage, search, filterRole);
   };
 
-  const admins    = users.filter(u => u.role === "SUPER_ADMIN").length;
-  const managers  = users.filter(u => u.role === "SHOP_MANAGER").length;
-  const employees = users.filter(u => u.role === "EMPLOYEE").length;
-  const inactive  = users.filter(u => !u.is_active).length;
+  const admins    = countOf(counts, "SUPER_ADMIN");
+  const managers  = countOf(counts, "SHOP_MANAGER");
+  const employees = countOf(counts, "EMPLOYEE");
+  const inactive  = counts?.inactive ?? 0;
 
   const columns = [
     {

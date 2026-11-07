@@ -7,6 +7,7 @@ import { PageHeader, Btn, Badge, DataTable, StatCard, Icon, PaginationBar } from
 import { formatPrice } from "../../utils/format";
 import { printStockReport } from "../../utils/stockPrint";
 import type { Stock } from "../../types/stock";
+import { countOf, getListCounts, type ListCounts } from "../../services/listCounts";
 
 type StockStatus = "ok" | "low" | "critical" | "out_of_stock";
 
@@ -31,7 +32,7 @@ export default function StockListPage() {
   const initialStatus = (["ok", "low", "critical", "out_of_stock"] as const).find(s => s === statusParam) ?? "all";
   const [filterStatus,   setFilterStatus]   = useState<StockStatus | "all">(initialStatus);
   // Une nouvelle notification peut arriver alors que la page est déjà ouverte.
-  useEffect(() => { setFilterStatus(initialStatus); }, [initialStatus]);
+  useEffect(() => { setFilterStatus(initialStatus); setCurrentPage(1); }, [initialStatus]);
   const [filterLocation, setFilterLocation] = useState<"BOUTIQUE" | "MAGASIN" | "all">("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount]   = useState(0);
@@ -43,33 +44,46 @@ export default function StockListPage() {
   const [selectingAll, setSelectingAll] = useState(false);
   const [printing, setPrinting]         = useState(false);
 
-  const fetchStocks = (page = 1, q = "", location = filterLocation) => {
+  const [counts, setCounts] = useState<ListCounts | null>(null);
+  const [query, setQuery]   = useState("");   // recherche envoyée au serveur, après la frappe
+
+  // Le serveur filtre (recherche, emplacement, statut) puis découpe en pages pleines.
+  useEffect(() => {
     setLoading(true);
-    const params: Record<string, any> = { page };
-    if (q) params.search = q;
-    if (location !== "all") params.location = location;
+    const params: Record<string, any> = { page: currentPage };
+    if (query) params.search = query;
+    if (filterLocation !== "all") params.location = filterLocation;
+    if (filterStatus !== "all") params.stock_status = filterStatus;
     stockService.getAll(params)
       .then(res => { setStocks(res.results ?? []); setTotalCount(res.count ?? 0); })
       .finally(() => setLoading(false));
-  };
+  }, [currentPage, query, filterLocation, filterStatus]);
 
-  useEffect(() => { fetchStocks(currentPage, search, filterLocation); }, [currentPage]);
-  useEffect(() => { fetchStocks(1, "", "all"); }, []);
+  // Compteurs de toute la liste (sans le filtre de statut, pour garder chaque total).
+  useEffect(() => {
+    const params: Record<string, any> = {};
+    if (query) params.search = query;
+    if (filterLocation !== "all") params.location = filterLocation;
+    getListCounts("stocks", params).then(setCounts).catch(() => setCounts(null));
+  }, [query, filterLocation]);
 
   const handleSearch = (val: string) => {
     setSearch(val);
     if (searchTimer.current) clearTimeout(searchTimer.current);
-    searchTimer.current = setTimeout(() => { setCurrentPage(1); fetchStocks(1, val, filterLocation); }, 300);
+    searchTimer.current = setTimeout(() => { setCurrentPage(1); setQuery(val); }, 300);
   };
 
   const handleLocation = (loc: typeof filterLocation) => {
     setFilterLocation(loc);
     setCurrentPage(1);
-    fetchStocks(1, search, loc);
   };
 
-  // stock_status is a computed field — filter client-side on current page
-  const displayed = filterStatus === "all" ? stocks : stocks.filter(s => s.stock_status === filterStatus);
+  const handleStatus = (status: StockStatus | "all") => {
+    setFilterStatus(status);
+    setCurrentPage(1);
+  };
+
+  const displayed = stocks;
 
   // ── Sélection ────────────────────────────────────────────────
   const toggleSelect = (s: Stock) => {
@@ -123,10 +137,10 @@ export default function StockListPage() {
     } catch { /* ignore */ } finally { setPrinting(false); }
   };
 
-  const outOfStock = stocks.filter(s => s.stock_status === "out_of_stock").length;
-  const critical   = stocks.filter(s => s.stock_status === "critical").length;
-  const low        = stocks.filter(s => s.stock_status === "low").length;
-  const ok         = stocks.filter(s => s.stock_status === "ok").length;
+  const outOfStock = countOf(counts, "out_of_stock");
+  const critical   = countOf(counts, "critical");
+  const low        = countOf(counts, "low");
+  const ok         = countOf(counts, "ok");
 
   const columns = [
     {
@@ -295,7 +309,7 @@ export default function StockListPage() {
 
         <select
           value={filterStatus}
-          onChange={e => setFilterStatus(e.target.value as StockStatus | "all")}
+          onChange={e => handleStatus(e.target.value as StockStatus | "all")}
           style={{
             padding: "9px 14px", borderRadius: 10, border: "1px solid #E2E8F0",
             background: "#fff", fontSize: 13, color: "#374151",

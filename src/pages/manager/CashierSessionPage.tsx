@@ -2,6 +2,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { PageHeader, Btn, Badge, DataTable, StatCard, Icon, PaginationBar } from "../../components/ui";
+import { getListCounts } from "../../services/listCounts";
+
+interface SessionCounts { total: number; by: { current: number; upcoming: number; closed: number }; current_sales_total: string | number }
+const STATE_PARAM = { active: "current", upcoming: "upcoming", closed: "closed" } as const;
 import { formatDate, formatDateTime } from "../../utils/format";
 import { userService } from "../../services/userService";
 import axiosInstance from "../../api/axiosInstance";
@@ -358,6 +362,8 @@ export default function CashierSessionPage() {
   const [detailSession, setDetailSession] = useState<CashierSession | null>(null);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | "active" | "closed" | "upcoming">("all");
+  const [counts, setCounts] = useState<SessionCounts | null>(null);
+  const [activeSession, setActiveSession] = useState<CashierSession | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount]   = useState(0);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -375,8 +381,13 @@ export default function CashierSessionPage() {
     setLoading(true);
     const params: Record<string, any> = { page };
     if (q) params.search = q;
-    // "upcoming" is a frontend-only concept; backend uses "active"/"closed"
-    if (status !== "all" && status !== "upcoming") params.status = status;
+    // Le serveur trie en cours / à venir / terminées d'après les dates du jour.
+    if (status !== "all") params.state = STATE_PARAM[status];
+    const { state: _state, page: _page, ...countParams } = params;
+    getListCounts<SessionCounts>("cashier-sessions", countParams).then(setCounts).catch(() => setCounts(null));
+    axiosInstance.get("/cashier-sessions/active/")
+      .then(r => setActiveSession(r.data?.id ? r.data : null))
+      .catch(() => setActiveSession(null));
     try {
       const sessRes = await axiosInstance.get("/cashier-sessions/", { params });
       setSessions(sessRes.data.results ?? sessRes.data);
@@ -408,19 +419,10 @@ export default function CashierSessionPage() {
 
   const today = new Date().toISOString().split("T")[0];
 
-  const active   = sessions.filter(s => s.is_active).length;
-  const closed   = sessions.filter(s => !s.is_active && s.start_date <= today).length;
-  const totalCA  = sessions
-    .filter(s => s.status === "active")
-    .reduce((sum, s) => sum + Number(s.total_sales), 0);
-
-  const activeSession = sessions.find(s =>
-    s.status === "active" && s.start_date <= today && s.end_date >= today
-  );
-
-  const displayedSessions = filterStatus === "upcoming"
-    ? sessions.filter(s => !s.is_active && s.start_date > today)
-    : sessions;
+  const active   = counts?.by.current ?? 0;
+  const closed   = counts?.by.closed ?? 0;
+  const totalCA  = Number(counts?.current_sales_total ?? 0);
+  const displayedSessions = sessions;
 
   const sessionState = (row: CashierSession): "active" | "upcoming" | "closed" => {
     if (row.is_active) return "active";

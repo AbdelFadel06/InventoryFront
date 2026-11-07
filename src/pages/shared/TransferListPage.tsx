@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { transferService } from "../../services/transferService";
 import { useAuth } from "../../context/AuthContext";
 import { PageHeader, Btn, Badge, DataTable, PaginationBar } from "../../components/ui";
+import { countOf, getListCounts, type ListCounts } from "../../services/listCounts";
 import { formatDateTime } from "../../utils/format";
 import type { StockTransfer, TransferStatus } from "../../types/transfer";
 
@@ -28,12 +29,15 @@ export default function TransferListPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount]   = useState(0);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [counts, setCounts] = useState<ListCounts | null>(null);
 
   const fetchTransfers = async (page = 1, q = "", status = filterStatus) => {
     setLoading(true);
     const params: Record<string, any> = { page };
     if (q) params.search = q;
     if (status !== "all") params.status = status;
+    // Compteurs de toute la liste (sans le filtre de statut), pas seulement de cette page.
+    getListCounts<ListCounts>("stock-transfers", q ? { search: q } : {}).then(setCounts).catch(() => setCounts(null));
     try {
       const res = await transferService.getAll(params);
       setTransfers(res.results ?? []);
@@ -76,9 +80,9 @@ export default function TransferListPage() {
   };
 
   // Stats rapides (current page)
-  const pending   = transfers.filter(t => t.status === "pending").length;
-  const inTransit = transfers.filter(t => t.status === "in_transit").length;
-  const received  = transfers.filter(t => t.status === "received").length;
+  const pending   = countOf(counts, "pending");
+  const inTransit = countOf(counts, "in_transit");
+  const received  = countOf(counts, "received");
 
   const columns = [
     {

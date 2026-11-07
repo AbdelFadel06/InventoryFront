@@ -6,8 +6,10 @@ import type { User } from "../types/user";
 import type { PaginatedResponse } from "../types/common";
 
 export const shopService = {
+  // Toutes les boutiques d'un coup : elles alimentent les menus de choix et la liste
+  // des boutiques gérées (sinon seules les 10 premières apparaîtraient).
   getAll: async (): Promise<PaginatedResponse<Shop>> => {
-    const { data } = await api.get(ENDPOINTS.shops.list);
+    const { data } = await api.get(ENDPOINTS.shops.list, { params: { page_size: 500 } });
     return data;
   },
 
