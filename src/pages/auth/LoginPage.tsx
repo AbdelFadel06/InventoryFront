@@ -31,8 +31,17 @@ export default function LoginPage() {
     try {
       await login({ email: form.email, password: form.password });
       navigate("/", { replace: true });
-    } catch {
-      setError("Email ou mot de passe incorrect.");
+    } catch (err: any) {
+      const status = err?.response?.status;
+      if (status === 429) {
+        // Trop de tentatives depuis cet appareil : le serveur bloque un moment.
+        const wait = Number(err.response.headers?.["retry-after"]);
+        setError(`Trop de tentatives. Réessayez dans ${wait > 0 ? Math.ceil(wait) + " secondes" : "une minute"}.`);
+      } else if (status === 401 || status === 400) {
+        setError("Email ou mot de passe incorrect.");
+      } else {
+        setError("Connexion impossible pour le moment. Vérifiez votre connexion internet et réessayez.");
+      }
     } finally {
       setLoading(false);
     }

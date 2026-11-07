@@ -1,4 +1,5 @@
 import axios from "axios";
+import { ENDPOINTS } from "./endpoints";
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
@@ -40,7 +41,10 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Connexion et renouvellement : un 401 veut dire identifiants ou session invalides, pas « à renouveler ».
+    const isAuthCall = [ENDPOINTS.auth.login, ENDPOINTS.auth.refresh].some(u => originalRequest?.url?.endsWith(u));
+
+    if (error.response?.status === 401 && !originalRequest._retry && !isAuthCall) {
       // Si un refresh est déjà en cours, on met la requête en attente
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
@@ -65,11 +69,13 @@ api.interceptors.response.use(
 
       try {
         const { data } = await axios.post(
-          `${import.meta.env.VITE_API_URL}/auth/token/refresh/`,
+          `${import.meta.env.VITE_API_URL}${ENDPOINTS.auth.refresh}`,
           { refresh: refreshToken }
         );
 
         localStorage.setItem("access_token", data.access);
+        // Le serveur renvoie un nouveau jeton de renouvellement à chaque fois (rotation).
+        if (data.refresh) localStorage.setItem("refresh_token", data.refresh);
         api.defaults.headers.common.Authorization = `Bearer ${data.access}`;
         processQueue(null, data.access);
 
