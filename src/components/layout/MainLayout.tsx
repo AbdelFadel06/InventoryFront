@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import NotificationBell from "../NotificationBell";
 import type { UserRole } from "../../types/user";
 import type { Shop } from "../../types/shop";
 
@@ -460,13 +461,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             <Icon d={ICONS.menu} size={16} />
           </button>
           <div style={{ flex: 1 }} />
-          <button style={{
-            width: 36, height: 36, borderRadius: 8, background: "#F1F5F9",
-            border: "none", cursor: "pointer",
-            display: "flex", alignItems: "center", justifyContent: "center", color: "#64748B",
-          }}>
-            <Icon d={ICONS.bell} size={16} />
-          </button>
+          <NotificationBell />
           <div style={{ fontSize: 13, color: "#475569" }}>
             <span style={{ fontWeight: 600 }}>{user.first_name}</span>
             <span style={{

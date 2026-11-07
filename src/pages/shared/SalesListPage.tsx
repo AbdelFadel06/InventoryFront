@@ -1,6 +1,6 @@
 // src/pages/shared/SalesListPage.tsx
 import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { PageHeader, Badge, DataTable, StatCard, Icon, DateInput, PaginationBar } from "../../components/ui";
 import { formatDateTime } from "../../utils/format";
@@ -102,13 +102,23 @@ function ReportIssueForm({ saleId, onDone }: { saleId: number; onDone: () => voi
   );
 }
 
+/** Articles d'une vente corrigée, repris par la caisse pour préremplir le panier. */
+export interface SaleCorrection {
+  reference: string;
+  items: { product: number; quantity: number; discount_type: "fixed" | "percent" | null; discount_value: number }[];
+}
+
 // ── Modal détail vente ────────────────────────────────────────────
-function SaleDetailModal({ saleId, onClose, onRefresh }: {
+export function SaleDetailModal({ saleId, onClose, onRefresh }: {
   saleId: number;
   onClose: () => void;
   onRefresh: () => void;
 }) {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const { canManageSales, canOperateRegister } = useRegisterAccess();
+  // Le Super Admin n'encaisse pas : la correction est réservée au manager.
+  const canCorrect = user?.role === "SHOP_MANAGER";
   const [reporting, setReporting] = useState(false);
   const [sale, setSale] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -133,6 +143,31 @@ function SaleDetailModal({ saleId, onClose, onRefresh }: {
     } catch (e: any) {
       setError(e?.response?.data?.error ?? "Erreur lors de l'annulation.");
     } finally {
+      setCancelling(false);
+    }
+  };
+
+  /** Annule la vente puis ouvre la caisse avec les mêmes articles, à ajuster avant d'encaisser. */
+  const handleCorrect = async () => {
+    const reason = window.prompt(
+      "Corriger cette vente ? Elle sera annulée (stock remis en place), puis la caisse s'ouvrira avec les mêmes articles.\n\nMotif (obligatoire) :",
+    )?.trim();
+    if (!reason) return;
+    setCancelling(true);
+    try {
+      await axiosInstance.post(`/sales/${saleId}/cancel/`, { reason });
+      const correction: SaleCorrection = {
+        reference: sale.reference,
+        items: sale.items.map((i: any) => ({
+          product: i.product,
+          quantity: i.quantity,
+          discount_type: i.discount_type ?? null,
+          discount_value: Number(i.discount_value ?? 0),
+        })),
+      };
+      navigate("/manager/caisse", { state: { correction } });
+    } catch (e: any) {
+      setError(e?.response?.data?.error ?? "Erreur lors de l'annulation.");
       setCancelling(false);
     }
   };
@@ -322,6 +357,17 @@ function SaleDetailModal({ saleId, onClose, onRefresh }: {
                 border: "1px solid #FECACA",
               }}>
               {cancelling ? "Annulation..." : "Annuler la vente"}
+            </button>
+          )}
+          {canCorrect && sale && sale.status === "completed" && (
+            <button onClick={handleCorrect} disabled={cancelling}
+              style={{
+                padding: "9px 20px", borderRadius: 9, border: "none",
+                background: cancelling ? "#94A3B8" : "#2563EB", color: "#fff",
+                cursor: cancelling ? "not-allowed" : "pointer",
+                fontSize: 13.5, fontWeight: 600, fontFamily: "inherit",
+              }}>
+              Corriger
             </button>
           )}
         </div>

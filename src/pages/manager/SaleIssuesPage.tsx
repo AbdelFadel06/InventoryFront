@@ -1,6 +1,8 @@
 // src/pages/manager/SaleIssuesPage.tsx
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { SaleDetailModal } from "../shared/SalesListPage";
 import { PageHeader, Badge, DataTable } from "../../components/ui";
 import { formatDateTime } from "../../utils/format";
 import axiosInstance from "../../api/axiosInstance";
@@ -34,6 +36,12 @@ export default function SaleIssuesPage() {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // ?sale=<id> : ouverture directe depuis la cloche.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const openSaleId = Number(searchParams.get("sale")) || null;
+  const openSale = (saleId: number | null) => {
+    setSearchParams(saleId ? { sale: String(saleId) } : {}, { replace: true });
+  };
 
   const load = async () => {
     setLoading(true);
@@ -75,7 +83,12 @@ export default function SaleIssuesPage() {
 
   const columns = [
     { key: "sale_reference", label: "Vente", render: (i: SaleIssue) => (
-      <span style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 12 }}>{i.sale_reference}</span>
+      <button onClick={() => openSale(i.sale)} title="Voir la vente" style={{
+        background: "none", border: "none", padding: 0, cursor: "pointer", color: "#2563EB",
+        fontFamily: "monospace", fontWeight: 700, fontSize: 12, textDecoration: "underline",
+      }}>
+        {i.sale_reference}
+      </button>
     ) },
     { key: "sale_total", label: "Montant", render: (i: SaleIssue) => fmtPrice(i.sale_total) },
     { key: "reason_label", label: "Motif", render: (i: SaleIssue) => (
@@ -143,6 +156,10 @@ export default function SaleIssuesPage() {
         loading={loading}
         emptyText={filter === "open" ? "Aucune vente à traiter." : "Aucun signalement traité."}
       />
+
+      {openSaleId && (
+        <SaleDetailModal saleId={openSaleId} onClose={() => openSale(null)} onRefresh={load} />
+      )}
     </div>
   );
 }
