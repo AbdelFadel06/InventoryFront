@@ -81,13 +81,21 @@ test.describe('Signalement d\'une vente', () => {
     await page.context().clearCookies();
     await page.evaluate(() => localStorage.clear());
     await login(page, 'manager', SHOP_A);
-    await expect(page.getByRole('button', { name: /signalées? à traiter/ })).toBeVisible();
-    await page.goto('/manager/signalements');
 
-    page.once('dialog', dialog => dialog.accept('Test E2E : erreur de caisse'));
+    // La cloche annonce la vente signalée et mène à son détail.
+    await page.getByRole('button', { name: /notifications?$/i }).click();
+    const sheet = page.getByRole('dialog', { name: 'Notifications' });
+    await expect(sheet.getByText(/ventes? signalées?/)).toBeVisible();
+    await sheet.getByRole('button', { name: new RegExp(sale.reference) }).click();
+    await expect(page).toHaveURL(new RegExp(`/manager/signalements\\?sale=${sale.id}`));
+
+    await page.getByRole('button', { name: 'Annuler la vente' }).click();
+    const confirm = page.getByRole('dialog', { name: /^Annuler la vente/ });
+    await confirm.getByRole('textbox').fill('Test E2E : erreur de caisse');
     const cancelled = page.waitForResponse(r => r.url().includes(`/sales/${sale.id}/cancel/`));
-    await page.locator('tr', { hasText: sale.reference }).getByRole('button', { name: 'Annuler la vente' }).click();
+    await confirm.getByRole('button', { name: 'Annuler la vente' }).click();
     expect((await cancelled).status()).toBe(200);
+    await expect(page.getByText('Vente annulée. Le stock a été remis en place.')).toBeVisible();
 
     const manager = await Api.as(request, 'manager');
     const after = await (await manager.get(`/sales/${sale.id}/`, ctx.shopId)).json();
@@ -105,9 +113,11 @@ test.describe('Signalement d\'une vente', () => {
 
     await login(page, 'manager', SHOP_A);
     await page.goto('/manager/signalements');
-    page.once('dialog', dialog => dialog.accept('Test E2E : vérifié, rien à corriger'));
+    await page.locator('tr', { hasText: sale.reference }).getByRole('button', { name: 'Clôturer le signalement' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Clôturer le signalement' });
+    await dialog.getByRole('textbox').fill('Test E2E : vérifié, rien à corriger');
     const resolved = page.waitForResponse(r => r.url().includes('/resolve/'));
-    await page.locator('tr', { hasText: sale.reference }).getByRole('button', { name: 'Clôturer' }).click();
+    await dialog.getByRole('button', { name: 'Clôturer' }).click();
     expect((await resolved).ok()).toBe(true);
 
     const manager = await Api.as(request, 'manager');
@@ -125,5 +135,34 @@ test.describe('Signalement d\'une vente', () => {
     await openSale(page, '/employee/ventes', sale.reference);
     await expect(page.getByRole('button', { name: 'Signaler' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Annuler la vente' })).toHaveCount(0);
+  });
+});
+
+test.describe('Correction d\'une vente', () => {
+  test('le manager corrige la quantité : l\'ancienne vente est annulée et remplacée', async ({ page, request }) => {
+    const ctx = await prepare(request);
+    const sale = await cashierSale(request, ctx);
+
+    await login(page, 'manager', SHOP_A);
+    await openSale(page, '/manager/ventes', sale.reference);
+    await page.getByRole('button', { name: 'Corriger la vente' }).click();
+
+    const form = page.getByRole('dialog', { name: 'Corriger la vente' });
+    await expect(form.getByText(PRODUCT)).toBeVisible();
+    await form.getByLabel('Quantité').fill('2');
+    await form.getByLabel(/Motif de la correction/).fill('Test E2E : le client a pris 2 articles');
+    const corrected = page.waitForResponse(r => r.url().includes(`/sales/${sale.id}/correct/`));
+    await form.getByRole('button', { name: 'Enregistrer la correction' }).click();
+    const response = await corrected;
+    expect(response.status()).toBe(201);
+    const replacement = await response.json();
+    await expect(page.getByText(`la nouvelle est ${replacement.reference}`)).toBeVisible();
+
+    const manager = await Api.as(request, 'manager');
+    const original = await (await manager.get(`/sales/${sale.id}/`, ctx.shopId)).json();
+    expect(original.status).toBe('cancelled');
+    expect(original.corrected_by_sale.id).toBe(replacement.id);
+    expect(replacement.items[0].quantity).toBe(2);
+    expect(Number(replacement.total_amount)).toBe(2 * Number(original.total_amount));
   });
 });
