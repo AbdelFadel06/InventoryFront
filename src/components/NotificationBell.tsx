@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { formatDateTime } from "../utils/format";
 import axiosInstance from "../api/axiosInstance";
-import type { UserRole } from "../types/user";
+import { disablePush, enablePush, getPushState, sendTestPush, type PushState } from "../services/pushService";
 
 interface OpenIssue {
   id: number;
@@ -20,18 +20,27 @@ interface OpenIssue {
 }
 
 interface StockCounts { out_of_stock: number; critical: number; low: number }
+interface ShopStock extends StockCounts { shopId: number; shopName: string }
 
 const REFRESH_MS = 60_000;
-const EMPTY_STOCK: StockCounts = { out_of_stock: 0, critical: 0, low: 0 };
 const fmtPrice = (n: number | string) => Number(n).toLocaleString("fr-FR") + " F";
 const plural = (n: number, word: string) => `${n} ${word}${n > 1 ? "s" : ""}`;
+const sum = (rows: ShopStock[], key: keyof StockCounts) => rows.reduce((t, r) => t + r[key], 0);
 
-/** Page des stocks de chaque rôle ; le livreur n'a pas d'alerte de stock. */
-const STOCK_PAGE: Partial<Record<UserRole, string>> = {
-  SUPER_ADMIN:  "/admin/stocks",
-  SHOP_MANAGER: "/manager/stocks",
-  EMPLOYEE:     "/employee/stocks",
-  MAGASINIER:   "/magasinier/stock",
+const STOCK_ROWS: { key: keyof StockCounts; icon: "out" | "warning" | "low"; color: string; background: string; label: string; hint: string }[] = [
+  { key: "out_of_stock", icon: "out",     color: "#DC2626", background: "#FEF2F2", label: "en rupture",       hint: "stock à 0" },
+  { key: "critical",     icon: "warning", color: "#C2410C", background: "#FFF7ED", label: "en stock critique", hint: "sous le minimum" },
+  { key: "low",          icon: "low",     color: "#7C3AED", background: "#F5F3FF", label: "en stock bas",      hint: "à réapprovisionner" },
+];
+
+const PUSH_TEXT: Record<PushState, string> = {
+  "loading":        "",
+  "unsupported":    "Ce navigateur ne permet pas les notifications.",
+  "needs-install":  "Sur iPhone : touchez Partager puis « Sur l'écran d'accueil », et ouvrez ShopM depuis cette icône pour activer les notifications.",
+  "not-configured": "Les notifications sur téléphone ne sont pas encore disponibles.",
+  "denied":         "Notifications bloquées : autorisez-les pour ShopM dans les réglages du téléphone.",
+  "off":            "Recevez les ventes signalées et les ruptures, même appli fermée.",
+  "on":             "Activées sur cet appareil.",
 };
 
 const BELL_PATH = "M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9 M13.73 21a2 2 0 01-3.46 0";
@@ -82,50 +91,94 @@ function NotificationRow({ icon, color, background, title, subtitle, onClick }: 
   );
 }
 
+/** Activer ou couper les notifications sur l'appareil en cours. */
+function PushSettings() {
+  const [state, setState] = useState<PushState>("loading");
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState("");
+
+  useEffect(() => { getPushState().then(setState).catch(() => setState("unsupported")); }, []);
+
+  const run = async (action: () => Promise<PushState>) => {
+    setBusy(true); setNote("");
+    try { setState(await action()); }
+    catch { setNote("Impossible pour le moment. Réessayez."); }
+    finally { setBusy(false); }
+  };
+
+  const test = async () => {
+    setBusy(true); setNote("");
+    try { await sendTestPush(); setNote("Notification d'essai envoyée."); }
+    catch { setNote("Envoi impossible pour le moment."); }
+    finally { setBusy(false); }
+  };
+
+  if (state === "loading") return null;
+
+  const button = (label: string, onClick: () => void, primary = false) => (
+    <button disabled={busy} onClick={onClick} style={{
+      padding: "7px 12px", borderRadius: 8, fontSize: 13, fontWeight: 600, fontFamily: "inherit",
+      cursor: busy ? "wait" : "pointer", border: primary ? "none" : "1px solid #E2E8F0",
+      background: primary ? "#0F172A" : "#fff", color: primary ? "#fff" : "#334155",
+    }}>{label}</button>
+  );
+
+  return (
+    <div style={{ padding: "14px 18px", background: "#fff", borderTop: "1px solid #E2E8F0" }}>
+      <div style={{ fontSize: 13.5, fontWeight: 600, color: "#0F172A" }}>Sur ce téléphone</div>
+      <div style={{ fontSize: 12.5, color: "#64748B", marginTop: 3 }}>{PUSH_TEXT[state]}</div>
+      {(state === "off" || state === "on") && (
+        <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+          {state === "off" && button("Activer les notifications", () => run(enablePush), true)}
+          {state === "on" && button("Envoyer un essai", test)}
+          {state === "on" && button("Désactiver", () => run(disablePush))}
+        </div>
+      )}
+      {note && <div role="status" style={{ fontSize: 12.5, color: "#475569", marginTop: 8 }}>{note}</div>}
+    </div>
+  );
+}
+
 /**
- * Cloche du topbar : alertes de stock de la boutique et ventes signalées de toutes les boutiques gérées.
- * Un clic ouvre un panneau latéral ; chaque notification mène à la page qui la traite.
+ * Cloche du topbar, réservée aux managers : ventes signalées et alertes de stock
+ * de toutes leurs boutiques. Un clic ouvre un panneau latéral ; chaque notification
+ * mène à la page qui la traite, sur la bonne boutique.
  */
 export default function NotificationBell() {
   const { user, activeShop, managedShops, setActiveShop } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const role = user?.role;
-  const stockPage = role ? STOCK_PAGE[role] : undefined;
-  const isManager = role === "SHOP_MANAGER";
+  const isManager = user?.role === "SHOP_MANAGER";
 
-  const [stock, setStock] = useState<StockCounts>(EMPTY_STOCK);
+  const [stock, setStock] = useState<ShopStock[]>([]);
   const [issues, setIssues] = useState<OpenIssue[]>([]);
   const [issueCount, setIssueCount] = useState(0);
   const [open, setOpen] = useState(false);
 
   const load = useCallback(() => {
+    if (!isManager) return;
     // Chaque source est indépendante : l'échec de l'une ne vide pas l'autre.
-    if (stockPage) {
-      axiosInstance.get("/stocks/alerts/", { params: { type: "all" } })
+    Promise.all(managedShops.map(shop =>
+      axiosInstance.get("/stocks/alerts/", { params: { type: "all" }, headers: { "X-Active-Shop": String(shop.id) } })
         .then(res => {
           const stocks: { stock_status: string }[] = res.data?.stocks ?? [];
-          setStock({
-            out_of_stock: stocks.filter(s => s.stock_status === "out_of_stock").length,
-            critical:     stocks.filter(s => s.stock_status === "critical").length,
-            low:          stocks.filter(s => s.stock_status === "low").length,
-          });
+          const count = (status: string) => stocks.filter(s => s.stock_status === status).length;
+          return { shopId: shop.id, shopName: shop.name, out_of_stock: count("out_of_stock"), critical: count("critical"), low: count("low") };
         })
-        .catch(() => {});
-    }
-    if (isManager) {
-      axiosInstance.get("/sale-issues/", { params: { status: "open", scope: "all", page_size: 5 } })
-        .then(res => {
-          const rows: OpenIssue[] = res.data?.results ?? res.data ?? [];
-          setIssues(rows);
-          setIssueCount(res.data?.count ?? rows.length);
-        })
-        .catch(() => {});
-    }
-  }, [stockPage, isManager]);
+        .catch(() => null)
+    )).then(rows => setStock(rows.filter((r): r is ShopStock => r !== null)));
 
-  // Au chargement, à chaque page, quand la boutique change, toutes les minutes et au retour sur l'onglet.
-  useEffect(() => { load(); }, [load, location.pathname, activeShop?.id]);
+    axiosInstance.get("/sale-issues/", { params: { status: "open", scope: "all", page_size: 5 } })
+      .then(res => {
+        const rows: OpenIssue[] = res.data?.results ?? res.data ?? [];
+        setIssues(rows);
+        setIssueCount(res.data?.count ?? rows.length);
+      })
+      .catch(() => {});
+  }, [isManager, managedShops]);
+
+  // Au chargement, à chaque page, toutes les minutes et au retour sur l'onglet.
+  useEffect(() => { load(); }, [load, location.pathname]);
   useEffect(() => {
     const timer = setInterval(load, REFRESH_MS);
     window.addEventListener("focus", load);
@@ -139,23 +192,20 @@ export default function NotificationBell() {
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
-  if (!stockPage && !isManager) return null;
+  if (!isManager) return null;
 
-  const total = issueCount + stock.out_of_stock + stock.critical + stock.low;
+  const total = issueCount + sum(stock, "out_of_stock") + sum(stock, "critical") + sum(stock, "low");
 
-  const go = (path: string) => { setOpen(false); navigate(path); };
-
-  const openIssue = (issue: OpenIssue) => {
-    if (activeShop?.id !== issue.shop) {
-      const shop = managedShops.find(s => s.id === issue.shop);
+  const go = (path: string, shopId?: number) => {
+    if (shopId && activeShop?.id !== shopId) {
+      const shop = managedShops.find(s => s.id === shopId);
       if (shop) setActiveShop(shop);
     }
-    go(`/manager/signalements?sale=${issue.sale}`);
+    setOpen(false);
+    navigate(path);
   };
 
-  const shopLabel = role === "SUPER_ADMIN"
-    ? "Toutes les boutiques"
-    : activeShop?.name ?? user?.shop_name ?? "Votre boutique";
+  const openIssue = (issue: OpenIssue) => go(`/manager/signalements?sale=${issue.sale}`, issue.shop);
 
   return (
     <>
@@ -247,31 +297,17 @@ export default function NotificationBell() {
                 </>
               )}
 
-              {stockPage && stock.out_of_stock > 0 && (
+              {STOCK_ROWS.flatMap(row => stock.filter(s => s[row.key] > 0).map(s => (
                 <NotificationRow
-                  icon={ICON.out} color="#DC2626" background="#FEF2F2"
-                  title={`${plural(stock.out_of_stock, "produit")} en rupture`}
-                  subtitle={`${shopLabel} · stock à 0`}
-                  onClick={() => go(`${stockPage}?status=out_of_stock`)}
+                  key={`${row.key}-${s.shopId}`}
+                  icon={ICON[row.icon]} color={row.color} background={row.background}
+                  title={`${plural(s[row.key], "produit")} ${row.label}`}
+                  subtitle={`${s.shopName} · ${row.hint}`}
+                  onClick={() => go(`/manager/stocks?status=${row.key}`, s.shopId)}
                 />
-              )}
-              {stockPage && stock.critical > 0 && (
-                <NotificationRow
-                  icon={ICON.warning} color="#C2410C" background="#FFF7ED"
-                  title={`${plural(stock.critical, "produit")} en stock critique`}
-                  subtitle={`${shopLabel} · sous le minimum`}
-                  onClick={() => go(`${stockPage}?status=critical`)}
-                />
-              )}
-              {stockPage && stock.low > 0 && (
-                <NotificationRow
-                  icon={ICON.low} color="#7C3AED" background="#F5F3FF"
-                  title={`${plural(stock.low, "produit")} en stock bas`}
-                  subtitle={`${shopLabel} · à réapprovisionner`}
-                  onClick={() => go(`${stockPage}?status=low`)}
-                />
-              )}
+              )))}
             </div>
+            <PushSettings />
           </aside>
         </div>
       )}

@@ -14,9 +14,9 @@ api.interceptors.request.use((config) => {
     config.headers.Authorization = `Bearer ${token}`;
   }
 
-  // Boutique active pour les managers multi-boutiques
+  // Boutique active pour les managers multi-boutiques (sauf si la requête vise une boutique précise)
   const activeShopId = localStorage.getItem("shopm_active_shop_id");
-  if (activeShopId) {
+  if (activeShopId && !config.headers["X-Active-Shop"]) {
     config.headers["X-Active-Shop"] = activeShopId;
   }
 
