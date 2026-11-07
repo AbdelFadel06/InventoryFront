@@ -89,7 +89,8 @@ test.describe('Signalement d\'une vente', () => {
     await sheet.getByRole('button', { name: new RegExp(sale.reference) }).click();
     await expect(page).toHaveURL(new RegExp(`/manager/signalements\\?sale=${sale.id}`));
 
-    await page.getByRole('button', { name: 'Annuler la vente' }).click();
+    // La page liste aussi les autres signalements : le détail ouvert est affiché en dernier.
+    await page.getByRole('button', { name: 'Annuler la vente' }).last().click();
     const confirm = page.getByRole('dialog', { name: /^Annuler la vente/ });
     await confirm.getByRole('textbox').fill('Test E2E : erreur de caisse');
     const cancelled = page.waitForResponse(r => r.url().includes(`/sales/${sale.id}/cancel/`));
