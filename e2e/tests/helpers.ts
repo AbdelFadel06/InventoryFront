@@ -56,12 +56,20 @@ export async function submitCreateUserForm(page: Page, user: Identity, shop?: st
 export class Api {
   private constructor(private request: APIRequestContext, private token: string) {}
 
+  /** Jetons réutilisés : le serveur limite les connexions à 30 par minute et par adresse. */
+  private static tokens = new Map<string, { token: string; at: number }>();
+
   static async as(request: APIRequestContext, name: string) {
+    const cached = Api.tokens.get(name);
+    if (cached && Date.now() - cached.at < 20 * 60_000) return new Api(request, cached.token);
+
     const response = await request.post('/api/token/', {
       data: { email: accountEmail(name), password: password() },
     });
     expect(response.status(), `connexion API de ${name}`).toBe(200);
-    return new Api(request, (await response.json()).access);
+    const token = (await response.json()).access;
+    Api.tokens.set(name, { token, at: Date.now() });
+    return new Api(request, token);
   }
 
   private options(shopId?: number, data?: unknown) {
@@ -108,11 +116,34 @@ export class Api {
     expect(response.status(), await response.text()).toBe(201);
   }
 
+  /** Remet un compte permanent dans sa boutique, au cas où un essai à la main l'aurait déplacé. */
+  async moveUser(email: string, shopId: number) {
+    const user = await this.findUser(email);
+    if (user.shop === shopId) return;
+    const response = await this.patch(`/users/${user.id}/`, { shop: shopId });
+    expect(response.status(), await response.text()).toBe(200);
+  }
+
   async deleteUsers(emails: string[]) {
     for (const email of emails) {
       const user = await this.findUser(email);
       if (user) await this.request.delete(`/api/users/${user.id}/`, this.options());
     }
+  }
+
+  async productId(name: string, shopId?: number): Promise<number> {
+    const response = await this.get(`/products/?search=${encodeURIComponent(name)}`, shopId);
+    const body = await response.json();
+    const product = (body.results ?? body).find((p: { name: string }) => p.name === name);
+    expect(product, `produit ${name}`).toBeTruthy();
+    return product.id;
+  }
+
+  /** Vente directe d'un article, renvoie la réponse brute pour tester les refus. */
+  async sell(productId: number, shopId?: number) {
+    return this.post('/sales/', {
+      sale_type: 'direct', payment_method: 'cash', items: [{ product: productId, quantity: 1 }],
+    }, shopId);
   }
 
   /** Ouvre la session de caisse du jour pour le caissier, si elle n'existe pas encore. */
