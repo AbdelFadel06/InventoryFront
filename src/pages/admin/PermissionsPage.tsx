@@ -2,7 +2,7 @@
 // Écran des permissions (Super Admin) : grille par rôle, exceptions par personne,
 // interrupteurs par module et journal. Chaque changement est enregistré tout de suite.
 import { useEffect, useMemo, useRef, useState } from "react";
-import { PageHeader, Badge, Icon } from "../../components/ui";
+import { PageHeader, Badge, Icon, DataTable, PaginationBar } from "../../components/ui";
 import { userService } from "../../services/userService";
 import {
   accessService,
@@ -42,18 +42,57 @@ function byModule(permissions: CatalogPermission[]) {
   return groups;
 }
 
-function Notice({ tone, children }: { tone: "info" | "warn" | "error" | "ok"; children: React.ReactNode }) {
+function Notice({ tone, children }: { tone: "warn" | "error"; children: React.ReactNode }) {
   const colors = {
-    info:  ["#EFF6FF", "#BFDBFE", "#1E40AF"],
     warn:  ["#FFFBEB", "#FDE68A", "#92400E"],
     error: ["#FEF2F2", "#FECACA", "#B91C1C"],
-    ok:    ["#F0FDF4", "#BBF7D0", "#15803D"],
   }[tone];
   return (
     <div role={tone === "error" ? "alert" : "status"} style={{
       background: colors[0], border: `1px solid ${colors[1]}`, color: colors[2],
       borderRadius: 10, padding: "10px 14px", fontSize: 13.5, marginBottom: 14,
     }}>{children}</div>
+  );
+}
+
+/** Petite icône ⓘ : un clic affiche l'explication, un autre clic (ou Échap) la referme. */
+function InfoTip({ label, children }: { label: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent | KeyboardEvent) => {
+      if (e instanceof KeyboardEvent ? e.key === "Escape" : !box.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", close);
+    return () => { document.removeEventListener("mousedown", close); document.removeEventListener("keydown", close); };
+  }, [open]);
+
+  return (
+    <span ref={box} style={{ position: "relative", display: "inline-flex" }}>
+      <button type="button" aria-label={label} aria-expanded={open} onClick={() => setOpen(o => !o)} style={{
+        width: 20, height: 20, borderRadius: 10, border: "1px solid #CBD5E1", background: "#fff", color: "#64748B",
+        fontSize: 12, fontWeight: 700, fontFamily: "Georgia, serif", cursor: "pointer", lineHeight: "18px", padding: 0,
+      }}>i</button>
+      {open && (
+        <span role="tooltip" style={{
+          position: "absolute", top: 26, left: 0, zIndex: 30, width: "min(320px, 80vw)",
+          background: "#0F172A", color: "#F8FAFC", borderRadius: 10, padding: "10px 12px",
+          fontSize: 13, lineHeight: 1.45, fontWeight: 400, boxShadow: "0 8px 24px rgba(15,23,42,0.25)",
+        }}>{children}</span>
+      )}
+    </span>
+  );
+}
+
+function TabTitle({ title, info }: { title: string; info: React.ReactNode }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+      <h2 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: "#0F172A" }}>{title}</h2>
+      <InfoTip label={`À propos : ${title}`}>{info}</InfoTip>
+    </div>
   );
 }
 
@@ -76,10 +115,10 @@ function RolesTab({ catalog, grid, setGrid }: {
 
   return (
     <>
-      <Notice tone="info">
+      <TabTitle title="Droits par rôle" info={<>
         Une case cochée donne le droit à <strong>tout le rôle</strong>, dans toutes les boutiques.
         Elle ne s'applique qu'aux modules dont l'interrupteur est sur « Grille active ».
-      </Notice>
+      </>} />
       {error && <Notice tone="error">{error}</Notice>}
       <div style={{ ...card, overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5, minWidth: 640 }}>
@@ -151,24 +190,32 @@ function ModuleRows({ title, colSpan, children }: { title: string; colSpan: numb
 
 // ── Par personne ─────────────────────────────────────────────────────────────
 function PeopleTab({ catalog, grid }: { catalog: Catalog; grid: RoleGrid }) {
+  const [users, setUsers] = useState<User[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
-  const [results, setResults] = useState<User[]>([]);
+  const [query, setQuery] = useState("");
+  const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<UserAccess | null>(null);
   const [error, setError] = useState("");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    setLoading(true);
+    userService.getAll({ page, ...(query ? { search: query } : {}) })
+      .then(res => { setUsers(res.results ?? []); setTotal(res.count ?? 0); })
+      .catch(e => setError(errorMessage(e)))
+      .finally(() => setLoading(false));
+  }, [page, query]);
+
+  const onSearch = (value: string) => {
+    setSearch(value);
     if (timer.current) clearTimeout(timer.current);
-    if (!search.trim()) { setResults([]); return; }
-    timer.current = setTimeout(() => {
-      userService.getAll({ search: search.trim(), page_size: 8 })
-        .then(res => setResults(res.results ?? []))
-        .catch(() => setResults([]));
-    }, 300);
-  }, [search]);
+    timer.current = setTimeout(() => { setPage(1); setQuery(value.trim()); }, 300);
+  };
 
   const open = async (user: User) => {
-    setError(""); setResults([]); setSearch("");
+    setError("");
     try { setSelected(await accessService.user(user.id)); }
     catch (e) { setError(errorMessage(e)); }
   };
@@ -181,92 +228,104 @@ function PeopleTab({ catalog, grid }: { catalog: Catalog; grid: RoleGrid }) {
     catch (e) { setError(errorMessage(e)); }
   };
 
-  const exceptions = selected ? Object.keys(selected.overrides).length : 0;
+  const info = <>
+    Une exception ne concerne <strong>qu'une personne</strong> : elle lui ajoute ou lui retire un droit
+    par rapport à son rôle. « Comme son rôle » retire l'exception.
+  </>;
+
+  if (!selected) {
+    const columns = [
+      { key: "name", label: "Nom", render: (u: User) => (
+        <div>
+          <div style={{ fontWeight: 600, color: "#0F172A" }}>{`${u.first_name ?? ""} ${u.last_name ?? ""}`.trim() || "—"}</div>
+          <div style={{ fontSize: 12, color: "#94A3B8" }}>{u.email}</div>
+        </div>
+      ) },
+      { key: "role", label: "Rôle", render: (u: User) => ROLE_LABELS[u.role] },
+      { key: "shop", label: "Boutique", render: (u: User) => u.shop_name ?? "—" },
+      { key: "is_active", label: "Compte", render: (u: User) => (
+        <Badge label={u.is_active ? "Actif" : "Désactivé"} color={u.is_active ? "green" : "gray"} />
+      ) },
+    ];
+    return (
+      <>
+        <TabTitle title="Droits d'une personne" info={info} />
+        {error && <Notice tone="error">{error}</Notice>}
+        <DataTable
+          columns={columns as any}
+          data={users}
+          loading={loading}
+          emptyText="Aucun compte trouvé"
+          searchValue={search}
+          onSearch={onSearch}
+          searchPlaceholder="Nom ou email…"
+          onRowClick={open}
+        />
+        <PaginationBar currentPage={page} totalCount={total} onPage={setPage} />
+      </>
+    );
+  }
+
+  const exceptions = Object.keys(selected.overrides).length;
 
   return (
     <>
-      <Notice tone="info">
-        Une exception ne concerne <strong>qu'une personne</strong> : elle lui ajoute ou lui retire un droit par rapport à son rôle.
-      </Notice>
+      <button onClick={() => setSelected(null)} style={{
+        border: "none", background: "none", color: "#1D4ED8", cursor: "pointer", fontFamily: "inherit",
+        fontSize: 13.5, padding: 0, marginBottom: 12,
+      }}>← Retour à la liste</button>
+      <TabTitle title="Droits d'une personne" info={info} />
       {error && <Notice tone="error">{error}</Notice>}
 
-      <div style={{ ...card, padding: 16, marginBottom: 16, position: "relative" }}>
-        <label style={{ fontSize: 13, fontWeight: 600, color: "#334155" }} htmlFor="perm-search">Chercher une personne</label>
-        <input
-          id="perm-search" value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="Nom ou email…" autoComplete="off"
-          style={{
-            display: "block", width: "100%", maxWidth: 420, marginTop: 6, padding: "9px 12px",
-            border: "1px solid #E2E8F0", borderRadius: 9, fontSize: 14, fontFamily: "inherit", boxSizing: "border-box",
-          }}
-        />
-        {results.length > 0 && (
-          <div role="listbox" style={{ ...card, position: "absolute", zIndex: 20, marginTop: 4, width: "min(420px, calc(100% - 32px))", overflow: "hidden" }}>
-            {results.map(u => (
-              <button key={u.id} role="option" aria-selected="false" onClick={() => open(u)} style={{
-                display: "flex", justifyContent: "space-between", gap: 8, width: "100%", padding: "10px 14px",
-                border: "none", borderBottom: "1px solid #F1F5F9", background: "#fff", cursor: "pointer",
-                fontFamily: "inherit", textAlign: "left", fontSize: 13.5,
-              }}>
-                <span><strong>{`${u.first_name ?? ""} ${u.last_name ?? ""}`.trim() || u.email}</strong>
-                  <span style={{ color: "#94A3B8", marginLeft: 6 }}>{u.email}</span></span>
-                <span style={{ color: "#64748B", whiteSpace: "nowrap" }}>{ROLE_LABELS[u.role]}</span>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {selected && (
-        <div style={{ ...card, overflow: "hidden" }}>
-          <div style={{ padding: "14px 16px", borderBottom: "1px solid #E2E8F0", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-            <strong style={{ fontSize: 15, color: "#0F172A" }}>{selected.name}</strong>
-            <Badge label={ROLE_LABELS[selected.role]} color="blue" />
-            <span style={{ fontSize: 13, color: "#64748B" }}>
-              {exceptions === 0 ? "Aucune exception : mêmes droits que son rôle" : `${exceptions} exception${exceptions > 1 ? "s" : ""}`}
-            </span>
-          </div>
-          {byModule(catalog.permissions).map(group => (
-            <div key={group.module}>
-              <div style={{ padding: "12px 16px 4px", fontSize: 12, fontWeight: 700, color: "#1D4ED8", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                {group.module}
-              </div>
-              {group.items.map(p => {
-                const fromRole = !!grid[selected.role]?.[p.code];
-                const override = selected.overrides[p.code];
-                const value = override === undefined ? "inherit" : override ? "grant" : "revoke";
-                const locked = p.locked_for.includes(selected.role);
-                return (
-                  <div key={p.code} style={{
-                    display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap",
-                    padding: "8px 16px", borderTop: "1px solid #F1F5F9",
-                    background: override === undefined ? "#fff" : "#FFFBEB",
-                  }}>
-                    <div style={{ minWidth: 200, flex: 1 }}>
-                      <div style={{ fontSize: 13.5, color: "#0F172A" }}>{p.label}</div>
-                      <div style={{ fontSize: 12, color: "#94A3B8" }}>Son rôle : {fromRole ? "oui" : "non"}</div>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <Badge label={selected.effective[p.code] ? "Autorisé" : "Refusé"} color={selected.effective[p.code] ? "green" : "gray"} />
-                      {locked ? (
-                        <span style={{ fontSize: 12.5, color: "#94A3B8" }}>Toujours actif</span>
-                      ) : (
-                        <select value={value} onChange={e => choose(p.code, e.target.value)}
-                          aria-label={`${p.label} pour ${selected.name}`}
-                          style={{ padding: "6px 8px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 13, fontFamily: "inherit" }}>
-                          <option value="inherit">Comme son rôle</option>
-                          <option value="grant">Ajouté</option>
-                          <option value="revoke">Retiré</option>
-                        </select>
-                      )}
+      <div style={{ ...card, overflow: "hidden" }}>
+        <div style={{ padding: "14px 16px", borderBottom: "1px solid #E2E8F0", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <strong style={{ fontSize: 15, color: "#0F172A" }}>{selected.name}</strong>
+          <Badge label={ROLE_LABELS[selected.role]} color="blue" />
+          <span style={{ fontSize: 13, color: "#64748B" }}>
+            {exceptions === 0 ? "Aucune exception : mêmes droits que son rôle" : `${exceptions} exception${exceptions > 1 ? "s" : ""}`}
+          </span>
+        </div>
+        {byModule(catalog.permissions).map(group => (
+          <div key={group.module}>
+            <div style={{ padding: "12px 16px 4px", fontSize: 12, fontWeight: 700, color: "#1D4ED8", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+              {group.module}
+            </div>
+            {group.items.map(p => {
+              const fromRole = !!grid[selected.role]?.[p.code];
+              const override = selected.overrides[p.code];
+              const value = override === undefined ? "inherit" : override ? "grant" : "revoke";
+              const locked = p.locked_for.includes(selected.role);
+              return (
+                <div key={p.code} style={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap",
+                  padding: "8px 16px", borderTop: "1px solid #F1F5F9",
+                }}>
+                  <div style={{ minWidth: 200, flex: 1 }}>
+                    <div style={{ fontSize: 13.5, color: "#0F172A" }}>{p.label}</div>
+                    <div style={{ fontSize: 12, color: override === undefined ? "#94A3B8" : "#B45309" }}>
+                      Son rôle : {fromRole ? "oui" : "non"}{override !== undefined && ` · exception : ${override ? "ajouté" : "retiré"}`}
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          ))}
-        </div>
-      )}
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <Badge label={selected.effective[p.code] ? "Autorisé" : "Refusé"} color={selected.effective[p.code] ? "green" : "gray"} />
+                    {locked ? (
+                      <span style={{ fontSize: 12.5, color: "#94A3B8" }}>Toujours actif</span>
+                    ) : (
+                      <select value={value} onChange={e => choose(p.code, e.target.value)}
+                        aria-label={`${p.label} pour ${selected.name}`}
+                        style={{ padding: "6px 8px", borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 13, fontFamily: "inherit" }}>
+                        <option value="inherit">Comme son rôle</option>
+                        <option value="grant">Ajouté</option>
+                        <option value="revoke">Retiré</option>
+                      </select>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
     </>
   );
 }
@@ -301,10 +360,10 @@ function SwitchesTab() {
           les anciennes règles s'appliquent partout, quels que soient les interrupteurs ci-dessous.
         </Notice>
       ) : (
-        <Notice tone="info">
-          « Grille active » : ce module suit les cases de l'onglet « Par rôle » et les exceptions.
+        <TabTitle title="Interrupteurs par module" info={<>
+          « Grille active » : le module suit les cases de l'onglet « Par rôle » et les exceptions.
           « Anciennes règles » : le module se comporte comme avant. Allumez les modules un par un.
-        </Notice>
+        </>} />
       )}
       {error && <Notice tone="error">{error}</Notice>}
       <div style={{ ...card, overflow: "hidden" }}>
@@ -348,7 +407,7 @@ function HistoryTab() {
 
   if (error) return <Notice tone="error">{error}</Notice>;
   if (!rows) return null;
-  if (rows.length === 0) return <Notice tone="info">Aucun changement pour le moment.</Notice>;
+  if (rows.length === 0) return <p style={{ fontSize: 13.5, color: "#64748B", margin: "8px 2px" }}>Aucun changement pour le moment.</p>;
 
   return (
     <div style={{ ...card, overflow: "hidden" }}>
