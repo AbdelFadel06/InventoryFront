@@ -12,6 +12,7 @@ import CreateShopPage    from "../pages/admin/CreateShopPage";
 import CreateUserPage    from "../pages/admin/CreateUserPage";
 import ShopListPage      from "../pages/admin/ShopListPage";
 import UserListPage      from "../pages/admin/UserListPage";
+import PermissionsPage   from "../pages/admin/PermissionsPage";
 import ManagerDashboard      from "../pages/manager/ManagerDashboard";
 import ManagerUserListPage   from "../pages/manager/ManagerUserListPage";
 import ProductListPage          from "../pages/shared/ProductListPage";
@@ -74,6 +75,7 @@ export const router = createBrowserRouter([
   { path: "/admin/shops/create",                   element: A(ADMIN, CreateShopPage)                        },
   { path: "/admin/users",                          element: A(ADMIN, UserListPage)                          },
   { path: "/admin/users/create",                   element: A(ADMIN, CreateUserPage)                        },
+  { path: "/admin/permissions",                    element: A(ADMIN, PermissionsPage)                       },
   { path: "/admin/products",                       element: A(ADMIN, ProductListPage)                       },
   { path: "/admin/products/create",                element: A(ADMIN, CreateProductPage)                     },
   { path: "/admin/stocks",                         element: A(ADMIN, StockListPage)                         },
