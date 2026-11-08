@@ -29,8 +29,10 @@ test.describe('Écran des permissions (Super Admin)', () => {
     await page.goto('/admin/permissions');
     await page.getByRole('tab', { name: 'Par personne' }).click();
 
-    await page.getByLabel('Chercher une personne').fill(accountEmail('employe'));
-    await page.getByRole('option', { name: new RegExp(accountEmail('employe')) }).click();
+    // La liste des comptes s'affiche ; la recherche la filtre, un clic ouvre les droits de la personne.
+    await expect(page.getByRole('row').nth(1)).toBeVisible();
+    await page.getByPlaceholder('Nom ou email…').fill(accountEmail('employe'));
+    await page.getByText(accountEmail('employe'), { exact: true }).click();
 
     const right = page.getByLabel(/^Annuler une vente \(avec motif\) pour /);
     await expect(right).toHaveValue('inherit');
