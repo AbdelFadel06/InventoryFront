@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { PageHeader, Badge, Icon, DateInput } from "../../components/ui";
-import { formatDateTime } from "../../utils/format";
+import { formatDateTime, localDate } from "../../utils/format";
 import { useRegisterAccess } from "../../hooks/useRegisterAccess";
 import api from "../../api/axiosInstance";
 
@@ -342,7 +342,7 @@ function DeliveryCard({ delivery, onModify, onCancel, onValidate, loading, canMa
 
 // ── Page principale ───────────────────────────────────────────────
 export default function DeliveryManagementPage() {
-  const today = new Date().toISOString().split("T")[0];
+  const today = localDate();
   const { canManageSales, canOperateRegister } = useRegisterAccess();
 
   const [deliveries, setDeliveries] = useState<DeliveryRow[]>([]);

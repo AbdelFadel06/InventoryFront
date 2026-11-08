@@ -48,3 +48,12 @@ export const formatDateTime = (value: string | null | undefined): string => {
     minute: "2-digit",
   });
 };
+
+/**
+ * Date du jour « AAAA-MM-JJ » à l'heure locale (Bénin, UTC+1).
+ * Ne pas utiliser toISOString() : il donne la date UTC, donc la veille entre minuit et 1 h.
+ */
+export const localDate = (d: Date = new Date()): string => {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};

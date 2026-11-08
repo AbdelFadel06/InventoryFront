@@ -6,6 +6,7 @@ import axiosInstance from "../../api/axiosInstance";
 import { userService } from "../../services/userService";
 import { getScannedChar } from "../../utils/barcodeInput";
 import { useHIDScanner } from "../../hooks/useHIDScanner";
+import { localDate } from "../../utils/format";
 
 // ── Types ────────────────────────────────────────────────────────
 interface CashierSession {
@@ -578,7 +579,7 @@ function ExpenseModal({ session, onSuccess, onClose }: {
   onSuccess: () => void;
   onClose: () => void;
 }) {
-  const today = new Date().toISOString().split("T")[0];
+  const today = localDate();
   const [label, setLabel] = useState("");
   const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
@@ -766,7 +767,7 @@ export default function CashierPOSPage() {
 
   const loadTodayStats = async () => {
     try {
-      const today = new Date().toISOString().split("T")[0];
+      const today = localDate();
       const report = await axiosInstance.get(`/sales/daily_report/?date=${today}`).catch(() => null);
       if (report) {
         setTodaySales(report.data.summary?.total_amount ?? 0);

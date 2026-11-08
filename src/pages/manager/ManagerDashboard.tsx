@@ -7,6 +7,7 @@ import { userService }  from "../../services/userService";
 import axiosInstance    from "../../api/axiosInstance";
 import { StatCard, PageHeader, Btn, Icon } from "../../components/ui";
 import type { User } from "../../types/user";
+import { localDate } from "../../utils/format";
 
 interface DayRevenue { date: string; total_sales: number; total_amount: number; }
 interface TopProduct { id: number; name: string; amount: number; qty: number; }
@@ -55,7 +56,7 @@ export default function ManagerDashboard() {
     const last7 = Array.from({ length: 7 }, (_, i) => {
       const d = new Date(now);
       d.setDate(now.getDate() - 6 + i);
-      return d.toISOString().slice(0, 10);
+      return localDate(d);
     });
 
     Promise.all([
@@ -82,7 +83,7 @@ export default function ManagerDashboard() {
 
   // ── Chart computation ────────────────────────────────────────────────
   const now      = new Date();
-  const todayStr = now.toISOString().slice(0, 10);
+  const todayStr = localDate(now);
 
   const byDate: Record<string, DayRevenue> = {};
   monthDays.forEach(d => { byDate[d.date] = d; });
@@ -90,7 +91,7 @@ export default function ManagerDashboard() {
   const chartData: DayRevenue[] = period === "week"
     ? Array.from({ length: 7 }, (_, i) => {
         const d = new Date(now); d.setDate(now.getDate() - 6 + i);
-        const dt = d.toISOString().slice(0, 10);
+        const dt = localDate(d);
         return byDate[dt] ?? { date: dt, total_sales: 0, total_amount: 0 };
       })
     : (() => {

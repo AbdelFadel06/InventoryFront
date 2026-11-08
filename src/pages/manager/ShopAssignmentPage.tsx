@@ -4,7 +4,7 @@ import { useAuth } from "../../context/AuthContext";
 import { shopService } from "../../services/shopService";
 import { userService } from "../../services/userService";
 import { PageHeader, Btn, Badge, StatCard, Icon } from "../../components/ui";
-import { formatDate } from "../../utils/format";
+import { formatDate, localDate } from "../../utils/format";
 import type { Shop, ShopAssignment } from "../../types/shop";
 import type { User } from "../../types/user";
 
@@ -162,7 +162,7 @@ export default function ShopAssignmentPage() {
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
   const [showHistory, setShowHistory] = useState(false);
-  const [startDate, setStartDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [startDate, setStartDate] = useState(() => localDate());
   const [note, setNote] = useState("");
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
 

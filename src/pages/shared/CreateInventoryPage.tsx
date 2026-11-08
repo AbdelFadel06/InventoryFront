@@ -6,6 +6,7 @@ import { shopService }      from "../../services/shopService";
 import { useAuth }          from "../../context/AuthContext";
 import { PageHeader, Btn, Icon } from "../../components/ui";
 import type { Shop }        from "../../types/shop";
+import { localDate } from "../../utils/format";
 
 const inputStyle = {
   width: "100%", padding: "10px 12px",
@@ -36,7 +37,7 @@ export default function CreateInventoryPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState<string | null>(null);
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = localDate();
 
   const [form, setForm] = useState({
     shop:           user?.role === "SHOP_MANAGER" ? String(activeShop?.id ?? user?.shop ?? "") : "",

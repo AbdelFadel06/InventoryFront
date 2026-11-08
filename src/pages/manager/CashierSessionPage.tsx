@@ -6,7 +6,7 @@ import { getListCounts } from "../../services/listCounts";
 
 interface SessionCounts { total: number; by: { current: number; upcoming: number; closed: number }; current_sales_total: string | number }
 const STATE_PARAM = { active: "current", upcoming: "upcoming", closed: "closed" } as const;
-import { formatDate, formatDateTime } from "../../utils/format";
+import { formatDate, formatDateTime, localDate } from "../../utils/format";
 import { userService } from "../../services/userService";
 import axiosInstance from "../../api/axiosInstance";
 import type { User } from "../../types/user";
@@ -60,7 +60,7 @@ function CreateSessionModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
-  const today = new Date().toISOString().split("T")[0];
+  const today = localDate();
 
   const [form, setForm] = useState({
     cashier: "",
@@ -321,7 +321,7 @@ function SessionDetailModal({ session, onClose, onRefresh }: {
           )}
           <Row label="Statut" value={
             session.is_active ? "Active" :
-            session.start_date > new Date().toISOString().split("T")[0] ? "À venir" :
+            session.start_date > localDate() ? "À venir" :
             "Clôturée"
           } highlight />
           <Row label="Ventes effectuées" value={`${session.sales_count} vente(s)`} />
@@ -417,7 +417,7 @@ export default function CashierSessionPage() {
     fetchSessions(1, search, status);
   };
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = localDate();
 
   const active   = counts?.by.current ?? 0;
   const closed   = counts?.by.closed ?? 0;

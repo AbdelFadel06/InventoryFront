@@ -9,7 +9,7 @@ import { PageHeader, Badge, DataTable, StatCard, Icon, DateInput, PaginationBar 
 import { getListCounts } from "../../services/listCounts";
 
 interface SalesCounts { total: number; completed: number; cancelled: number; unpaid: number; revenue: string | number }
-import { formatDateTime } from "../../utils/format";
+import { formatDateTime, localDate } from "../../utils/format";
 import { useRegisterAccess } from "../../hooks/useRegisterAccess";
 import axiosInstance from "../../api/axiosInstance";
 
@@ -432,7 +432,7 @@ const linkButton: React.CSSProperties = {
 export default function SalesListPage() {
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
-  const today = new Date().toISOString().split("T")[0];
+  const today = localDate();
 
   const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(true);

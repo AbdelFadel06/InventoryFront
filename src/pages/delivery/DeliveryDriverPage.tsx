@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { Badge, PageHeader, StatCard, Icon, DateInput } from "../../components/ui";
-import { formatDateTime } from "../../utils/format";
+import { formatDateTime, localDate } from "../../utils/format";
 import api from "../../api/axiosInstance";
 
 // ── Types ────────────────────────────────────────────────────────
@@ -183,7 +183,7 @@ function DeliveryCard({ sale, onConfirm, confirming }: {
 // ── Page livreur ──────────────────────────────────────────────────
 export default function DeliveryDriverPage() {
   const { user } = useAuth();
-  const today = new Date().toISOString().split("T")[0];
+  const today = localDate();
 
   const [deliveries, setDeliveries] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(true);
