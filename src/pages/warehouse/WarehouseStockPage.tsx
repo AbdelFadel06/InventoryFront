@@ -4,7 +4,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { stockService } from "../../services/stockService";
 import { countOf, getListCounts, type ListCounts } from "../../services/listCounts";
 import { useAuth } from "../../context/AuthContext";
-import { PageHeader, Btn, Badge, DataTable, StatCard, Icon, PaginationBar } from "../../components/ui";
+import { PageHeader, Btn, Badge, DataTable, StatCard, Icon, PaginationBar, ProductThumb } from "../../components/ui";
 import type { Stock, StockStatus } from "../../types/stock";
 
 const STATUS_CONFIG: Record<StockStatus, { label: string; color: "green" | "yellow" | "orange" | "red" }> = {
@@ -67,7 +67,7 @@ export default function WarehouseStockPage() {
       render: (row: Stock) => (
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {row.product_image ? (
-            <img src={row.product_image} style={{ width: 34, height: 34, borderRadius: 8, objectFit: "cover", flexShrink: 0 }} />
+            <ProductThumb src={row.product_image} alt={row.product_name ?? ""} style={{ width: 34, height: 34, borderRadius: 8, objectFit: "cover", flexShrink: 0 }} />
           ) : (
             <div style={{
               width: 34, height: 34, borderRadius: 8, flexShrink: 0,

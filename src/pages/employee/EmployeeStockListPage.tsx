@@ -1,7 +1,7 @@
 // src/pages/employee/EmployeeStockListPage.tsx
 import { useEffect, useRef, useState } from "react";
 import { stockService }        from "../../services/stockService";
-import { PageHeader, Badge, DataTable, Icon, PaginationBar } from "../../components/ui";
+import { PageHeader, Badge, DataTable, Icon, PaginationBar, ProductThumb } from "../../components/ui";
 import type { Stock }          from "../../types/stock";
 import { countOf, getListCounts, type ListCounts } from "../../services/listCounts";
 
@@ -45,7 +45,7 @@ export default function EmployeeStockListPage() {
       render: (row: Stock) => (
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {row.product_image ? (
-            <img src={row.product_image} style={{ width: 36, height: 36, borderRadius: 9, objectFit: "cover", flexShrink: 0, border: "1px solid #E2E8F0" }} />
+            <ProductThumb src={row.product_image} alt={row.product_name ?? ""} style={{ width: 36, height: 36, borderRadius: 9, objectFit: "cover", flexShrink: 0, border: "1px solid #E2E8F0" }} />
           ) : (
             <div style={{
               width: 36, height: 36, borderRadius: 9, flexShrink: 0,

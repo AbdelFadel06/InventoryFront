@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate }         from "react-router-dom";
 import { productService }      from "../../services/productService";
-import { PageHeader, DataTable, Badge, Icon } from "../../components/ui";
+import { PageHeader, DataTable, Badge, Icon, ProductThumb } from "../../components/ui";
 import type { Product }        from "../../types/product";
 
 const UNIT_LABELS: Record<string, string> = {
@@ -43,7 +43,7 @@ export default function EmployeeProductListPage() {
       render: (row: Product) => (
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {row.primary_image ? (
-            <img src={row.primary_image} style={{ width: 36, height: 36, borderRadius: 9, objectFit: "cover", flexShrink: 0, border: "1px solid #E2E8F0" }} />
+            <ProductThumb src={row.primary_image} alt={row.name ?? ""} style={{ width: 36, height: 36, borderRadius: 9, objectFit: "cover", flexShrink: 0, border: "1px solid #E2E8F0" }} />
           ) : (
             <div style={{
               width: 36, height: 36, borderRadius: 9, flexShrink: 0,

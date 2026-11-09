@@ -6,7 +6,7 @@ import { categoryService }      from "../../services/categoryService";
 import { stockMovementService } from "../../services/stockService";
 import { shopService }          from "../../services/shopService";
 import { useAuth }              from "../../context/AuthContext";
-import { PageHeader, Btn, Badge, DataTable, StatCard, Icon } from "../../components/ui";
+import { PageHeader, Btn, Badge, DataTable, StatCard, Icon, ProductThumb } from "../../components/ui";
 import { uploadToCloudinary }   from "../../utils/cloudinary";
 import { printBarcodeLabels, printAllBarcodeLabels } from "../../utils/barcodePrint";
 import { printProductList, printProductCatalog }    from "../../utils/productPrint";
@@ -573,7 +573,7 @@ export default function ProductListPage() {
       render: (row: Product) => (
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {row.primary_image ? (
-            <img src={row.primary_image} alt={row.name} style={{
+            <ProductThumb src={row.primary_image} alt={row.name ?? ""} style={{
               width: 36, height: 36, borderRadius: 9, flexShrink: 0,
               objectFit: "cover", border: "1px solid #E2E8F0",
             }} />
