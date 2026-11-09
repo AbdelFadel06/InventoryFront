@@ -24,9 +24,9 @@ export async function uploadToCloudinary(
   folder = "products"
 ): Promise<CloudinaryResult> {
   if (!CLOUD_NAME || !UPLOAD_PRESET) {
-    throw new Error(
-      "Cloudinary non configuré. Ajoutez VITE_CLOUDINARY_CLOUD_NAME et VITE_CLOUDINARY_UPLOAD_PRESET dans votre .env"
-    );
+    // Détail technique pour le développeur (console), message simple pour l'utilisateur.
+    console.warn("Cloudinary : VITE_CLOUDINARY_CLOUD_NAME ou VITE_CLOUDINARY_UPLOAD_PRESET manquant.");
+    throw new Error("Veuillez configurer votre environnement Cloudinary.");
   }
 
   const formData = new FormData();
@@ -34,14 +34,20 @@ export async function uploadToCloudinary(
   formData.append("upload_preset", UPLOAD_PRESET);
   formData.append("folder", folder);
 
-  const res = await fetch(
-    `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
-    { method: "POST", body: formData }
-  );
+  let res: Response;
+  try {
+    res = await fetch(
+      `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
+      { method: "POST", body: formData }
+    );
+  } catch {
+    throw new Error("Envoi de la photo impossible : vérifiez votre connexion internet.");
+  }
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err?.error?.message ?? "Erreur upload Cloudinary");
+    console.warn("Cloudinary :", err?.error?.message ?? res.status);
+    throw new Error("L'envoi de la photo a échoué. Vérifiez le fichier (image, taille) et réessayez.");
   }
 
   const data = await res.json();
