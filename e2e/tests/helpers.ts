@@ -146,8 +146,25 @@ export class Api {
     }, shopId);
   }
 
-  /** Ouvre la session de caisse du jour pour le caissier, si elle n'existe pas encore. */
+  /**
+   * Remet à 50 le stock en boutique des produits presque épuisés : les séries de tests
+   * vendent à chaque passage, et la vente vérifie le stock de la boutique.
+   */
+  async restockBoutique(shopId: number) {
+    const body = await (await this.get('/stocks/?location=BOUTIQUE&page_size=500', shopId)).json();
+    for (const stock of body.results ?? body) {
+      if (stock.quantity >= 20) continue;
+      const response = await this.post('/stocks/adjust/', {
+        product: stock.product, shop: shopId, location: 'BOUTIQUE', new_quantity: 50,
+        reason: 'Réassort automatique des tests E2E',
+      }, shopId);
+      expect(response.status(), await response.text()).toBe(200);
+    }
+  }
+
+  /** Ouvre la session de caisse du jour pour le caissier, si elle n'existe pas encore, et réassortit la boutique. */
   async ensureCashierSession(shopId: number) {
+    await this.restockBoutique(shopId);
     const active = await (await this.get('/cashier-sessions/active/', shopId)).json();
     if (active?.id) return;
     const cashier = await this.findUser(accountEmail('caissier'));
