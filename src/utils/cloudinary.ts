@@ -6,6 +6,8 @@
 
 const CLOUD_NAME   = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME   as string;
 const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET as string;
+// Staging et démo rangent leurs photos à part (ex. "shopm-demo/products") ; vide en prod.
+const FOLDER_PREFIX = (import.meta.env.VITE_CLOUDINARY_FOLDER_PREFIX as string | undefined) ?? "";
 
 export interface CloudinaryResult {
   url: string;
@@ -32,7 +34,7 @@ export async function uploadToCloudinary(
   const formData = new FormData();
   formData.append("file", file);
   formData.append("upload_preset", UPLOAD_PRESET);
-  formData.append("folder", folder);
+  formData.append("folder", FOLDER_PREFIX ? `${FOLDER_PREFIX}/${folder}` : folder);
 
   let res: Response;
   try {
