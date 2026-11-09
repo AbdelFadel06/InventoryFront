@@ -715,7 +715,6 @@ export default function CashierPOSPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [search, setSearch] = useState("");
   const [searchResults, setSearchResults] = useState<Product[]>([]);
-  const [showResults] = useState(false); // kept for compatibility, unused
 
   const [showPayment, setShowPayment] = useState(false);
   const [showExpense, setShowExpense] = useState(false);
@@ -790,7 +789,6 @@ export default function CashierPOSPage() {
         });
         const results: Product[] = res.data.results ?? [];
         setSearchResults(results);
-        setShowResults(results.length > 0); // update searchResults state
       } catch {}
     }, 200);
   }, [search]);
@@ -918,10 +916,18 @@ export default function CashierPOSPage() {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 64px)", overflow: "hidden" }}>
-      <style>{`.qty-input::-webkit-inner-spin-button,.qty-input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}.qty-input{-moz-appearance:textfield}`}</style>
+    <div className="pos-root" style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 64px)", overflow: "hidden" }}>
+      <style>{`.qty-input::-webkit-inner-spin-button,.qty-input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}.qty-input{-moz-appearance:textfield}
+        /* Petit écran (la caisse vise l'ordinateur) : produits en haut, panier en dessous, rien d'écrasé. */
+        @media (max-width: 760px) {
+          .pos-root { height: auto !important; overflow: visible !important; }
+          .pos-header { flex-wrap: wrap; gap: 10px; padding: 10px 14px !important; }
+          .pos-body { flex-direction: column; overflow: visible !important; }
+          .pos-left { border-right: none !important; min-height: 60vh; }
+          .pos-cart { width: 100% !important; border-top: 1px solid #E2E8F0; min-height: 50vh; }
+        }`}</style>
       {/* Header session */}
-      <div style={{
+      <div className="pos-header" style={{
         background: "linear-gradient(135deg, #0F172A, #1E293B)",
         padding: "10px 20px",
         display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -964,10 +970,10 @@ export default function CashierPOSPage() {
       </div>
 
       {/* Corps principal */}
-      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+      <div className="pos-body" style={{ display: "flex", flex: 1, overflow: "hidden" }}>
 
         {/* ── Gauche : recherche + résultats ─────────────────────── */}
-        <div style={{
+        <div className="pos-left" style={{
           flex: 1, display: "flex", flexDirection: "column",
           borderRight: "1px solid #E2E8F0", overflow: "hidden",
         }}>
@@ -1140,7 +1146,7 @@ export default function CashierPOSPage() {
         </div>
 
         {/* ── Droite : panier ────────────────────────────────────── */}
-        <div style={{
+        <div className="pos-cart" style={{
           width: 340, display: "flex", flexDirection: "column",
           background: "#fff", flexShrink: 0,
         }}>

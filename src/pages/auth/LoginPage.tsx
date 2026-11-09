@@ -1,6 +1,6 @@
 // src/pages/auth/LoginPage.tsx
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, Navigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 
 // Démo publique uniquement : seul le script d'installation de la démo fournit ce mot de passe
@@ -18,17 +18,16 @@ export default function LoginPage() {
   const navigate  = useNavigate();
   const { login, isAuthenticated } = useAuth();
 
-  if (isAuthenticated) {
-    navigate("/", { replace: true });
-    return null;
-  }
-
   const [form, setForm]       = useState(
     DEMO_PASSWORD ? { email: DEMO_ACCOUNTS[0].email, password: DEMO_PASSWORD } : { email: "", password: "" }
   );
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState<string | null>(null);
   const [showPwd, setShowPwd] = useState(false);
+
+  // Déjà connecté : redirection déclarative. Tous les hooks sont appelés avant ce retour
+  // (règle de React), sinon React plante juste après la connexion puis se rattrape.
+  if (isAuthenticated) return <Navigate to="/" replace />;
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm(f => ({ ...f, [k]: e.target.value }));
