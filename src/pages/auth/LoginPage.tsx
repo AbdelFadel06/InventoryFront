@@ -3,6 +3,17 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 
+// Démo publique uniquement : seul le script d'installation de la démo fournit ce mot de passe
+// à la compilation. En prod et en staging il est absent, et la page reste inchangée.
+const DEMO_PASSWORD = import.meta.env.VITE_DEMO_PASSWORD as string | undefined;
+const DEMO_ACCOUNTS = [
+  { label: "Manager",    email: "demo.manager@shopm.demo" },
+  { label: "Caissier",   email: "demo.caisse@shopm.demo" },
+  { label: "Vendeuse",   email: "demo.vendeuse@shopm.demo" },
+  { label: "Magasinier", email: "demo.magasinier@shopm.demo" },
+  { label: "Livreur",    email: "demo.livreur@shopm.demo" },
+];
+
 export default function LoginPage() {
   const navigate  = useNavigate();
   const { login, isAuthenticated } = useAuth();
@@ -12,7 +23,9 @@ export default function LoginPage() {
     return null;
   }
 
-  const [form, setForm]       = useState({ email: "", password: "" });
+  const [form, setForm]       = useState(
+    DEMO_PASSWORD ? { email: DEMO_ACCOUNTS[0].email, password: DEMO_PASSWORD } : { email: "", password: "" }
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState<string | null>(null);
   const [showPwd, setShowPwd] = useState(false);
@@ -180,6 +193,17 @@ export default function LoginPage() {
         }
         .login-btn:hover:not(:disabled) { opacity: 0.88; }
         .login-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .login-demo { margin-bottom: 24px; }
+        .login-demo-title { font-size: 12.5px; color: #64748B; margin-bottom: 8px; }
+        .login-demo-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        .login-demo-chip {
+          padding: 6px 12px; border-radius: 999px; font-size: 13px; font-weight: 500;
+          border: 1.5px solid #E2E8F0; background: #fff; color: #334155; cursor: pointer;
+          font-family: 'DM Sans', sans-serif; transition: all 0.15s;
+        }
+        .login-demo-chip:hover { border-color: #93C5FD; }
+        .login-demo-chip.active { border-color: #3B82F6; background: #EFF6FF; color: #1D4ED8; }
 
         .login-footer {
           font-size: 12.5px;
@@ -383,6 +407,24 @@ export default function LoginPage() {
             <p className="login-sub">
               Connectez-vous pour accéder à votre tableau de bord et gérer vos stocks.
             </p>
+
+            {DEMO_PASSWORD && (
+              <div className="login-demo">
+                <div className="login-demo-title">Démo : choisissez un profil, les champs sont déjà remplis.</div>
+                <div className="login-demo-list">
+                  {DEMO_ACCOUNTS.map(a => (
+                    <button
+                      key={a.email}
+                      type="button"
+                      className={`login-demo-chip${form.email === a.email ? " active" : ""}`}
+                      onClick={() => { setForm({ email: a.email, password: DEMO_PASSWORD }); setError(null); }}
+                    >
+                      {a.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {error && <div className="login-error">{error}</div>}
 
